@@ -5,12 +5,15 @@
  * ------------------------------------------------------------------
  * 运行：node preview/make-thumbs.js [--force]
  *
- * 输入（不入库、可删除）：assets/cc0/{white,blue,green,red,black,noble}/*.jpg
+ * 输入：工程外的 ../splendor-assets/cc0/{white,blue,green,red,black,noble}/*.jpg
+ *       可用环境变量 SPL_CC0 覆盖。原画与高清素材包统一放在小程序工程之外：
+ *       总览 PNG ≈13MB、打印 PDF ≈11MB，写回工程会触发预览编译器的单文件 2MB 上限。
  * 输出（入库）：preview/thumbs/cards/*.jpg、preview/thumbs/nobles/*.jpg、portrait.jpg
  *
  * 卡牌在舞台上显示约 82×76 CSS px，@2x 需要约 164×152 物理像素；
- * 这里统一输出 168×156 / 120×130 的小图并压到 q≈50，90+10 张合计 < 600 KB，
+ * 这里输出 200×138 / 130×176 的小图并压到 q≈50，90+10 张合计 < 600 KB，
  * 由 preview/art.js 内联成 base64 CSS，避免小程序 WXSS 无法引用本地图片的问题。
+ * 只做等比缩放，裁切交给运行时的 background-size:cover。
  *
  * 优先用 macOS 自带 sips；其它平台若有 ImageMagick 则用 magick/convert。
  * 缩略图已经随仓库提交，日常构建（tests/run-all.js）不需要本脚本、也不需要原图。
@@ -21,7 +24,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const SRC = path.join(ROOT, 'assets', 'cc0');
+const SRC = process.env.SPL_CC0 || path.resolve(ROOT, '..', 'splendor-assets', 'cc0');
 const OUT = path.join(__dirname, 'thumbs');
 const FORCE = process.argv.indexOf('--force') >= 0;
 
@@ -81,7 +84,7 @@ function centerCrop(dim, ratioW, ratioH) {
 }
 
 if (!fs.existsSync(SRC)) {
-  console.log('SKIP  未找到 assets/cc0 原画，保留仓库中已有的 preview/thumbs');
+  console.log('SKIP  未找到工程外 splendor-assets/cc0 原画（可设 SPL_CC0），保留已有的 preview/thumbs');
   process.exit(0);
 }
 

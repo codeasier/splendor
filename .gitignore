@@ -17,3 +17,8 @@ preview/render.generated.js
 # 外部 CC0 美术素材与生成脚本（数百 MB，源文件不入库；
 # 若后续要替换卡面，只把精简后的成品放进 pages/ 并单独提交）
 assets/
+
+# 高清素材、总览图与打印 PDF 统一放在工程外的 ../splendor-assets/
+# 与 ../splendor-assets-preview/。其中总览 PNG ≈13MB、打印 PDF ≈11MB，
+# 一旦写回小程序工程目录，预览编译器会直接报「文件超过 2MB」。
+# tests/size-guard.js 已纳入回归，会在第一步拦截复发。
