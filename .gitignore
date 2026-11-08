@@ -1,0 +1,15 @@
+# macOS / 编辑器
+.DS_Store
+*.swp
+*~
+
+# WorkBuddy 本地工作数据（非临时缓存，仅不入库）
+.workbuddy/
+*.genie
+
+# 依赖与构建缓存
+node_modules/
+npm-debug.log*
+
+# 编译器中间产物（由 preview/build.js 生成，无外部引用）
+preview/render.generated.js

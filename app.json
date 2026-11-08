@@ -1,0 +1,18 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "璀璨宝石",
+    "navigationBarBackgroundColor": "#241018",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#241018",
+    "backgroundTextStyle": "light",
+    "navigationStyle": "custom",
+    "pageOrientation": "landscape"
+  },
+  "style": "v2",
+  "resizable": true,
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

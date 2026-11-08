@@ -1,0 +1,979 @@
+@import "art.wxss";
+
+/* 璀璨宝石 · 牌桌样式（设计舞台 1080×560，单位 px，随舞台等比缩放）
+   美术资源见 art.wxss（由 preview/art.js 生成的矢量插画）。
+   所有坐标沿用设计稿，布局逻辑与 index.js 的舞台缩放保持不变。 */
+
+page, .viewport {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.viewport {
+  position: relative;
+  background: radial-gradient(ellipse at 50% 45%, #432636 0%, #25131e 70%, #150a12 100%);
+}
+
+.stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1080px;
+  height: 560px;
+  margin-left: -540px;
+  margin-top: -280px;
+  transform-origin: center center;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(232, 190, 120, .42), inset 0 0 0 5px rgba(18, 8, 15, .5), inset 0 0 0 6px rgba(232, 190, 120, .16);
+}
+
+/* ---------- 绒布、织纹、暗角 ---------- */
+.felt {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(ellipse 74% 66% at 50% 40%, rgba(184, 102, 132, .34) 0%, rgba(96, 46, 72, .1) 58%, rgba(12, 5, 11, 0) 100%),
+    repeating-linear-gradient(45deg, rgba(255, 230, 205, .018) 0px, rgba(255, 230, 205, .018) 1px, transparent 1px, transparent 6px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, .055) 0px, rgba(0, 0, 0, .055) 1px, transparent 1px, transparent 6px),
+    linear-gradient(158deg, #4e2b3d 0%, #3b2031 42%, #2a1524 74%, #190c17 100%);
+}
+/* 细密织物经纬 */
+.felt::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .013) 0px, rgba(255, 255, 255, .013) 1px, transparent 1px, transparent 3px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, .05) 0px, rgba(0, 0, 0, .05) 1px, transparent 1px, transparent 4px);
+  opacity: .85;
+}
+/* 四边压暗 + 中央柔光 */
+.felt::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(ellipse 58% 52% at 50% 46%, rgba(255, 216, 165, .075) 0%, transparent 100%),
+    radial-gradient(ellipse 92% 100% at 50% 50%, transparent 42%, rgba(10, 4, 10, .58) 100%);
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, .5);
+}
+
+/* 桌垫压印纹章：极低透明度，只提供织物质感，不与牌面争夺注意力 */
+.table-emblem {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 440px;
+  height: 440px;
+  margin-left: -220px;
+  margin-top: -220px;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  opacity: .075;
+  z-index: 0;
+}
+
+/* 四角金色钻饰：不用 L 形断线，避免被顶部/底部面板遮挡后像渲染残缺 */
+.corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  opacity: .85;
+  z-index: 5;
+}
+.corner-tl { left: 16px; top: 16px; }
+.corner-tr { right: 16px; top: 16px; }
+.corner-bl { left: 16px; bottom: 16px; }
+.corner-br { right: 16px; bottom: 16px; }
+.corner::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, #ffe9b4, #c9952f);
+  transform: rotate(45deg);
+  box-shadow: 0 0 9px rgba(255, 210, 130, .55);
+}
+.corner::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  border: 1px solid rgba(233, 196, 133, .35);
+  border-radius: 50%;
+}
+
+/* ---------- 顶部 ---------- */
+.top-bar {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: 10px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 3;
+}
+
+.rival-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 62px;
+  padding: 6px 13px;
+  border: 1px solid rgba(232, 190, 120, .55);
+  border-radius: 10px;
+  background: linear-gradient(150deg, rgba(52, 27, 42, .82), rgba(14, 7, 13, .9));
+  box-shadow: inset 0 1px 0 rgba(255, 230, 180, .16), 0 6px 16px rgba(0, 0, 0, .45);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff2d8;
+  font-weight: 700;
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .9);
+}
+.rival-avatar {
+  width: 46px;
+  height: 46px;
+  border: 2px solid #dfb570;
+  font-size: 20px;
+  background: radial-gradient(circle at 36% 26%, #91586c, #2b1724 78%);
+  box-shadow: inset 0 0 0 2px rgba(20, 8, 16, .55), 0 3px 8px rgba(0, 0, 0, .5);
+}
+
+.rival-info { display: flex; flex-direction: column; gap: 5px; }
+.rival-head { display: flex; align-items: baseline; gap: 10px; }
+.rival-name { font-size: 15px; font-weight: 600; color: #f9ecd4; letter-spacing: 1px; }
+.rival-score { font-size: 12px; color: #f0c882; }
+.mini-tokens { display: flex; gap: 4px; }
+.mini-token {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  border: 1px solid rgba(255, 245, 220, .42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 2px 4px rgba(0, 0, 0, .45);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+  overflow: hidden;
+}
+.mini-token.is-zero { opacity: .26; }
+.rival-extra { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #d1ae90; }
+
+.turn-banner { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; padding-bottom: 12px; }
+.turn-main {
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", Georgia, serif;
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 7px;
+  color: #ffe4aa;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, .9), 0 0 20px rgba(255, 198, 108, .45);
+}
+.turn-sub { font-size: 12px; color: #d9b7c0; letter-spacing: .5px; }
+.turn-banner::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 420px;
+  height: 12px;
+  margin-left: -210px;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  opacity: .9;
+}
+
+.top-right { display: flex; align-items: center; gap: 9px; }
+.gold-box { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.gold-coin {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  font-weight: 700;
+  font-family: Georgia, serif;
+  color: #4a3108;
+  border: 3px solid #ffe9a8;
+  box-shadow: 0 4px 9px rgba(0, 0, 0, .55), inset 0 0 0 3px rgba(255, 255, 255, .3), inset 0 -5px 9px rgba(120, 70, 0, .4);
+  overflow: hidden;
+}
+.gold-coin::before {
+  content: '';
+  position: absolute;
+  left: -20%;
+  top: -30%;
+  width: 90%;
+  height: 90%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 255, 255, .6), transparent 65%);
+}
+.gold-label { font-size: 10px; color: #eec98c; letter-spacing: 2px; }
+.round-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid #dfb570;
+  background: linear-gradient(160deg, rgba(62, 32, 48, .9), rgba(20, 10, 18, .92));
+  color: #f7dba2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 235, 190, .22), 0 3px 8px rgba(0, 0, 0, .45);
+}
+
+/* ---------- 左侧牌库 ---------- */
+.left-rail {
+  position: absolute;
+  left: 118px;
+  top: 96px;
+  width: 132px;
+  height: 326px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  transform: rotate(-4deg);
+  z-index: 2;
+}
+.deck {
+  position: relative;
+  width: 56px;
+  height: 98px;
+  border: 2px solid #e8c887;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0 8px;
+  color: #fff5d8;
+  box-shadow:
+    3px 3px 0 -1px rgba(18, 8, 16, .7),
+    6px 6px 0 -2px rgba(18, 8, 16, .55),
+    0 11px 20px rgba(0, 0, 0, .62),
+    inset 0 0 0 1px rgba(255, 244, 214, .42);
+  overflow: hidden;
+}
+.deck::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+.deck.is-empty { opacity: .38; }
+.deck-label {
+  position: relative;
+  z-index: 1;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff2cd;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .95), 0 0 10px rgba(255, 210, 130, .5);
+}
+.deck-count {
+  position: relative;
+  z-index: 1;
+  font-family: Georgia, serif;
+  font-size: 13px;
+  padding: 2px 9px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 232, 180, .5);
+  background: rgba(12, 5, 12, .72);
+  color: #ffe9bd;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14);
+}
+.rail-hint { font-size: 10px; color: #d0ad93; text-align: center; line-height: 1.5; letter-spacing: .5px; }
+
+/* ---------- 中央发展卡 ---------- */
+.board {
+  position: absolute;
+  left: 275px;
+  top: 84px;
+  width: 480px;
+  height: 346px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 2;
+}
+/* 明牌区四边的极淡衬框，强化「牌桌分区」而不抢视觉 */
+.board::before {
+  content: '';
+  position: absolute;
+  left: -13px;
+  top: -13px;
+  right: -13px;
+  bottom: -13px;
+  border: 1px solid rgba(232, 190, 120, .16);
+  border-radius: 10px;
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, .18);
+}
+.card-row { position: relative; height: 112px; display: flex; justify-content: space-between; }
+/* 每行左侧的等级刻印，对应参考图的 I / II / III 分层 */
+.row-label {
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  margin-top: -13px;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(232, 196, 133, .45);
+  border-radius: 50%;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 24px;
+  text-align: center;
+  color: #e8c485;
+  opacity: .72;
+  background: rgba(16, 8, 15, .38);
+  box-shadow: inset 0 0 0 2px rgba(16, 8, 15, .5);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .9);
+}
+.card-slot { width: 82px; height: 112px; }
+
+.card {
+  position: relative;
+  width: 82px;
+  height: 112px;
+  border: 2px solid #e6d2ab;
+  border-radius: 6px;
+  background: #efe2c6;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 232, .85),
+    0 5px 13px rgba(0, 0, 0, .62),
+    0 1px 2px rgba(0, 0, 0, .5);
+}
+/* 纸面内阴影，让卡不再像一块贴纸 */
+.card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  border-radius: 4px;
+  box-shadow: inset 0 0 12px rgba(72, 40, 20, .32), inset 0 -12px 16px rgba(60, 32, 18, .12);
+}
+.card-buyable {
+  border-color: #ffd87d;
+  animation: buyGlow 2.4s ease-in-out infinite;
+}
+@keyframes buyGlow {
+  0%, 100% {
+    box-shadow: inset 0 0 0 1px rgba(255, 250, 232, .9), 0 0 0 2px rgba(255, 208, 106, .55), 0 0 14px rgba(255, 200, 100, .3), 0 6px 15px rgba(0, 0, 0, .62);
+  }
+  50% {
+    box-shadow: inset 0 0 0 1px rgba(255, 250, 232, .9), 0 0 0 2px rgba(255, 220, 130, .8), 0 0 26px rgba(255, 210, 120, .6), 0 6px 15px rgba(0, 0, 0, .62);
+  }
+}
+.card-empty {
+  width: 82px;
+  height: 112px;
+  border: 1px dashed rgba(232, 190, 120, .3);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, .16);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, .28);
+}
+
+.card-art { position: absolute; left: 0; right: 0; top: 0; height: 76px; overflow: hidden; background-size: 100% 100%; background-repeat: no-repeat; }
+/* 12 个兜底渐变：即使客户端不渲染内联 SVG，卡面仍是完整插画底色 */
+.art-0 { background-color: #8fb9d2; background-image: linear-gradient(165deg, #7fb2cf 0%, #d9e8ee 46%, #436a56 100%); }
+.art-1 { background-color: #7fb2cf; background-image: linear-gradient(165deg, #6f9ec4 0%, #dfeaf0 46%, #3c6a72 100%); }
+.art-2 { background-color: #7fb2cf; background-image: linear-gradient(165deg, #9cc6d8 0%, #eef0df 46%, #527f6a 100%); }
+.art-3 { background-color: #264a80; background-image: linear-gradient(165deg, #2b5f96 0%, #9cc3dd 46%, #1c3a60 100%); }
+.art-4 { background-color: #264a80; background-image: linear-gradient(165deg, #3b74ad 0%, #bcd8e8 46%, #254a76 100%); }
+.art-5 { background-color: #264a80; background-image: linear-gradient(165deg, #1f4b83 0%, #8fb6d6 46%, #142f52 100%); }
+.art-6 { background-color: #7fa884; background-image: linear-gradient(165deg, #7fa884 0%, #d9e6ba 46%, #27543c 100%); }
+.art-7 { background-color: #7fa884; background-image: linear-gradient(165deg, #93b98c 0%, #e8eac2 46%, #356b47 100%); }
+.art-8 { background-color: #7fa884; background-image: linear-gradient(165deg, #5f9c7d 0%, #cfe0b6 46%, #1f5038 100%); }
+.art-9 { background-color: #9e4f55; background-image: linear-gradient(165deg, #9e4f55 0%, #f0c49c 46%, #4d2530 100%); }
+.art-10 { background-color: #9e4f55; background-image: linear-gradient(165deg, #b8665c 0%, #f4d3a6 46%, #6a3038 100%); }
+.art-11 { background-color: #9e4f55; background-image: linear-gradient(165deg, #8d4149 0%, #e6b18c 46%, #3c1c26 100%); }
+.art-12 { background-color: #3d3257; background-image: linear-gradient(165deg, #3d3257 0%, #b9a2bd 46%, #251d34 100%); }
+.art-13 { background-color: #3d3257; background-image: linear-gradient(165deg, #5a4675 0%, #cdb4c2 46%, #312142 100%); }
+.art-14 { background-color: #3d3257; background-image: linear-gradient(165deg, #2f2748 0%, #9d86a8 46%, #1d1729 100%); }
+
+/* 卡面印刷光泽与星芒：叠在插画上，制造实体卡牌的覆膜感 */
+.art-glaze {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, .18) 0%, rgba(255, 255, 255, .04) 28%, transparent 46%),
+    linear-gradient(0deg, rgba(20, 10, 18, .5) 0%, transparent 34%);
+  z-index: 1;
+}
+.art-spark {
+  position: absolute;
+  left: 9px;
+  bottom: 16px;
+  width: 14px;
+  height: 14px;
+  z-index: 1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 245, 205, .9) 0%, rgba(255, 235, 180, .35) 18%, transparent 44%),
+    linear-gradient(0deg, transparent 44%, rgba(255, 245, 210, .7) 50%, transparent 56%),
+    linear-gradient(90deg, transparent 44%, rgba(255, 245, 210, .7) 50%, transparent 56%);
+  opacity: .7;
+}
+.card-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 3px 2px 3px;
+  text-align: center;
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #fff5de;
+  background: linear-gradient(0deg, rgba(16, 9, 16, .94) 0%, rgba(16, 9, 16, .55) 72%, transparent 100%);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .95);
+}
+.card-points {
+  position: absolute;
+  left: 5px;
+  top: 0;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 25px;
+  font-weight: 700;
+  color: #ffe7ad;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, .95), 0 0 10px rgba(0, 0, 0, .8), -1px -1px 0 rgba(90, 50, 20, .8);
+  z-index: 3;
+}
+.card-gem {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 248, 222, .85);
+  box-shadow: inset 0 2px 3px rgba(255, 255, 255, .5), inset 0 -3px 5px rgba(0, 0, 0, .35), 0 2px 5px rgba(0, 0, 0, .65);
+  overflow: hidden;
+  z-index: 3;
+}
+.card-gem::before {
+  content: '';
+  position: absolute;
+  left: 12%;
+  top: 8%;
+  width: 62%;
+  height: 40%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 255, 255, .8), transparent 72%);
+}
+.card-foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 34px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 3px;
+  padding: 3px 4px;
+  background: linear-gradient(180deg, #f8efdc 0%, #e6d5b8 100%);
+  border-top: 1px solid rgba(120, 82, 44, .45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .75);
+  z-index: 3;
+}
+.cost-bubble {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-family: Georgia, serif;
+  font-weight: 700;
+  border: 1px solid rgba(0, 0, 0, .3);
+  box-shadow: inset 0 2px 3px rgba(255, 255, 255, .42), inset 0 -2px 4px rgba(0, 0, 0, .3), 0 1px 2px rgba(0, 0, 0, .4);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .7);
+  overflow: hidden;
+}
+.cost-bubble::before {
+  content: '';
+  position: absolute;
+  left: 14%;
+  top: 8%;
+  width: 58%;
+  height: 34%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 255, 255, .6), transparent 72%);
+}
+.cost-bubble.is-covered { opacity: .34; }
+
+/* ---------- 右侧贵族与筹码 ---------- */
+.right-rail {
+  position: absolute;
+  left: 780px;
+  top: 84px;
+  width: 278px;
+  height: 346px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 2;
+}
+.rail-title {
+  display: block;
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
+  font-size: 13px;
+  color: #f0ce8e;
+  letter-spacing: 2px;
+  margin-bottom: 7px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
+}
+.noble-area { height: 152px; }
+.noble-row { display: flex; gap: 8px; }
+.noble {
+  position: relative;
+  width: 82px;
+  height: 118px;
+  border: 2px solid #dcb877;
+  border-radius: 5px;
+  background: linear-gradient(160deg, #f5e6c8, #c8a97d);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: inset 0 0 0 2px rgba(255, 248, 226, .8), 0 5px 12px rgba(0, 0, 0, .58);
+}
+.noble-face {
+  position: relative;
+  width: 100%;
+  height: 58px;
+  border-radius: 2px;
+  border: 1px solid rgba(60, 30, 20, .5);
+  background-color: #4a2634;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, .4);
+  overflow: hidden;
+}
+/* 古典肖像暗角，压掉插画的卡通感 */
+.noble-face::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(ellipse 72% 80% at 50% 40%, transparent 32%, rgba(12, 6, 12, .58) 100%);
+}
+.noble-points {
+  position: absolute;
+  right: 3px;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #4a2408;
+  background: linear-gradient(160deg, #ffe9a8, #c9952f);
+  border: 1px solid #fff0c0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .55);
+  z-index: 2;
+}
+.noble-title {
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
+  font-size: 10px;
+  color: #4a2f22;
+  margin-top: 5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.noble-reqs { display: flex; gap: 3px; margin-top: auto; }
+.noble-req {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  border: 1px solid rgba(0, 0, 0, .3);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, .35), 0 1px 2px rgba(0, 0, 0, .35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+  overflow: hidden;
+}
+.noble-none { font-size: 12px; color: #c8a4b0; padding-top: 30px; }
+
+.pile-area { flex: 1; }
+.pile-list { display: flex; flex-wrap: wrap; gap: 6px 4px; }
+.pile-item {
+  position: relative;
+  width: 88px;
+  height: 68px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 0;
+}
+.pile-item.is-selected {
+  border-color: rgba(255, 211, 120, .9);
+  background: radial-gradient(ellipse at 50% 32%, rgba(255, 206, 108, .26), rgba(255, 206, 108, .06));
+  box-shadow: inset 0 0 12px rgba(255, 206, 108, .18), 0 0 12px rgba(255, 206, 108, .2);
+}
+.pile-item.is-disabled { opacity: .38; }
+.pile-coin {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 242, 210, .6);
+  box-shadow:
+    0 3px 0 -1px rgba(14, 6, 12, .75),
+    0 6px 0 -2px rgba(14, 6, 12, .5),
+    0 9px 12px rgba(0, 0, 0, .55),
+    inset 0 0 0 2px rgba(255, 255, 255, .16),
+    inset 0 -6px 10px rgba(0, 0, 0, .42);
+  overflow: hidden;
+}
+/* 宝石切面：斜向高光 + 顶部弧面反光 */
+.pile-coin::before {
+  content: '';
+  position: absolute;
+  left: -12%;
+  top: -18%;
+  width: 78%;
+  height: 88%;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .55) 0%, rgba(255, 255, 255, .1) 48%, transparent 72%);
+  transform: rotate(-16deg);
+}
+.pile-coin::after {
+  content: '';
+  position: absolute;
+  left: 14%;
+  top: 7%;
+  width: 62%;
+  height: 34%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 255, 255, .6), transparent 72%);
+}
+.pile-count { font-family: Georgia, serif; font-size: 15px; font-weight: 700; color: #fbeed2; line-height: 1; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+.pile-name { font-size: 10px; color: #d9b79d; line-height: 1; letter-spacing: .5px; }
+.pile-tip { display: block; font-size: 10px; color: #b9958b; margin-top: 5px; }
+
+/* ---------- 底部资产凹槽 ---------- */
+.tray {
+  position: absolute;
+  left: 100px;
+  top: 438px;
+  width: 950px;
+  height: 114px;
+  border: 2px solid #dfb06a;
+  border-radius: 60px 60px 14px 14px;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .014) 0px, rgba(255, 255, 255, .014) 1px, transparent 1px, transparent 5px),
+    linear-gradient(180deg, rgba(50, 27, 41, .96), rgba(14, 7, 13, .98));
+  box-shadow:
+    0 -6px 24px rgba(0, 0, 0, .6),
+    inset 0 2px 0 rgba(255, 226, 164, .32),
+    inset 0 0 0 4px rgba(0, 0, 0, .26),
+    inset 0 0 34px rgba(0, 0, 0, .55);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 18px;
+  z-index: 4;
+}
+.tray::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 6px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 220, 150, .45) 18%, rgba(255, 220, 150, .45) 82%, transparent);
+}
+.tray-left { position: relative; display: flex; align-items: center; gap: 10px; width: 208px; flex-shrink: 0; }
+.tray-left::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(226, 183, 106, .42), transparent);
+}
+.me-avatar {
+  width: 62px;
+  height: 62px;
+  border: 3px solid #e5ba74;
+  font-size: 23px;
+  background: radial-gradient(circle at 40% 26%, #9a644c, #38202a 82%);
+  box-shadow: inset 0 0 0 2px rgba(20, 8, 16, .5), 0 4px 10px rgba(0, 0, 0, .5);
+}
+.score-disc {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 2px solid #dfb570;
+  background: radial-gradient(circle at 35% 26%, #6a5460, #241820 78%);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  padding-top: 11px;
+  box-shadow: inset 0 1px 0 rgba(255, 235, 190, .24), 0 3px 8px rgba(0, 0, 0, .5);
+}
+.score-num { font-family: Georgia, serif; font-size: 26px; font-weight: 700; color: #ffe3a6; line-height: 1; text-shadow: 0 1px 4px rgba(0, 0, 0, .8); }
+.score-den { font-size: 11px; color: #d1ac8b; }
+.tray-reserved {
+  width: 54px;
+  padding: 5px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid rgba(226, 183, 106, .5);
+  border-radius: 7px;
+  background: linear-gradient(180deg, rgba(255, 240, 205, .1), rgba(255, 240, 205, .02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1);
+}
+.tray-reserved-num { font-family: Georgia, serif; font-size: 20px; font-weight: 700; color: #f6d9a2; line-height: 1.1; }
+.tray-reserved-label { font-size: 9px; color: #d1ac8b; }
+
+.tray-mid { position: relative; flex: 1; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.tray-mid::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(226, 183, 106, .35), transparent);
+}
+.tray-line { display: flex; align-items: center; gap: 8px; }
+.tray-label { font-size: 11px; color: #e3c197; width: 96px; flex-shrink: 0; letter-spacing: .5px; }
+.tray-tokens { display: flex; gap: 5px; }
+.tray-token {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, serif;
+  font-size: 16px;
+  font-weight: 700;
+  border: 1px solid rgba(255, 245, 220, .42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), inset 0 -4px 7px rgba(0, 0, 0, .32), 0 2px 5px rgba(0, 0, 0, .5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+  overflow: hidden;
+}
+.tray-token::before {
+  content: '';
+  position: absolute;
+  left: 10%;
+  top: 5%;
+  width: 62%;
+  height: 36%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 255, 255, .42), transparent 72%);
+}
+.tray-token.is-zero { opacity: .28; }
+.tray-token.can-discard { border: 2px solid #ff9a6a; animation: pulse 1.2s infinite; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 154, 106, .65); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 154, 106, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 154, 106, 0); }
+}
+.disc-list { display: flex; gap: 5px; align-items: center; }
+.disc-chip {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  border: 1px solid rgba(255, 245, 220, .45);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, .35), 0 1px 3px rgba(0, 0, 0, .45);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+  overflow: hidden;
+}
+.disc-empty { font-size: 10px; color: #9b8190; }
+
+.tray-actions { width: 330px; display: flex; flex-direction: column; gap: 9px; align-items: flex-end; flex-shrink: 0; }
+.hint { font-size: 11px; color: #ecd0ab; text-align: right; line-height: 1.35; height: 30px; }
+.hint-warn { color: #ffb47a; font-weight: 600; }
+.btn-row { display: flex; gap: 6px; }
+.btn {
+  padding: 8px 13px;
+  border-radius: 7px;
+  border: 1px solid rgba(232, 190, 120, .72);
+  background: linear-gradient(180deg, rgba(255, 240, 205, .2), rgba(255, 240, 205, .055));
+  color: #f7e6c6;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 2px 5px rgba(0, 0, 0, .38);
+}
+.btn-primary {
+  background: linear-gradient(180deg, #f6d18a 0%, #d7a24a 42%, #a97124 100%);
+  border-color: #ffe6ae;
+  color: #301a08;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 3px 8px rgba(0, 0, 0, .45);
+}
+.btn-off { opacity: .52; }
+
+/* ---------- 弹层 ---------- */
+.overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1080px;
+  height: 560px;
+  background: rgba(10, 4, 10, .78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+.overlay-top { z-index: 30; }
+.dialog {
+  position: relative;
+  border: 2px solid #dfb570;
+  border-radius: 14px;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 230, 200, .012) 0px, rgba(255, 230, 200, .012) 1px, transparent 1px, transparent 6px),
+    linear-gradient(160deg, #4d2b3c, #23121d);
+  box-shadow: inset 0 0 0 4px rgba(12, 5, 11, .34), inset 0 0 0 5px rgba(223, 181, 112, .2), 0 24px 70px rgba(0, 0, 0, .8);
+  padding: 18px 22px;
+}
+.dialog-head {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 14px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid rgba(226, 183, 106, .34);
+}
+.dialog-title {
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffe0a4;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .7);
+}
+.dialog-sub { font-size: 12px; color: #d4b096; letter-spacing: .5px; }
+.dialog-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+.detail-dialog { width: 700px; }
+.detail-body { display: flex; gap: 20px; align-items: flex-start; }
+.card-big { width: 150px; height: 204px; flex-shrink: 0; border-width: 3px; }
+.card-big .card-art { height: 140px; }
+.card-big .card-foot { height: 62px; padding: 5px; gap: 5px; }
+.card-big .card-name { font-size: 15px; bottom: 5px; }
+.card-big .card-points { font-size: 36px; left: 8px; }
+.card-big .card-gem { width: 32px; height: 32px; right: 8px; top: 8px; }
+.card-big .cost-bubble { width: 28px; height: 28px; font-size: 15px; }
+.card-big .art-spark { width: 22px; height: 22px; left: 14px; bottom: 30px; }
+.detail-info { flex: 1; display: flex; flex-direction: column; gap: 9px; }
+.detail-section { font-size: 12px; color: #f0ce8e; font-weight: 600; letter-spacing: 1px; }
+.cost-line { display: flex; align-items: center; gap: 8px; }
+.cost-line-dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .45); box-shadow: inset 0 1px 2px rgba(255, 255, 255, .35); }
+.cost-line-label { font-size: 12px; color: #f5e1bd; width: 58px; }
+.cost-line-num { font-size: 12px; color: #d4b096; }
+.detail-summary { font-size: 14px; font-weight: 700; margin-top: 6px; }
+.detail-summary.ok { color: #9fe4b4; }
+.detail-summary.no { color: #ffb0a6; }
+.detail-note { font-size: 11px; color: #bb9aaa; line-height: 1.7; }
+
+.reserved-dialog { width: 620px; }
+.reserved-list { display: flex; gap: 14px; min-height: 168px; align-items: flex-start; flex-wrap: wrap; }
+.card-small { width: 110px; height: 150px; }
+.card-small .card-art { height: 104px; }
+.card-small .card-foot { height: 44px; }
+.card-small .card-points { font-size: 28px; }
+.card-small .card-gem { width: 24px; height: 24px; }
+.card-small .cost-bubble { width: 22px; height: 22px; font-size: 12px; }
+.card-small .card-name { font-size: 12px; }
+.empty-tip { font-size: 13px; color: #c8a4b0; line-height: 1.7; }
+
+.rules-dialog { width: 720px; }
+.rules-body { display: flex; flex-direction: column; gap: 9px; }
+.rule-item { font-size: 13px; color: #f2e0c6; line-height: 1.6; }
+.rule-note { font-size: 11px; color: #bb9aaa; margin-top: 6px; line-height: 1.6; }
+
+.result-dialog { width: 460px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.result-crown { font-size: 46px; color: #ffd47b; text-shadow: 0 0 24px rgba(255, 200, 100, .7); }
+.result-title {
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: #ffe0a4;
+  text-shadow: 0 3px 10px rgba(0, 0, 0, .8);
+}
+.result-detail { font-size: 14px; color: #e0bd96; }
+.result-dialog .dialog-btns { justify-content: center; }

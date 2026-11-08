@@ -1,0 +1,35 @@
+{
+  "description": "璀璨宝石桌游小程序（原生单机版）",
+  "packOptions": {
+    "ignore": [
+      {
+        "type": "folder",
+        "value": ".workbuddy"
+      },
+      {
+        "type": "folder",
+        "value": "preview"
+      },
+      {
+        "type": "folder",
+        "value": "tests"
+      },
+      {
+        "type": "file",
+        "value": "index.html"
+      }
+    ],
+    "include": []
+  },
+  "setting": {
+    "bundle": false,
+    "es6": true,
+    "minified": true,
+    "postcss": true,
+    "urlCheck": true
+  },
+  "compileType": "miniprogram",
+  "appid": "touristappid",
+  "projectname": "splendor",
+  "miniprogramRoot": "./"
+}
