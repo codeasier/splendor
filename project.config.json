@@ -19,6 +19,14 @@
         "value": "assets"
       },
       {
+        "type": "prefix",
+        "value": "assets/"
+      },
+      {
+        "type": "regexp",
+        "value": "^assets/.*\\.(png|jpe?g|webp|pdf)$"
+      },
+      {
         "type": "file",
         "value": "index.html"
       }
