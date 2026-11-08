@@ -1141,13 +1141,15 @@ page, .viewport {
   gap: 3px;
   background: transparent;
 }
-/* 散落坐标：错落而非对齐网格，模拟筹码随手堆在桌布上 */
-.pile-slot-0 { left: 2px;  top: 192px; }  /* 白 */
-.pile-slot-1 { left: 92px; top: 130px; }  /* 蓝 */
-.pile-slot-2 { left: 4px;  top: 48px;  }  /* 绿 */
-.pile-slot-3 { left: 94px; top: 56px;  }  /* 红 */
-.pile-slot-4 { left: 0;    top: 264px; }  /* 黑 */
-.pile-slot-5 { left: 96px; top: 2px;   }  /* 黄金 */
+/* 按参考图：筹码大致竖排一列，自上而下仅轻微右移错落（≤15px），
+   保留厚度与投影的伪 3D 感，但不再做成两列交错的散落网格。
+   顺序：黄金 → 红 → 蓝 → 白 → 绿 → 黑，垂直等距 56px。 */
+.pile-slot-5 { left: 0px;  top: 0px;   }  /* 黄金 */
+.pile-slot-3 { left: 3px;  top: 56px;  }  /* 红 */
+.pile-slot-1 { left: 6px;  top: 112px; }  /* 蓝 */
+.pile-slot-0 { left: 9px;  top: 168px; }  /* 白 */
+.pile-slot-2 { left: 12px; top: 224px; }  /* 绿 */
+.pile-slot-4 { left: 15px; top: 280px; }  /* 黑 */
 .pile-item.is-selected {
   background: radial-gradient(ellipse at 50% 40%, rgba(255, 210, 120, .22), transparent 72%);
   box-shadow: none;
