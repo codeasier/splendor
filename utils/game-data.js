@@ -24,10 +24,11 @@ const GEM_META = {
 };
 
 // 牌背配色：参考截图中左侧自上而下为蓝 / 金 / 绿
+// 牌库自上而下 III / II / I，卡背为深蓝 / 赭金 / 深绿，与同级市场行水平对应。
 const DECK_META = [
-  { level: 1, label: 'I',   main: '#1f5aa6', dark: '#0d2f63', edge: '#6fa8ee', name: '一级牌库' },
-  { level: 2, label: 'II',  main: '#c99a34', dark: '#6d4a0b', edge: '#f7dc8c', name: '二级牌库' },
-  { level: 3, label: 'III', main: '#2b7a4b', dark: '#0f3d24', edge: '#8ad9a5', name: '三级牌库' }
+  { level: 1, label: 'I',   main: '#2c7a4c', dark: '#103d25', edge: '#9ee0b2', name: '一级牌库' },
+  { level: 2, label: 'II',  main: '#a9812c', dark: '#5b3c0a', edge: '#ffe6a0', name: '二级牌库' },
+  { level: 3, label: 'III', main: '#24579d', dark: '#0d2b5c', edge: '#8ec0f5', name: '三级牌库' }
 ];
 
 // 卡名（按产出宝石分组，循环取用）

@@ -56,9 +56,15 @@ assert(out.indexOf('{{') < 0, '存在未求值的模板表达式');
 assert(out.indexOf('wx:') < 0, '残留 wx: 指令');
 assert(out.indexOf('data-tap="onTapPile"') > 0, '筹码堆点击事件缺失');
 assert(out.indexOf('data-lv="1"') > 0, '牌库点击事件缺失');
-assert((out.match(/class="card-slot"/g) || []).length === 12, '应有 12 个卡槽');
+assert((out.match(/class="card-slot(?:\s|")/g) || []).length === 12, '应有 12 个卡槽');
 assert((out.match(/class="card[\s"]/g) || []).length >= 1, '应有发展卡');
-console.log('横屏：12 个卡槽 / 事件绑定 / 表达式求值 全部正常');
+assert((out.match(/class="card-photo photo-\d+/g) || []).length >= 12, '市场卡应绑定写实插画素材');
+assert(out.indexOf('noble-photo noble-photo-') > 0, '贵族肖像与卡框应分层渲染');
+assert(out.indexOf('gem-icon') > 0, '宝石切面图标应渲染');
+assert(out.indexOf('coin-face coin-') > 0, '筹码顶面应渲染');
+assert(out.indexOf('noble-photo-') > 0, '贵族肖像应渲染');
+assert(out.indexOf('deck-stack deck-art-') > 0, '牌库牌背应渲染');
+console.log('横屏：12 个卡槽 / 写实卡面 / 宝石 / 筹码 / 贵族 / 牌库 全部正常');
 console.log('舞台 transform:', /class="stage" style="([^"]+)"/.exec(out)[1]);
 assert(a.page.data.stageRotate === 0, '横屏窗口不应旋转舞台');
 

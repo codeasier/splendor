@@ -55,7 +55,8 @@ function cardVM(state, card) {
       key: g,
       display: need === 0 ? '✓' : String(need),
       covered: need === 0,
-      ink: META[g].ink,
+      ink: '#FFF1D5',
+      gemClass: 'gem-' + g,
       style: gemStyle(g)
     });
   }
@@ -67,11 +68,15 @@ function cardVM(state, card) {
     pointsText: card.points > 0 ? String(card.points) : '',
     pointsLabel: card.points + ' 声望',
     gemLabel: META[card.gem].label,
+    gemClass: 'gem-' + card.gem,
     gemStyle: gemStyle(card.gem),
-    // 卡面插画按「产出宝石色系 × 场景变体」索引：15 张矢量插画，主色与红利色一致
-    // 确定性微旋转：模拟实体卡牌随手摆放在绒布上的轻微歪斜（伪 3D）
-    tiltStyle: 'transform:rotate(' + (((card.art % 5) - 2) * 0.55).toFixed(2) + 'deg);',
+    // 写实油画按「红利宝石色系 × 画面序号」索引，与规则数据解耦、可整组替换
+    photoClass: 'photo-' + (GEMS.indexOf(card.gem) * 18 + (card.art % 18)),
+    // 程序化矢量插画作为无照片素材时的兜底
     artClass: 'art-' + (GEMS.indexOf(card.gem) * 3 + (card.art % 3)),
+    // 统一俯视透视 + 极轻微歪斜；抬升/选中由外层卡槽承担，避免 transform 互相覆盖
+    tiltStyle: 'transform:perspective(900px) rotateX(6deg) rotate(' +
+      (((card.art % 5) - 2) * 0.2).toFixed(2) + 'deg);',
     costs: costs,
     affordable: E.canBuy(state, 0, card)
   };
@@ -85,9 +90,12 @@ function tokensVM(player, keys) {
   return keys.map(function (g) {
     return {
       key: g,
+      label: META[g].label,
       count: player.tokens[g],
       zero: player.tokens[g] === 0,
       ink: META[g].ink,
+      gemClass: 'gem-' + g,
+      coinClass: 'coin-' + g,
       style: gemStyle(g)
     };
   });
@@ -98,7 +106,9 @@ function discountsVM(state, idx) {
   const list = [];
   for (let i = 0; i < GEMS.length; i++) {
     const g = GEMS[i];
-    if (disc[g] > 0) list.push({ key: g, num: disc[g], style: gemStyle(g) });
+    if (disc[g] > 0) {
+      list.push({ key: g, num: disc[g], label: META[g].label, gemClass: 'gem-' + g, style: gemStyle(g) });
+    }
   }
   return list;
 }
@@ -124,6 +134,8 @@ function detailVM(state, ui) {
       raw: raw,
       discount: disc[g] || 0,
       need: Math.max(0, raw - (disc[g] || 0)),
+      gemClass: 'gem-' + g,
+      missing: Math.max(0, raw - (disc[g] || 0)) > (state.players[0].tokens[g] || 0),
       style: gemStyle(g)
     });
   }
@@ -157,20 +169,31 @@ function buildViewModel(state, ui, layout) {
   const needDiscard = isMyTurn && state.pendingDiscard > 0;
   const sel = ui.selectedGems;
 
-  // 明牌区：参考截图从上到下为三级 / 二级 / 一级
+  // 常规牌桌排布：自上而下 III / II / I，即自下而上 I、II、III。
+  // 左侧牌库与右侧明牌行使用同一组 y 坐标，保证同级一一水平对齐。
   const rows = [];
   for (let r = 0; r < 3; r++) {
     const lv = 2 - r;
     const cards = [];
     for (let i = 0; i < 4; i++) {
       const card = state.board[lv][i];
-      cards.push(card ? cardVM(state, card) : emptyCardVM(lv, i));
+      const vm = card ? cardVM(state, card) : emptyCardVM(lv, i);
+      vm.selected = !!(ui.detail && ui.detail.kind === 'board' &&
+        ui.detail.lv === lv && ui.detail.index === i);
+      cards.push(vm);
     }
-    rows.push({ lv: lv, label: ['I', 'II', 'III'][lv], cards: cards });
+    rows.push({
+      lv: lv,
+      label: ['I', 'II', 'III'][lv],
+      rowClass: ['row-near', 'row-mid', 'row-far'][r],
+      cards: cards
+    });
   }
 
+  // 牌库按显示顺序（上 III / 中 II / 下 I）生成，lv 仍是引擎的真实等级下标
   const decks = [];
-  for (let lv = 0; lv < 3; lv++) {
+  for (let r = 0; r < 3; r++) {
+    const lv = 2 - r;
     const m = D.DECK_META[lv];
     decks.push({
       lv: lv,
@@ -191,6 +214,8 @@ function buildViewModel(state, ui, layout) {
       slotClass: 'pile-slot-' + i,
       label: META[g].label,
       count: count,
+      gemClass: 'gem-' + g,
+      coinClass: 'coin-' + g,
       style: gemStyle(g),
       selected: countIn(sel, g) > 0,
       isGold: g === 'gold',
@@ -200,11 +225,20 @@ function buildViewModel(state, ui, layout) {
 
   const nobles = state.nobles.map(function (n, i) {
     const reqs = [];
-    for (let i = 0; i < GEMS.length; i++) {
-      const g = GEMS[i];
-      if ((n.req[g] || 0) > 0) reqs.push({ key: g, num: n.req[g], style: gemStyle(g) });
+    for (let k = 0; k < GEMS.length; k++) {
+      const g = GEMS[k];
+      if ((n.req[g] || 0) > 0) {
+        reqs.push({ key: g, num: n.req[g], gemClass: 'gem-' + g, style: gemStyle(g) });
+      }
     }
-    return { id: n.id, title: n.title, points: n.points, artClass: 'noble-art-' + (i % 3), reqs: reqs };
+    return {
+      id: n.id,
+      title: n.title,
+      points: n.points,
+      artClass: 'noble-art-' + (i % 3),
+      photoClass: 'noble-photo-' + (i % 10),
+      reqs: reqs
+    };
   });
 
   const reservedCards = me.reserved.map(function (c, i) {

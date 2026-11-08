@@ -1,27 +1,36 @@
-<!-- 璀璨宝石 · 横屏牌桌（设计舞台 1080×560，运行时等比缩放） -->
+<!-- 璀璨宝石 · 横屏 2.5D 实体牌桌
+     逻辑舞台 1080×560，按窗口等比缩放；所有数字、状态由 buildViewModel 实时驱动。
+     绘制层级：桌布 → 接触投影 → 纸叠/筹码侧壁 → 卡面/筹码顶面 → 数字图标 → 选中轮廓 → 弹层。 -->
 <view class="viewport">
   <view class="stage" style="transform:rotate({{stageRotate}}deg) scale({{stageScale}});">
+
+    <!-- ========== 场景层：酒红绒布、柔和光斑、边缘暗化、实体木框 ========== -->
     <view class="felt"></view>
-    <view class="table-depth"></view>
-    <view class="table-edge table-edge-left"></view>
-    <view class="table-edge table-edge-right"></view>
+    <view class="felt-grain"></view>
+    <view class="felt-light"></view>
+    <view class="felt-vignette"></view>
     <view class="table-emblem"></view>
+    <view class="wood-edge wood-top"></view>
+    <view class="wood-edge wood-bottom"></view>
+    <view class="wood-edge wood-left"></view>
+    <view class="wood-edge wood-right"></view>
     <view class="corner corner-tl"></view>
     <view class="corner corner-tr"></view>
     <view class="corner corner-bl"></view>
     <view class="corner corner-br"></view>
 
-    <!-- 顶部：对手信息 / 回合状态 / 黄金与菜单 -->
+    <!-- ========== 组件：对手状态 / 回合提示 / 右上入口 ========== -->
     <view class="top-bar">
       <view class="rival-badge rival-plaque">
-        <view class="avatar rival-avatar"><text>敌</text></view>
+        <view class="rival-avatar portrait-small"></view>
         <view class="rival-info">
           <view class="rival-head">
             <text class="rival-name">{{rival.name}}</text>
             <text class="rival-score">{{rival.points}} 声望</text>
           </view>
           <view class="mini-tokens">
-            <view wx:for="{{rival.tokens}}" wx:key="key" class="mini-token {{item.zero ? 'is-zero' : ''}}" style="{{item.style}}">
+            <view wx:for="{{rival.tokens}}" wx:key="key"
+                  class="mini-token gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}}">
               <text>{{item.count}}</text>
             </view>
           </view>
@@ -39,44 +48,50 @@
 
       <view class="top-right">
         <view class="gold-box">
-          <view class="gold-coin" style="{{goldStyle}}"><text>{{goldCount}}</text></view>
-          <text class="gold-label">黄金</text>
+          <view class="gold-coin coin-face coin-gold"><view class="pile-gem gem-icon gem-gold"></view></view>
+          <text class="gold-label">黄金 {{goldCount}}</text>
         </view>
         <view class="round-btn" bindtap="onShowRules"><text>?</text></view>
         <view class="round-btn" bindtap="onRestart"><text>↺</text></view>
       </view>
     </view>
 
-    <!-- 左侧：三级牌库（斜立的立体牌背，点击盲抽预留） -->
+    <!-- ========== 组件：三组牌库（上 III 深蓝 / 中 II 赭金 / 下 I 深绿） ==========
+         侧转 + 可见纸叠侧边 + 整叠落地投影；与市场三行严格水平对齐。 -->
     <view class="left-rail">
-      <view class="deck-spine"></view>
-      <view wx:for="{{decks}}" wx:key="lv" class="deck deck-lv-{{item.lv}} {{item.artClass}} {{item.empty ? 'is-empty' : ''}}"
-            style="{{item.style}}" bindtap="onTapDeck" data-lv="{{item.lv}}">
-        <view class="deck-side"></view>
-        <view class="deck-sheen"></view>
-        <text class="deck-label">{{item.label}}</text>
-        <text class="deck-count">{{item.count}}</text>
+      <view class="rail-shadow"></view>
+      <view wx:for="{{decks}}" wx:key="lv" class="deck-slot deck-lv-{{item.lv}}"
+            bindtap="onTapDeck" data-lv="{{item.lv}}" hover-class="deck-hover">
+        <view class="deck-stack {{item.artClass}} {{item.empty ? 'is-empty' : ''}}" style="{{item.style}}">
+          <view class="deck-edges"></view>
+          <view class="deck-face"></view>
+          <view class="deck-sheen"></view>
+          <view class="deck-crest"><text class="deck-label">{{item.label}}</text></view>
+        </view>
+        <view class="deck-count"><text>{{item.count}}</text></view>
       </view>
-      <view class="deck-cap"></view>
       <text class="rail-hint">点击牌库 · 盲抽预留</text>
     </view>
 
-    <!-- 中央：3 行 × 4 列发展卡（上=三级，下=一级） -->
+    <!-- ========== 组件：中央市场 3 行 × 4 列（上高级 / 下初级） ========== -->
     <view class="board">
-      <view wx:for="{{rows}}" wx:for-item="row" wx:for-index="ri" wx:key="lv" class="card-row">
+      <view wx:for="{{rows}}" wx:for-item="row" wx:for-index="ri" wx:key="lv"
+            class="card-row {{row.rowClass}}">
         <text class="row-label">{{row.label}}</text>
         <view wx:for="{{row.cards}}" wx:for-item="card" wx:for-index="ci" wx:key="id"
-              class="card-slot" bindtap="onTapCard" data-lv="{{row.lv}}" data-index="{{ci}}">
-          <view wx:if="{{!card.empty}}" class="card {{card.affordable ? 'card-buyable' : ''}}" style="{{card.tiltStyle}}">
-            <view class="card-art {{card.artClass}}">
+              class="card-slot {{card.selected ? 'is-selected' : ''}}"
+              bindtap="onTapCard" data-lv="{{row.lv}}" data-index="{{ci}}" hover-class="slot-hover">
+          <view wx:if="{{!card.empty}}" class="card {{card.affordable ? 'is-affordable' : ''}}" style="{{card.tiltStyle}}">
+            <view class="card-art">
+              <view class="card-photo {{card.photoClass}} {{card.artClass}}"></view>
               <view class="art-glaze"></view>
-              <view class="art-spark"></view>              <text class="card-name">{{card.name}}</text>
+              <text class="card-name">{{card.name}}</text>
             </view>
             <text wx:if="{{card.pointsText}}" class="card-points">{{card.pointsText}}</text>
-            <view class="card-gem" style="{{card.gemStyle}}"></view>
+            <view class="card-gem gem-icon {{card.gemClass}}"></view>
             <view class="card-foot">
               <view wx:for="{{card.costs}}" wx:for-item="cost" wx:key="key"
-                    class="cost-bubble {{cost.covered ? 'is-covered' : ''}}" style="{{cost.style}}">
+                    class="cost-bubble gem-icon {{cost.gemClass}} {{cost.covered ? 'is-covered' : ''}}">
                 <text style="color:{{cost.ink}}">{{cost.display}}</text>
               </view>
             </view>
@@ -86,57 +101,61 @@
       </view>
     </view>
 
-    <!-- 右侧：贵族牌 + 宝石筹码堆 -->
+    <!-- ========== 组件：公共筹码堆 / 贵族肖像 ========== -->
     <view class="right-rail">
-      <view class="noble-area">
-        <text class="rail-title">贵族牌 · 各 3 声望</text>
-        <view class="noble-row">
-          <view wx:for="{{nobles}}" wx:key="id" class="noble">
-            <view class="noble-face {{item.artClass}}"></view>
-            <text class="noble-points">{{item.points}}</text>
-            <text class="noble-title">{{item.title}}</text>
-            <view class="noble-reqs">
-              <view wx:for="{{item.reqs}}" wx:for-item="req" wx:key="key" class="noble-req" style="{{req.style}}">
-                <text>{{req.num}}</text>
-              </view>
-            </view>
-          </view>
-          <view wx:if="{{nobles.length === 0}}" class="noble-none">贵族牌已全部获得</view>
-        </view>
-      </view>
-
       <view class="pile-area">
         <text class="rail-title">宝石筹码 · 点击选取</text>
         <view class="pile-list">
           <view wx:for="{{bankPiles}}" wx:key="key"
-                class="pile-item {{item.slotClass}} {{item.selected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
-                bindtap="onTapPile" data-key="{{item.key}}">
-            <view class="pile-coin" style="{{item.style}}"><view class="pile-coin-core"></view></view>
-            <text class="pile-count">{{item.count}}</text>
+                class="pile-item {{item.slotClass}} {{item.isGold ? 'is-gold' : ''}} {{item.selected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
+                bindtap="onTapPile" data-key="{{item.key}}" hover-class="pile-hover">
+            <view class="pile-coin coin-face {{item.coinClass}}">
+              <view class="pile-gem gem-icon {{item.gemClass}}"></view>
+            </view>
+            <view class="pile-count"><text>{{item.count}}</text></view>
             <text class="pile-name">{{item.label}}</text>
           </view>
         </view>
-        <text class="pile-tip">黄金筹码仅可通过预留卡牌获得</text>
+        <text class="pile-tip">黄金仅可通过预留获得</text>
+      </view>
+
+      <view class="noble-area">
+        <text class="rail-title">贵族牌 · 各 3 声望</text>
+        <view class="noble-row">
+          <view wx:for="{{nobles}}" wx:key="id" class="noble">
+            <view class="noble-face"><view class="noble-photo {{item.photoClass}} {{item.artClass}}"></view></view>
+            <text class="noble-points">{{item.points}}</text>
+            <text class="noble-title">{{item.title}}</text>
+            <view class="noble-reqs">
+              <view wx:for="{{item.reqs}}" wx:for-item="req" wx:key="key"
+                    class="noble-req gem-icon {{req.gemClass}}">
+                <text>{{req.num}}</text>
+              </view>
+            </view>
+          </view>
+          <text wx:if="{{nobles.length === 0}}" class="noble-none">贵族牌已全部获得</text>
+        </view>
       </view>
     </view>
 
-    <!-- 底部：伪 3D 凹陷工作台（S 形金色拱缘 / 肖像 / 筹码胶囊 / 操作区） -->
+    <!-- ========== 组件：当前玩家工作台（深色皮革 + 三层金属倒角 + 柔和弧缘） ========== -->
     <view class="tray">
       <view class="tray-rim"></view>
 
       <view class="tray-left">
         <view class="portrait-frame">
-          <view class="portrait-rays"></view>
           <view class="portrait"></view>
           <view class="portrait-gem"></view>
         </view>
-        <view class="score-disc">
-          <text class="score-num">{{me.points}}</text>
-          <text class="score-den">/15</text>
-        </view>
-        <view class="tray-reserved" bindtap="onShowReserved">
-          <text class="tray-reserved-num">{{me.reservedCount}}</text>
-          <text class="tray-reserved-label">预留卡</text>
+        <view class="player-badges">
+          <view class="score-disc">
+            <text class="score-num">{{me.points}}</text>
+            <text class="score-den">/15</text>
+          </view>
+          <view class="tray-reserved" bindtap="onShowReserved">
+            <text class="tray-reserved-num">{{me.reservedCount}}</text>
+            <text class="tray-reserved-label">预留卡</text>
+          </view>
         </view>
       </view>
 
@@ -145,26 +164,32 @@
           <text class="vault-total-num">{{me.totalTokens}}</text>
           <text class="vault-total-den">/10</text>
         </view>
-        <view class="vault-tokens">
-          <view wx:for="{{me.tokens}}" wx:key="key"
-                class="vault-token {{item.zero ? 'is-zero' : ''}} {{needDiscard ? 'can-discard' : ''}}"
-                bindtap="onTapMyToken" data-key="{{item.key}}">
-            <view class="vault-token-glow" style="{{item.style}}"></view>
-            <text class="vault-token-num" style="color:{{item.ink}}">{{item.count}}</text>
+        <view class="vault-groups">
+          <view class="vault-group">
+            <text class="vault-label">红利</text>
+            <view class="vault-row">
+              <view wx:for="{{me.discounts}}" wx:key="key" class="disc-chip gem-icon {{item.gemClass}}">
+                <text>{{item.num}}</text>
+              </view>
+              <text wx:if="{{me.discounts.length === 0}}" class="disc-empty">尚无永久红利</text>
+            </view>
+          </view>
+          <view class="vault-group">
+            <text class="vault-label">持有筹码</text>
+            <view class="vault-row">
+              <view wx:for="{{me.tokens}}" wx:key="key"
+                    class="vault-token {{item.zero ? 'is-zero' : ''}} {{needDiscard ? 'can-discard' : ''}}"
+                    bindtap="onTapMyToken" data-key="{{item.key}}" hover-class="vault-hover">
+                <view class="vault-token-icon gem-icon {{item.gemClass}}"></view>
+                <text class="vault-token-num">{{item.count}}</text>
+              </view>
+            </view>
           </view>
         </view>
       </view>
 
       <view class="tray-right">
-        <view class="tray-meta">
-          <text class="hint {{needDiscard ? 'hint-warn' : ''}}">{{hintText}}</text>
-          <view class="disc-list">
-            <view wx:for="{{me.discounts}}" wx:key="key" class="disc-chip" style="{{item.style}}">
-              <text>{{item.num}}</text>
-            </view>
-            <text wx:if="{{me.discounts.length === 0}}" class="disc-empty">红利 —</text>
-          </view>
-        </view>
+        <text class="hint {{needDiscard ? 'hint-warn' : ''}}">{{hintText}}</text>
         <view class="btn-row">
           <view class="btn btn-primary {{canConfirm ? '' : 'btn-off'}}" bindtap="onConfirmTake">{{confirmLabel}}</view>
           <view class="btn" bindtap="onCancelSelection">清除</view>
@@ -173,7 +198,7 @@
       </view>
     </view>
 
-    <!-- 卡牌详情 -->
+    <!-- ========== 组件：卡牌详情（选中卡放大，费用与缺口可辨） ========== -->
     <view wx:if="{{detail}}" class="overlay" bindtap="onCloseDetail">
       <view class="dialog detail-dialog" catchtap="noop">
         <view class="dialog-head">
@@ -182,28 +207,29 @@
         </view>
         <view class="detail-body">
           <view class="card card-big">
-            <view class="card-art {{detail.card.artClass}}">
+            <view class="card-art">
+              <view class="card-photo {{detail.card.photoClass}} {{detail.card.artClass}}"></view>
               <view class="art-glaze"></view>
-              <view class="art-spark"></view>              <text class="card-name">{{detail.card.name}}</text>
+              <text class="card-name">{{detail.card.name}}</text>
             </view>
             <text wx:if="{{detail.card.pointsText}}" class="card-points">{{detail.card.pointsText}}</text>
-            <view class="card-gem" style="{{detail.card.gemStyle}}"></view>
+            <view class="card-gem gem-icon {{detail.card.gemClass}}"></view>
             <view class="card-foot">
               <view wx:for="{{detail.card.costs}}" wx:for-item="cost" wx:key="key"
-                    class="cost-bubble {{cost.covered ? 'is-covered' : ''}}" style="{{cost.style}}">
+                    class="cost-bubble gem-icon {{cost.gemClass}} {{cost.covered ? 'is-covered' : ''}}">
                 <text style="color:{{cost.ink}}">{{cost.display}}</text>
               </view>
             </view>
           </view>
           <view class="detail-info">
             <text class="detail-section">购买成本（气泡为扣除红利后的实付量）</text>
-            <view wx:for="{{detail.costLines}}" wx:key="key" class="cost-line">
-              <view class="cost-line-dot" style="{{item.style}}"></view>
+            <view wx:for="{{detail.costLines}}" wx:key="key" class="cost-line {{item.missing ? 'is-missing' : ''}}">
+              <view class="cost-line-dot gem-icon {{item.gemClass}}"></view>
               <text class="cost-line-label">{{item.label}}</text>
               <text class="cost-line-num">印刷 {{item.raw}} − 红利 {{item.discount}} = 实付 {{item.need}}</text>
             </view>
             <text class="detail-summary {{detail.canBuy ? 'ok' : 'no'}}">{{detail.summary}}</text>
-            <text class="detail-note">卡片可购买时边框呈金色；买不起时仍可先预留，预留会获得 1 枚黄金万能筹码。</text>
+            <text class="detail-note">卡片可购买时呈暖色细边；选中时呈细窄青蓝轮廓。买不起时仍可先预留，并获 1 枚黄金万能筹码。</text>
           </view>
         </view>
         <view class="dialog-btns">
@@ -214,7 +240,7 @@
       </view>
     </view>
 
-    <!-- 预留卡列表 -->
+    <!-- ========== 组件：预留卡列表 ========== -->
     <view wx:if="{{showReserved}}" class="overlay" bindtap="onCloseReserved">
       <view class="dialog reserved-dialog" catchtap="noop">
         <view class="dialog-head">
@@ -224,16 +250,16 @@
         <view class="reserved-list">
           <view wx:for="{{reservedCards}}" wx:key="id" class="reserved-item" bindtap="onTapReservedCard" data-index="{{item.index}}">
             <view class="card card-small">
-              <view class="card-art {{item.artClass}}">
+              <view class="card-art">
+                <view class="card-photo {{item.photoClass}} {{item.artClass}}"></view>
                 <view class="art-glaze"></view>
-                <view class="art-spark"></view>
                 <text class="card-name">{{item.name}}</text>
               </view>
               <text wx:if="{{item.pointsText}}" class="card-points">{{item.pointsText}}</text>
-              <view class="card-gem" style="{{item.gemStyle}}"></view>
+              <view class="card-gem gem-icon {{item.gemClass}}"></view>
               <view class="card-foot">
                 <view wx:for="{{item.costs}}" wx:for-item="cost" wx:key="key"
-                      class="cost-bubble {{cost.covered ? 'is-covered' : ''}}" style="{{cost.style}}">
+                      class="cost-bubble gem-icon {{cost.gemClass}} {{cost.covered ? 'is-covered' : ''}}">
                   <text style="color:{{cost.ink}}">{{cost.display}}</text>
                 </view>
               </view>
@@ -247,7 +273,7 @@
       </view>
     </view>
 
-    <!-- 规则说明（结算弹层之上，需更高层级） -->
+    <!-- ========== 规则说明 ========== -->
     <view wx:if="{{showRules}}" class="overlay overlay-top" bindtap="onCloseRules">
       <view class="dialog rules-dialog" catchtap="noop">
         <view class="dialog-head">
@@ -260,7 +286,7 @@
           <text class="rule-item">3. 发展卡提供声望与永久红利；贵族牌在回合末自动判定，满足红利要求即 +3 声望。</text>
           <text class="rule-item">4. 每人筹码上限 10 枚，超出时点击底部自己的筹码逐枚退还；预留卡上限 3 张。</text>
           <text class="rule-item">5. 有人达到 15 声望后，其余玩家各再行动一回合即结算；同分时发展卡少者胜。</text>
-          <text class="rule-note">本版为规则化生成的单机牌组（40/30/20 张），非官方逐张卡面复刻；牌序每局随机。</text>
+          <text class="rule-note">本版为规则化生成的单机牌组（40/30/20 张），非官方逐张卡面复刻；卡面插画取自 Cleveland Museum of Art 开放获取（CC0）绘画，牌序每局随机。</text>
         </view>
         <view class="dialog-btns">
           <view class="btn btn-primary" bindtap="onCloseRules">开始游戏</view>
@@ -268,7 +294,7 @@
       </view>
     </view>
 
-    <!-- 结算 -->
+    <!-- ========== 结算 ========== -->
     <view wx:if="{{gameOver}}" class="overlay">
       <view class="dialog result-dialog" catchtap="noop">
         <text class="result-crown">✦</text>

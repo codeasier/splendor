@@ -249,10 +249,12 @@ function nobleSVG(tone, seed) {
 
 /* 牌库牌背：双层金框 + 中央菱形宝石 + 卷草角花 */
 function deckSVG(tone) {
+  // tone 即牌库等级下标：I=绿、II=赭金、III=深蓝。
+  // 牌库自上而下为 III / II / I，因而在视觉上呈现「上蓝、中金、下绿」，与市场行一一对应。
   const T = [
-    { a: '#24579d', b: '#0d2b5c', g: '#8ec0f5', g2: '#204f95' },
+    { a: '#2c7a4c', b: '#103d25', g: '#9ee0b2', g2: '#1d6740' },
     { a: '#a9812c', b: '#5b3c0a', g: '#ffe6a0', g2: '#9c6c14' },
-    { a: '#2c7a4c', b: '#103d25', g: '#9ee0b2', g2: '#1d6740' }
+    { a: '#24579d', b: '#0d2b5c', g: '#8ec0f5', g2: '#204f95' }
   ][tone];
   let rays = '';
   for (let i = 0; i < 12; i++) {
@@ -400,9 +402,127 @@ function rivalPlaqueSVG() {
     '</svg>';
 }
 
+/* ==================================================================
+ * 素材分层（同一套视觉体系，按用途命名，供 WXML 组件按需组合）
+ *   photo-*   卡面 / 肖像：CC0 文艺复兴油画缩略图（preview/thumbs，已入库）
+ *   deck-*    牌背包框：程序化矢量，上蓝 / 中金 / 下绿
+ *   gem-*     宝石图标：6 色各异的切面轮廓，卡面、费用、筹码、资源栏同源
+ *   coin-*    筹码顶面：象牙白内盘 + 资源色外圈 + 金属倒角
+ *   tray-*    金属 HUD：S 形托盘、纹章、徽记
+ * 数字与文字一律由 WXML 实时渲染，不烘焙进任何图片。
+ * ================================================================== */
+
+/* ---------- 宝石：每种宝石有自己的轮廓与切面 ---------- */
+const GEM_META = {
+  white: { hi: '#ffffff', mid: '#c7ddea', dark: '#6f8fa3', shape: 'diamond' },
+  blue:  { hi: '#c9e0ff', mid: '#3f74c8', dark: '#16356e', shape: 'oval' },
+  green: { hi: '#c9ffdc', mid: '#2fa86a', dark: '#0d4a2a', shape: 'rect' },
+  red:   { hi: '#ffd2c4', mid: '#d84a48', dark: '#701b25', shape: 'cushion' },
+  black: { hi: '#c9c1d2', mid: '#3b3340', dark: '#100e16', shape: 'octagon' },
+  gold:  { hi: '#fff6cf', mid: '#d8a33c', dark: '#7a4c0d', shape: 'coin' }
+};
+
+function gemSVG(key) {
+  const m = GEM_META[key];
+  let outline;
+  let facets;
+  if (m.shape === 'diamond') {
+    outline = 'M32 5L55 25 32 59 9 25Z';
+    facets = 'M9 25h46M32 5v54M20 25l12-20 12 20-12 34z';
+  } else if (m.shape === 'oval') {
+    outline = 'M32 7c14 0 24 11 24 25S46 57 32 57 8 46 8 32 18 7 32 7Z';
+    facets = 'M32 7v50M8 32h48M14 18l18 14 18-14M14 46l18-14 18 14';
+  } else if (m.shape === 'rect') {
+    outline = 'M15 12h34l8 8v24l-8 8H15l-8-8V20Z';
+    facets = 'M15 12L7 20v24l8 8h34l8-8V20l-8-8zM20 19h24v26H20zM15 12l5 7M49 12l-5 7M15 52l5-7M49 52l-5-7';
+  } else if (m.shape === 'cushion') {
+    outline = 'M21 9h22l13 13v20L43 55H21L8 42V22Z';
+    facets = 'M8 22h48M8 42h48M21 9v46M43 9v46M21 9L8 22M43 9l13 13M21 55L8 42M43 55l13-13';
+  } else if (m.shape === 'octagon') {
+    outline = 'M22 7h20l15 15v20L42 57H22L7 42V22Z';
+    facets = 'M7 22h50M7 42h50M22 7v50M42 7v50M22 7L7 22M42 7l15 15M22 57L7 42M42 57l15-15';
+  } else {
+    outline = 'M32 6a26 26 0 1 0 0 52a26 26 0 1 0 0-52Z';
+    facets = 'M32 13v38M13 32h38M19 19l26 26M45 19L19 45';
+  }
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet">' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0" stop-color="' + m.hi + '"/><stop offset=".42" stop-color="' + m.mid + '"/>' +
+      '<stop offset="1" stop-color="' + m.dark + '"/></linearGradient></defs>' +
+    '<path d="' + outline + '" fill="url(#g)" stroke="' + m.dark + '" stroke-width="1.6"/>' +
+    '<path d="' + facets + '" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1"/>' +
+    '<path d="M32 5L9 25l23 34z" fill="#fff" opacity=".1"/>' +
+    '<ellipse cx="23" cy="18" rx="7" ry="3.6" transform="rotate(-30 23 18)" fill="#fff" opacity=".5"/>' +
+    '</svg>';
+}
+
+/* ---------- 筹码顶面：浅色内盘 + 资源色外圈 + 三层金属倒角 ---------- */
+function coinFaceSVG(key) {
+  const m = GEM_META[key];
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">' +
+    '<defs>' +
+      '<linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + m.hi + '"/>' +
+        '<stop offset=".42" stop-color="' + m.mid + '"/><stop offset="1" stop-color="' + m.dark + '"/></linearGradient>' +
+      '<radialGradient id="face" cx="36%" cy="28%" r="78%"><stop offset="0" stop-color="#fff8e6"/>' +
+        '<stop offset=".62" stop-color="#f0e2c4"/><stop offset="1" stop-color="#cdb894"/></radialGradient>' +
+    '</defs>' +
+    '<circle cx="60" cy="60" r="58" fill="url(#ring)"/>' +
+    '<circle cx="60" cy="60" r="57" fill="none" stroke="#fff2c8" stroke-opacity=".55" stroke-width="1.6"/>' +
+    '<circle cx="60" cy="60" r="52" fill="none" stroke="' + m.dark + '" stroke-opacity=".45" stroke-width="2"/>' +
+    '<circle cx="60" cy="60" r="48" fill="url(#face)"/>' +
+    '<circle cx="60" cy="60" r="48" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.4"/>' +
+    '<circle cx="60" cy="60" r="30" fill="#2b2026" opacity=".14"/>' +
+    '<circle cx="60" cy="60" r="30" fill="none" stroke="' + m.dark + '" stroke-opacity=".35" stroke-width="1.2"/>' +
+    '<path d="M20 44a44 44 0 0 1 80 0" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>' +
+    '<path d="M22 88a44 44 0 0 0 76 0" fill="none" stroke="#3a2418" stroke-opacity=".22" stroke-width="3"/>' +
+    '</svg>';
+}
+
+/* ---------- 工程内缩略图（不依赖外部图床 / 不依赖本机图像工具） ---------- */
+function jpegBg(file) {
+  return 'url("data:image/jpeg;base64,' + fs.readFileSync(file).toString('base64') + '")';
+}
+
+function collectThumbs(lines) {
+  const base = path.join(__dirname, 'thumbs');
+  const cardDir = path.join(base, 'cards');
+  const nobleDir = path.join(base, 'nobles');
+  let photoCount = 0;
+
+  if (fs.existsSync(cardDir)) {
+    lines.push('');
+    lines.push('/* --- 卡面插画：CC0 文艺复兴油画，按 (宝石色序 × 18 + 序号) 索引 --- */');
+    fs.readdirSync(cardDir).filter((f) => /\.jpg$/.test(f)).sort().forEach(function (f) {
+      const m = /^c(\d+)_(\d+)\.jpg$/.exec(f);
+      if (!m) return;
+      const idx = Number(m[1]) * 18 + Number(m[2]);
+      lines.push('.card-photo.photo-' + idx + ' { background-image: ' + jpegBg(path.join(cardDir, f)) + '; }');
+      photoCount += 1;
+    });
+  } else {
+    console.log('WARN 缺少 preview/thumbs/cards，卡面回退到程序化矢量插画');
+  }
+
+  if (fs.existsSync(nobleDir)) {
+    lines.push('');
+    lines.push('/* --- 贵族肖像：文艺复兴人物油画 --- */');
+    fs.readdirSync(nobleDir).filter((f) => /\.jpg$/.test(f)).sort().forEach(function (f) {
+      const m = /^n(\d+)\.jpg$/.exec(f);
+      if (!m) return;
+      lines.push('.noble-photo.noble-photo-' + m[1] + ' { background-image: ' + jpegBg(path.join(nobleDir, f)) + '; }');
+    });
+  }
+  const portrait = path.join(base, 'portrait.jpg');
+  if (fs.existsSync(portrait)) {
+    lines.push('.portrait { background-image: ' + jpegBg(portrait) + '; }');
+    lines.push('.rival-avatar.portrait-small { background-image: ' + jpegBg(portrait) + '; }');
+  }
+  return photoCount;
+}
+
 const lines = [];
 lines.push('/* 由 preview/art.js 生成，请勿手工编辑；运行 node preview/art.js 重建 */');
-lines.push('/* 程序化矢量插画（base64 内联）：15 张发展卡 / 3 张贵族肖像 / 3 张牌库牌背 */');
+lines.push('/* 素材分层：卡面油画 / 贵族肖像 / 牌背 / 宝石切面 / 筹码顶面 / 金属 HUD */');
 lines.push('');
 
 for (let c = 0; c < PALETTES.length; c++) {
@@ -410,17 +530,18 @@ for (let c = 0; c < PALETTES.length; c++) {
     const idx = c * 3 + v;
     const building = (c * 3 + v) % BUILDINGS.length;
     // 双类选择器优先级高于 index.wxss 里的兜底渐变，避免被后面的同名规则覆盖
-    lines.push('.card-art.art-' + idx + ' { background-image: ' + bg(cardSVG(PALETTES[c], building, idx)) + '; }');
+    lines.push('.card-photo.art-' + idx + ' { background-image: ' + bg(cardSVG(PALETTES[c], building, idx)) + '; }');
   }
 }
 lines.push('');
 // 用显式类名而非 :nth-child：小程序 WXSS 对伪类选择器支持有限
 for (let i = 0; i < 3; i++) {
-  lines.push('.noble-face.noble-art-' + i + ' { background-image: ' + bg(nobleSVG(i, i)) + '; }');
+  lines.push('.noble-photo.noble-art-' + i + ' { background-image: ' + bg(nobleSVG(i, i)) + '; }');
 }
 lines.push('');
 for (let i = 0; i < 3; i++) {
-  lines.push('.deck.deck-art-' + i + '::before { background-image: ' + bg(deckSVG(i)) + '; }');
+  // 牌背贴在 .deck-face 上：牌叠侧边 / 纸层 / 覆膜高光由 WXSS 分层渲染
+  lines.push('.deck-stack.deck-art-' + i + ' .deck-face { background-image: ' + bg(deckSVG(i)) + '; }');
 }
 lines.push('');
 lines.push('.turn-banner::after { background-image: ' + bg(bannerSVG()) + '; }');
@@ -429,9 +550,25 @@ lines.push('');
 // 伪 3D 桌面素材。rival-plaque 用双类提权：art.wxss 由 @import 置于最前，
 // 否则会被 index.wxss 里同名的 background 简写反向覆盖。
 lines.push('.tray-rim { background-image: ' + bg(trayRimSVG()) + '; }');
-lines.push('.portrait { background-image: ' + bg(portraitSVG()) + '; }');
+if (!fs.existsSync(path.join(__dirname, 'thumbs', 'portrait.jpg'))) {
+  lines.push('.portrait { background-image: ' + bg(portraitSVG()) + '; }');
+}
 lines.push('.rival-badge.rival-plaque { background-image: ' + bg(rivalPlaqueSVG()) + '; }');
 lines.push('');
 
+lines.push('/* --- 宝石切面图标：卡面右上 / 费用徽章 / 筹码中央 / 玩家资源栏同源 --- */');
+Object.keys(GEM_META).forEach(function (k) {
+  lines.push('.gem-icon.gem-' + k + ' { background-image: ' + bg(gemSVG(k)) + '; }');
+});
+lines.push('');
+lines.push('/* --- 筹码顶面：象牙白内盘 + 资源色外圈，侧壁厚度由 CSS 叠加 --- */');
+Object.keys(GEM_META).forEach(function (k) {
+  lines.push('.coin-face.coin-' + k + ' { background-image: ' + bg(coinFaceSVG(k)) + '; }');
+});
+
+const photoCount = collectThumbs(lines);
+lines.push('');
+
 fs.writeFileSync(OUT, lines.join('\n'), 'utf8');
-console.log('已生成 pages/index/art.wxss（' + (Buffer.byteLength(lines.join('\n')) / 1024).toFixed(1) + ' KB）');
+console.log('已生成 pages/index/art.wxss（' + (Buffer.byteLength(lines.join('\n')) / 1024).toFixed(1) +
+  ' KB，写实卡面 ' + photoCount + ' 张）');
