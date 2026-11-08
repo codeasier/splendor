@@ -977,3 +977,406 @@ page, .viewport {
 }
 .result-detail { font-size: 14px; color: #e0bd96; }
 .result-dialog .dialog-btns { justify-content: center; }
+
+/* ==================================================================
+ * 伪 3D 桌面布局 v4（覆盖层）
+ * ------------------------------------------------------------------
+ * 参考图的核心不是「更多金色描边」，而是空间层次：
+ *   1) 桌面本体：后方受光、前方压暗，左右有实体木边；
+ *   2) 所有物件统一光源在左上 → 厚度边 + 右下落地投影；
+ *   3) 底部工作台是「凹陷」的金属托盘（S 形拱起金缘 + 内壁阴影）；
+ *   4) 牌库斜立、卡牌微歪、筹码成叠散落，制造俯视透视感。
+ * 只覆盖布局与质感，不改 WXML 交互绑定，也不改规则引擎。
+ * ================================================================== */
+
+/* ---------- 1. 桌面纵深与实体边界 ---------- */
+.table-depth {
+  position: absolute;
+  left: 0; top: 0; right: 0; bottom: 0;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 226, 188, .075) 0%, transparent 20%, transparent 66%, rgba(0, 0, 0, .38) 100%),
+    radial-gradient(ellipse 110% 54% at 50% -8%, rgba(255, 214, 170, .13), transparent 72%),
+    linear-gradient(96deg, rgba(0, 0, 0, .3) 0%, transparent 15%, transparent 85%, rgba(0, 0, 0, .3) 100%);
+}
+.table-edge { position: absolute; top: 0; bottom: 0; width: 20px; z-index: 1; }
+.table-edge-left { left: 0; background: linear-gradient(90deg, rgba(8, 3, 8, .92), rgba(74, 38, 55, .32) 55%, transparent); }
+.table-edge-right { right: 0; background: linear-gradient(270deg, rgba(8, 3, 8, .92), rgba(74, 38, 55, .32) 55%, transparent); }
+
+/* ---------- 2. 对手徽章：实体金牌质感 ---------- */
+.rival-badge.rival-plaque {
+  border: 0;
+  border-radius: 0;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .66), inset 0 1px 0 rgba(255, 235, 190, .12);
+}
+.mini-token { border-radius: 50%; }
+
+/* ---------- 3. 左侧牌库：斜立的三叠牌背 ---------- */
+.left-rail {
+  left: 118px;
+  top: 62px;
+  width: 114px;
+  height: 356px;
+  display: block;
+  transform: rotate(-8deg);
+  z-index: 3;
+}
+/* 深色书脊：让三张牌读起来是立起来的一整叠，而非三块矩形 */
+.deck-spine {
+  position: absolute;
+  left: 0; top: 4px;
+  width: 16px; height: 344px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #080409 0%, #2c1a26 38%, #573344 62%, #0a0409 100%);
+  border-left: 1px solid rgba(232, 190, 120, .22);
+  box-shadow: 5px 8px 20px rgba(0, 0, 0, .8);
+  z-index: 0;
+}
+.deck {
+  position: absolute;
+  width: 50px; height: 104px;
+  border-radius: 3px;
+  padding: 6px 0 7px;
+  transform: skewY(-3deg);
+  box-shadow:
+    -6px 3px 0 -2px rgba(10, 4, 9, .82),
+    -10px 5px 0 -4px rgba(10, 4, 9, .6),
+    6px 11px 18px rgba(0, 0, 0, .72),
+    inset 0 0 0 1px rgba(255, 244, 214, .5);
+}
+.deck-lv-0 { left: 40px; top: 0; z-index: 3; }
+.deck-lv-1 { left: 24px; top: 116px; z-index: 2; }
+.deck-lv-2 { left: 8px; top: 232px; z-index: 1; }
+/* 纸牌左侧切面：白色斜高光是斜立牌背最关键的立体线索 */
+.deck-side {
+  position: absolute;
+  left: -7px; top: 3px;
+  width: 7px; height: 96px;
+  z-index: 4;
+  transform: skewY(-16deg);
+  background: linear-gradient(90deg, rgba(255, 246, 218, .85), rgba(126, 86, 48, .6));
+  box-shadow: -1px 1px 3px rgba(0, 0, 0, .5);
+}
+.deck-sheen {
+  position: absolute;
+  left: 0; top: 0; right: 0; bottom: 0;
+  z-index: 2;
+  background: linear-gradient(100deg, rgba(255, 255, 255, .34) 0%, rgba(255, 255, 255, .06) 26%, transparent 50%, rgba(0, 0, 0, .3) 100%);
+}
+.deck-label { z-index: 5; font-size: 19px; }
+.deck-count { z-index: 5; font-size: 11px; padding: 1px 7px; }
+.deck-cap {
+  position: absolute;
+  left: 8px; top: 336px;
+  width: 0; height: 0;
+  border-left: 25px solid transparent;
+  border-right: 25px solid transparent;
+  border-top: 20px solid #d9ad5e;
+  z-index: 4;
+}
+.rail-hint { position: absolute; left: -4px; top: 362px; width: 118px; font-size: 9px; }
+
+/* ---------- 4. 发展卡：纸厚度 + 统一方向落地投影 + 微歪斜 ---------- */
+.card-slot { width: 82px; height: 112px; }
+.card {
+  box-shadow:
+    0 2px 0 #5a3d2a,
+    0 4px 0 #2e1c18,
+    5px 11px 16px rgba(0, 0, 0, .68),
+    2px 3px 5px rgba(0, 0, 0, .5),
+    inset 0 0 0 1px rgba(255, 250, 232, .85);
+}
+.card-buyable { animation: buyGlow3D 2.4s ease-in-out infinite; }
+@keyframes buyGlow3D {
+  0%, 100% {
+    box-shadow: 0 2px 0 #5a3d2a, 0 4px 0 #2e1c18, 0 0 0 2px rgba(255, 208, 106, .55),
+      0 0 14px rgba(255, 200, 100, .32), 5px 11px 16px rgba(0, 0, 0, .68);
+  }
+  50% {
+    box-shadow: 0 2px 0 #5a3d2a, 0 4px 0 #2e1c18, 0 0 0 2px rgba(255, 220, 130, .85),
+      0 0 26px rgba(255, 210, 120, .62), 5px 11px 16px rgba(0, 0, 0, .68);
+  }
+}
+/* 空卡槽读起来应是桌面上的压痕，而非半透明贴纸 */
+.card-empty {
+  border: 1px solid rgba(232, 190, 120, .22);
+  background: rgba(0, 0, 0, .22);
+  box-shadow: inset 0 3px 10px rgba(0, 0, 0, .5), 0 1px 0 rgba(255, 226, 170, .06);
+}
+
+/* ---------- 5. 右侧：贵族竖排 + 筹码成叠散落 ---------- */
+.right-rail {
+  left: 780px; top: 62px;
+  width: 278px; height: 356px;
+  display: block;
+  z-index: 3;
+}
+.rail-title { font-size: 9px; letter-spacing: 1px; opacity: .55; margin-bottom: 0; height: 14px; }
+.noble-area { position: absolute; right: 0; top: 22px; width: 86px; height: 322px; }
+.noble-row { display: flex; flex-direction: column; gap: 5px; }
+.noble {
+  width: 80px; height: 98px;
+  padding: 3px;
+  box-shadow:
+    0 2px 0 #6a4c2c,
+    0 4px 0 #33220f,
+    5px 9px 14px rgba(0, 0, 0, .64),
+    inset 0 0 0 2px rgba(255, 248, 226, .8);
+}
+.noble-face { height: 44px; }
+.noble-title { font-size: 9px; margin-top: 2px; }
+.noble-reqs { margin-top: 3px; }
+.noble-req { width: 16px; height: 16px; font-size: 9px; }
+.noble-none { font-size: 10px; padding-top: 20px; }
+
+.pile-area { position: absolute; left: 0; top: 22px; width: 180px; height: 356px; }
+.pile-list { position: relative; display: block; width: 180px; height: 340px; }
+.pile-item {
+  position: absolute;
+  width: 76px; height: 84px;
+  padding: 0;
+  border: 0; border-radius: 0;
+  gap: 3px;
+  background: transparent;
+}
+/* 散落坐标：错落而非对齐网格，模拟筹码随手堆在桌布上 */
+.pile-slot-0 { left: 2px;  top: 192px; }  /* 白 */
+.pile-slot-1 { left: 92px; top: 130px; }  /* 蓝 */
+.pile-slot-2 { left: 4px;  top: 48px;  }  /* 绿 */
+.pile-slot-3 { left: 94px; top: 56px;  }  /* 红 */
+.pile-slot-4 { left: 0;    top: 264px; }  /* 黑 */
+.pile-slot-5 { left: 96px; top: 2px;   }  /* 黄金 */
+.pile-item.is-selected {
+  background: radial-gradient(ellipse at 50% 40%, rgba(255, 210, 120, .22), transparent 72%);
+  box-shadow: none;
+}
+.pile-item.is-selected .pile-coin {
+  transform: translateY(-3px);
+  border-color: #ffe4a0;
+  box-shadow:
+    0 2px 0 -1px rgba(10, 4, 9, .85), 0 4px 0 -2px rgba(10, 4, 9, .7),
+    0 6px 0 -3px rgba(10, 4, 9, .55), 0 0 0 3px rgba(255, 214, 120, .75),
+    0 0 22px rgba(255, 205, 105, .6), 6px 15px 18px rgba(0, 0, 0, .68);
+}
+/* 筹码堆：4 层错位边缘 + 顶部弧面高光 + 右下落地投影 */
+.pile-coin {
+  width: 48px; height: 48px;
+  border-width: 2px;
+  box-shadow:
+    0 2px 0 -1px rgba(10, 4, 9, .85),
+    0 4px 0 -2px rgba(10, 4, 9, .72),
+    0 6px 0 -3px rgba(10, 4, 9, .58),
+    0 8px 0 -4px rgba(10, 4, 9, .44),
+    6px 14px 16px rgba(0, 0, 0, .68),
+    inset 0 0 0 2px rgba(255, 255, 255, .14),
+    inset 0 -7px 12px rgba(0, 0, 0, .5);
+}
+.pile-coin-core {
+  position: absolute;
+  left: 15%; top: 15%;
+  width: 70%; height: 70%;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .2);
+  background: radial-gradient(circle at 36% 26%, rgba(255, 255, 255, .26), transparent 62%);
+  box-shadow: inset 0 -4px 8px rgba(0, 0, 0, .36), 0 1px 0 rgba(255, 255, 255, .14);
+}
+/* 数量做成筹码右下的小圆牌，名称/说明不落在散落区，避免文字互相压叠 */
+.pile-count {
+  position: absolute;
+  left: 50px; top: 36px;
+  min-width: 18px; height: 18px;
+  padding: 0 3px;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  background: rgba(10, 5, 10, .84);
+  border: 1px solid rgba(232, 190, 120, .5);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .65);
+}
+.pile-name { display: none; }
+.pile-tip { display: none; }
+
+/* ---------- 6. 底部工作台：凹陷托盘 ---------- */
+.tray {
+  left: 100px; top: 430px;
+  width: 950px; height: 130px;
+  border: 0; border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: block;
+  padding: 0;
+  gap: 0;
+  z-index: 4;
+}
+.tray::before { display: none; }
+.tray-rim {
+  position: absolute;
+  left: 0; top: 0;
+  width: 950px; height: 130px;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  z-index: 0;
+}
+/* 托盘下半部补极淡织物经纬与斜向反光，避免凹陷区变成一块死黑 */
+.tray-rim::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 58px; right: 0; bottom: 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 235, 200, .022) 0px, rgba(255, 235, 200, .022) 1px, transparent 1px, transparent 6px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .1) 0px, rgba(0, 0, 0, .1) 1px, transparent 1px, transparent 4px),
+    linear-gradient(105deg, transparent 18%, rgba(255, 220, 170, .05) 46%, transparent 72%);
+}
+
+/* 左下：方形肖像浮在托盘边缘之上，绿宝石徽章与放射光 */
+.tray-left {
+  position: absolute;
+  left: 14px; top: -8px;
+  width: 230px; height: 120px;
+  display: flex; align-items: flex-end; gap: 9px;
+  z-index: 3;
+}
+.tray-left::after { display: none; }
+.portrait-frame { position: relative; width: 70px; height: 80px; flex-shrink: 0; }
+.portrait {
+  position: absolute;
+  left: 0; top: 0; right: 0; bottom: 0;
+  border: 2px solid #e9bf78;
+  border-radius: 4px;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  box-shadow: 0 7px 16px rgba(0, 0, 0, .78), inset 0 0 0 2px rgba(20, 8, 16, .65);
+  z-index: 2;
+}
+.portrait-rays {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 170px; height: 170px;
+  margin-left: -85px; margin-top: -85px;
+  z-index: 1;
+  background: radial-gradient(circle, rgba(146, 255, 178, .2) 0%, rgba(146, 255, 178, .06) 38%, transparent 68%);
+}
+.portrait-gem {
+  position: absolute;
+  right: -9px; bottom: -6px;
+  width: 26px; height: 26px;
+  z-index: 3;
+  transform: rotate(45deg);
+  border: 2px solid #eaffd0;
+  background: linear-gradient(135deg, #b9ff8f, #2fa84a 55%, #0c5223);
+  box-shadow: 0 3px 9px rgba(0, 0, 0, .75), inset 0 0 7px rgba(255, 255, 255, .55);
+}
+.portrait-gem::after {
+  content: '';
+  position: absolute;
+  left: 22%; top: 18%;
+  width: 56%; height: 44%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .42);
+}
+.score-disc { width: 46px; height: 46px; padding-top: 8px; margin-bottom: 4px; }
+.score-num { font-size: 22px; }
+.score-den { font-size: 9px; }
+.tray-reserved { width: 46px; padding: 3px 0; margin-bottom: 4px; }
+.tray-reserved-num { font-size: 17px; }
+.tray-reserved-label { font-size: 8px; }
+
+/* 拱内：嵌入凹槽的筹码计数胶囊 */
+.tray-vault {
+  position: absolute;
+  left: 329px; top: 9px;
+  width: 284px; height: 48px;
+  display: flex; align-items: center; gap: 8px;
+  z-index: 3;
+}
+/* 总数标记落在拱外的水平段上（参考图 9/10 的位置），拱内只排胶囊 */
+.vault-total {
+  position: absolute;
+  left: -179px; top: 59px;
+  width: 36px; height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex; align-items: baseline; justify-content: center;
+  padding-top: 7px;
+  border: 2px solid rgba(240, 205, 140, .8);
+  background: radial-gradient(circle at 36% 26%, #5c3a48, #150b13 80%);
+  box-shadow: inset 0 1px 0 rgba(255, 235, 190, .25), 0 3px 7px rgba(0, 0, 0, .7);
+}
+.vault-total-num { font-family: Georgia, serif; font-size: 18px; font-weight: 700; color: #ffe3a6; line-height: 1; }
+.vault-total-den { font-size: 9px; color: #c9a279; }
+.vault-tokens { display: flex; gap: 4px; }
+.vault-token {
+  position: relative;
+  width: 44px; height: 42px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(232, 190, 120, .34);
+  background: linear-gradient(180deg, rgba(78, 58, 70, .94), rgba(12, 7, 13, .97));
+  box-shadow:
+    inset 0 2px 0 rgba(255, 240, 205, .18),
+    inset 0 -7px 11px rgba(0, 0, 0, .66),
+    0 2px 5px rgba(0, 0, 0, .62);
+}
+.vault-token::after {
+  content: '';
+  position: absolute;
+  left: 12%; top: 6%;
+  width: 62%; height: 30%;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .16), transparent);
+}
+.vault-token-glow {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 14px;
+  opacity: .5;
+}
+.vault-token-num {
+  position: relative;
+  z-index: 2;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, .95), 0 0 9px rgba(255, 255, 255, .25);
+}
+.vault-token.is-zero { opacity: .32; }
+.vault-token.can-discard { border: 2px solid #ff9a6a; animation: vaultPulse 1.2s infinite; }
+@keyframes vaultPulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 154, 106, .7); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 154, 106, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 154, 106, 0); }
+}
+
+/* 右侧：提示 / 红利 / 操作按钮，压在托盘水平段内 */
+.tray-right {
+  position: absolute;
+  left: 750px; top: 62px;
+  width: 186px; height: 64px;
+  display: flex; flex-direction: column; gap: 5px;
+  z-index: 3;
+}
+.tray-meta { display: flex; align-items: center; gap: 6px; height: 18px; }
+.hint {
+  flex: 1;
+  height: 16px;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #e3c69c;
+}
+.hint-warn { color: #ffb47a; }
+.disc-list { gap: 3px; flex-shrink: 0; }
+.disc-chip { width: 19px; height: 19px; font-size: 10px; }
+.disc-empty { display: none; }
+.btn-row { gap: 5px; }
+.btn { padding: 5px 8px; font-size: 10px; border-radius: 6px; }
+

@@ -13,3 +13,7 @@ npm-debug.log*
 
 # 编译器中间产物（由 preview/build.js 生成，无外部引用）
 preview/render.generated.js
+
+# 外部 CC0 美术素材与生成脚本（数百 MB，源文件不入库；
+# 若后续要替换卡面，只把精简后的成品放进 pages/ 并单独提交）
+assets/

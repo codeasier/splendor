@@ -322,6 +322,84 @@ function emblemSVG() {
     '</svg>';
 }
 
+/* ------------------------------------------------------------------
+ * 伪 3D 桌面素材
+ * ------------------------------------------------------------------ */
+
+/** 底部用户工作台：S 形拱起的金色凹槽托盘上缘（参考图的标志性轮廓） */
+function trayRimSVG() {
+  const rim = 'M0 58 L196 58 C220 58 218 6 262 6 L680 6 C724 6 722 58 746 58 L950 58';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 130" preserveAspectRatio="none">' +
+    '<defs>' +
+      '<linearGradient id="well" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0" stop-color="#0b050a" stop-opacity=".97"/>' +
+        '<stop offset=".32" stop-color="#2a1622" stop-opacity=".94"/>' +
+        '<stop offset="1" stop-color="#070307" stop-opacity=".99"/>' +
+      '</linearGradient>' +
+      '<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0" stop-color="#fff2cc"/><stop offset=".36" stop-color="#eac078"/>' +
+        '<stop offset=".74" stop-color="#a9762a"/><stop offset="1" stop-color="#5e3a0d"/>' +
+      '</linearGradient>' +
+      '<linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">' +
+        '<stop offset="0" stop-color="#fff0c0" stop-opacity=".08"/>' +
+        '<stop offset=".5" stop-color="#fff0c0" stop-opacity=".62"/>' +
+        '<stop offset="1" stop-color="#fff0c0" stop-opacity=".08"/>' +
+      '</linearGradient>' +
+    '</defs>' +
+    // 凹陷主体：上缘起伏，下方填深色，读起来像嵌进桌布的金属托盘
+    '<path d="' + rim + ' L950 130 L0 130 Z" fill="url(#well)"/>' +
+    // 上缘外侧的桌布投影：让金边看起来是"压"在绒布上
+    '<path d="' + rim + '" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="10" transform="translate(0,-6)"/>' +
+    // 金色主描边 + 顶部高光细线
+    '<path d="' + rim + '" fill="none" stroke="url(#rim)" stroke-width="3"/>' +
+    '<path d="' + rim + '" fill="none" stroke="url(#sheen)" stroke-width="1.1" transform="translate(0,-1.7)"/>' +
+    // 凹槽内壁阴影：金线下方一道暗边，产生深度
+    '<path d="' + rim + '" fill="none" stroke="#000" stroke-opacity=".66" stroke-width="4.5" transform="translate(0,4.5)"/>' +
+    // 拱内横向织纹与底部反光
+    '<path d="M278 54 H664" stroke="#f0cf8d" stroke-opacity=".12" stroke-width=".8"/>' +
+    '<path d="M0 124 H950" stroke="#e8bd72" stroke-opacity=".18" stroke-width="1"/>' +
+    '<path d="M262 6 H680" stroke="#fff3d0" stroke-opacity=".28" stroke-width=".7" transform="translate(0,3)"/>' +
+    '</svg>';
+}
+
+/** 玩家肖像：方形金框古典半身像，用于工作台左下角 */
+function portraitSVG() {
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" preserveAspectRatio="xMidYMid slice">' +
+    '<defs>' +
+      '<radialGradient id="pb" cx="46%" cy="28%" r="82%"><stop offset="0" stop-color="#8a5546"/><stop offset="1" stop-color="#1a0f18"/></radialGradient>' +
+      '<linearGradient id="robe" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#74403f"/><stop offset="1" stop-color="#21121b"/></linearGradient>' +
+    '</defs>' +
+    '<rect width="120" height="140" fill="url(#pb)"/>' +
+    '<path d="M16 140V58a44 44 0 0 1 88 0v82" fill="none" stroke="#e0b878" stroke-opacity=".26" stroke-width="1.4"/>' +
+    '<path d="M6 140q8-44 54-46t54 46z" fill="url(#robe)"/>' +
+    '<path d="M6 140q8-44 54-46t54 46" fill="none" stroke="#e0b878" stroke-opacity=".48" stroke-width="1.2"/>' +
+    '<path d="M31 68q-3-40 29-40t29 40q5 32-2 48l-11-36H44l-11 36q-7-16-2-48z" fill="#2a1a1e"/>' +
+    '<ellipse cx="60" cy="58" rx="22" ry="27" fill="#dcb087"/>' +
+    '<path d="M38 52q2-27 22-27t22 27q-8-12-22-12t-22 12z" fill="#2a1a1e"/>' +
+    '<path d="M47 54h9M64 54h9" stroke="#3a241c" stroke-width="2" stroke-linecap="round"/>' +
+    '<circle cx="52" cy="60" r="1.9" fill="#2b1a16"/><circle cx="68" cy="60" r="1.9" fill="#2b1a16"/>' +
+    '<path d="M60 62v9" stroke="#a9775a" stroke-width="1.4"/>' +
+    '<path d="M45 72q7-6 15 0t15 0q-2 19-15 23t-15-23z" fill="#33201e" opacity=".93"/>' +
+    '<path d="M52 77q8 5 16 0" fill="none" stroke="#825a45" stroke-width="1.2"/>' +
+    '<path d="M0 0h46L18 140H0z" fill="#fff" opacity=".055"/>' +
+    '<rect x="2.5" y="2.5" width="115" height="135" fill="none" stroke="#f0cf8d" stroke-opacity=".88" stroke-width="2"/>' +
+    '<rect x="6" y="6" width="108" height="128" fill="none" stroke="#f0cf8d" stroke-opacity=".28" stroke-width=".8"/>' +
+    '</svg>';
+}
+
+/** 对手徽章的椭圆金环织纹，强化"实体徽章"而非平面色块 */
+function rivalPlaqueSVG() {
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 76" preserveAspectRatio="none">' +
+    '<defs><linearGradient id="rp" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#5c3346"/><stop offset="1" stop-color="#160b14"/>' +
+    '</linearGradient></defs>' +
+    '<path d="M8 8h194v60H8z" fill="url(#rp)"/>' +
+    '<path d="M8 8h194v60H8z" fill="none" stroke="#e6bd78" stroke-opacity=".8" stroke-width="2"/>' +
+    '<path d="M13 13h184v50H13z" fill="none" stroke="#e6bd78" stroke-opacity=".28" stroke-width=".8"/>' +
+    '<path d="M8 14h194" stroke="#fff0c8" stroke-opacity=".14" stroke-width="3"/>' +
+    '</svg>';
+}
+
 const lines = [];
 lines.push('/* 由 preview/art.js 生成，请勿手工编辑；运行 node preview/art.js 重建 */');
 lines.push('/* 程序化矢量插画（base64 内联）：15 张发展卡 / 3 张贵族肖像 / 3 张牌库牌背 */');
@@ -347,6 +425,12 @@ for (let i = 0; i < 3; i++) {
 lines.push('');
 lines.push('.turn-banner::after { background-image: ' + bg(bannerSVG()) + '; }');
 lines.push('.table-emblem { background-image: ' + bg(emblemSVG()) + '; }');
+lines.push('');
+// 伪 3D 桌面素材。rival-plaque 用双类提权：art.wxss 由 @import 置于最前，
+// 否则会被 index.wxss 里同名的 background 简写反向覆盖。
+lines.push('.tray-rim { background-image: ' + bg(trayRimSVG()) + '; }');
+lines.push('.portrait { background-image: ' + bg(portraitSVG()) + '; }');
+lines.push('.rival-badge.rival-plaque { background-image: ' + bg(rivalPlaqueSVG()) + '; }');
 lines.push('');
 
 fs.writeFileSync(OUT, lines.join('\n'), 'utf8');

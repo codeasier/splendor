@@ -46,7 +46,11 @@ const NOBLE_POOL = [
   { id: 'n3', req: { white: 4, red: 4, black: 0 },  title: '铸币大臣' },
   { id: 'n4', req: { green: 4, black: 4, blue: 0 }, title: '矿脉总督' },
   { id: 'n5', req: { white: 3, green: 3, red: 3 },  title: '宫廷建筑师' },
-  { id: 'n6', req: { blue: 4, green: 4, red: 0 },   title: '航海总会' }
+  { id: 'n6', req: { blue: 4, green: 4, red: 0 },   title: '航海总会' },
+  { id: 'n7', req: { white: 4, blue: 4, black: 0 }, title: '霜港勋爵' },
+  { id: 'n8', req: { green: 4, red: 4, blue: 0 },   title: '紫藤伯爵' },
+  { id: 'n9', req: { white: 3, black: 3, red: 3 },  title: '枢密顾问' },
+  { id: 'n10', req: { blue: 3, green: 3, black: 3 }, title: '远洋提督' }
 ];
 
 // 确定性伪随机，保证牌组数值分布固定、可复现

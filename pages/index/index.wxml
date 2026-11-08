@@ -2,6 +2,9 @@
 <view class="viewport">
   <view class="stage" style="transform:rotate({{stageRotate}}deg) scale({{stageScale}});">
     <view class="felt"></view>
+    <view class="table-depth"></view>
+    <view class="table-edge table-edge-left"></view>
+    <view class="table-edge table-edge-right"></view>
     <view class="table-emblem"></view>
     <view class="corner corner-tl"></view>
     <view class="corner corner-tr"></view>
@@ -10,7 +13,7 @@
 
     <!-- 顶部：对手信息 / 回合状态 / 黄金与菜单 -->
     <view class="top-bar">
-      <view class="rival-badge">
+      <view class="rival-badge rival-plaque">
         <view class="avatar rival-avatar"><text>敌</text></view>
         <view class="rival-info">
           <view class="rival-head">
@@ -44,13 +47,17 @@
       </view>
     </view>
 
-    <!-- 左侧：三级牌库（点击盲抽预留） -->
+    <!-- 左侧：三级牌库（斜立的立体牌背，点击盲抽预留） -->
     <view class="left-rail">
-      <view wx:for="{{decks}}" wx:key="lv" class="deck {{item.artClass}} {{item.empty ? 'is-empty' : ''}}"
+      <view class="deck-spine"></view>
+      <view wx:for="{{decks}}" wx:key="lv" class="deck deck-lv-{{item.lv}} {{item.artClass}} {{item.empty ? 'is-empty' : ''}}"
             style="{{item.style}}" bindtap="onTapDeck" data-lv="{{item.lv}}">
+        <view class="deck-side"></view>
+        <view class="deck-sheen"></view>
         <text class="deck-label">{{item.label}}</text>
         <text class="deck-count">{{item.count}}</text>
       </view>
+      <view class="deck-cap"></view>
       <text class="rail-hint">点击牌库 · 盲抽预留</text>
     </view>
 
@@ -60,7 +67,7 @@
         <text class="row-label">{{row.label}}</text>
         <view wx:for="{{row.cards}}" wx:for-item="card" wx:for-index="ci" wx:key="id"
               class="card-slot" bindtap="onTapCard" data-lv="{{row.lv}}" data-index="{{ci}}">
-          <view wx:if="{{!card.empty}}" class="card {{card.affordable ? 'card-buyable' : ''}}">
+          <view wx:if="{{!card.empty}}" class="card {{card.affordable ? 'card-buyable' : ''}}" style="{{card.tiltStyle}}">
             <view class="card-art {{card.artClass}}">
               <view class="art-glaze"></view>
               <view class="art-spark"></view>              <text class="card-name">{{card.name}}</text>
@@ -102,9 +109,9 @@
         <text class="rail-title">宝石筹码 · 点击选取</text>
         <view class="pile-list">
           <view wx:for="{{bankPiles}}" wx:key="key"
-                class="pile-item {{item.selected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
+                class="pile-item {{item.slotClass}} {{item.selected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
                 bindtap="onTapPile" data-key="{{item.key}}">
-            <view class="pile-coin" style="{{item.style}}"></view>
+            <view class="pile-coin" style="{{item.style}}"><view class="pile-coin-core"></view></view>
             <text class="pile-count">{{item.count}}</text>
             <text class="pile-name">{{item.label}}</text>
           </view>
@@ -113,10 +120,16 @@
       </view>
     </view>
 
-    <!-- 底部：玩家资产凹槽 + 操作区 -->
+    <!-- 底部：伪 3D 凹陷工作台（S 形金色拱缘 / 肖像 / 筹码胶囊 / 操作区） -->
     <view class="tray">
+      <view class="tray-rim"></view>
+
       <view class="tray-left">
-        <view class="avatar me-avatar"><text>你</text></view>
+        <view class="portrait-frame">
+          <view class="portrait-rays"></view>
+          <view class="portrait"></view>
+          <view class="portrait-gem"></view>
+        </view>
         <view class="score-disc">
           <text class="score-num">{{me.points}}</text>
           <text class="score-den">/15</text>
@@ -127,30 +140,31 @@
         </view>
       </view>
 
-      <view class="tray-mid">
-        <view class="tray-line">
-          <text class="tray-label">持有筹码 {{me.totalTokens}}/10</text>
-          <view class="tray-tokens">
-            <view wx:for="{{me.tokens}}" wx:key="key"
-                  class="tray-token {{item.zero ? 'is-zero' : ''}} {{needDiscard ? 'can-discard' : ''}}"
-                  style="{{item.style}}" bindtap="onTapMyToken" data-key="{{item.key}}">
-              <text style="color:{{item.ink}}">{{item.count}}</text>
-            </view>
-          </view>
+      <view class="tray-vault">
+        <view class="vault-total">
+          <text class="vault-total-num">{{me.totalTokens}}</text>
+          <text class="vault-total-den">/10</text>
         </view>
-        <view class="tray-line">
-          <text class="tray-label">宝石红利</text>
-          <view class="disc-list">
-            <view wx:for="{{me.discounts}}" wx:key="key" class="disc-chip" style="{{item.style}}">
-              <text>{{item.num}}</text>
-            </view>
-            <text wx:if="{{me.discounts.length === 0}}" class="disc-empty">购入发展卡后自动抵扣成本</text>
+        <view class="vault-tokens">
+          <view wx:for="{{me.tokens}}" wx:key="key"
+                class="vault-token {{item.zero ? 'is-zero' : ''}} {{needDiscard ? 'can-discard' : ''}}"
+                bindtap="onTapMyToken" data-key="{{item.key}}">
+            <view class="vault-token-glow" style="{{item.style}}"></view>
+            <text class="vault-token-num" style="color:{{item.ink}}">{{item.count}}</text>
           </view>
         </view>
       </view>
 
-      <view class="tray-actions">
-        <text class="hint {{needDiscard ? 'hint-warn' : ''}}">{{hintText}}</text>
+      <view class="tray-right">
+        <view class="tray-meta">
+          <text class="hint {{needDiscard ? 'hint-warn' : ''}}">{{hintText}}</text>
+          <view class="disc-list">
+            <view wx:for="{{me.discounts}}" wx:key="key" class="disc-chip" style="{{item.style}}">
+              <text>{{item.num}}</text>
+            </view>
+            <text wx:if="{{me.discounts.length === 0}}" class="disc-empty">红利 —</text>
+          </view>
+        </view>
         <view class="btn-row">
           <view class="btn btn-primary {{canConfirm ? '' : 'btn-off'}}" bindtap="onConfirmTake">{{confirmLabel}}</view>
           <view class="btn" bindtap="onCancelSelection">清除</view>

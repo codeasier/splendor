@@ -69,6 +69,8 @@ function cardVM(state, card) {
     gemLabel: META[card.gem].label,
     gemStyle: gemStyle(card.gem),
     // 卡面插画按「产出宝石色系 × 场景变体」索引：15 张矢量插画，主色与红利色一致
+    // 确定性微旋转：模拟实体卡牌随手摆放在绒布上的轻微歪斜（伪 3D）
+    tiltStyle: 'transform:rotate(' + (((card.art % 5) - 2) * 0.55).toFixed(2) + 'deg);',
     artClass: 'art-' + (GEMS.indexOf(card.gem) * 3 + (card.art % 3)),
     costs: costs,
     affordable: E.canBuy(state, 0, card)
@@ -181,10 +183,12 @@ function buildViewModel(state, ui, layout) {
     });
   }
 
-  const bankPiles = ALL.map(function (g) {
+  const bankPiles = ALL.map(function (g, i) {
     const count = state.bank[g];
     return {
       key: g,
+      slot: i,
+      slotClass: 'pile-slot-' + i,
       label: META[g].label,
       count: count,
       style: gemStyle(g),
@@ -222,7 +226,7 @@ function buildViewModel(state, ui, layout) {
   } else if (ui.toast) {
     hint = ui.toast;
   } else {
-    hint = '点选右侧宝石筹码后确认拿取，或点击卡牌购买 / 预留';
+    hint = '选筹码后确认拿取，或点击卡牌购买 / 预留';
   }
 
   let statusText;
