@@ -138,7 +138,10 @@ let optHtml = a.host.innerHTML;
 assert(optHtml.indexOf('is-buyable') > 0, '筹码足够的卡应带绿光类名');
 assert(optHtml.indexOf('reserved-rail') > 0, '桌面最左侧应有预留区');
 assert(optHtml.indexOf('reserved-tag') > 0, '预留区应有竖排「预留」标签');
-assert((optHtml.match(/vault-cell/g) || []).length >= 11, '工作台应有 5 个红利格 + 6 个筹码格');
+assert((optHtml.match(/vault-sq/g) || []).length >= 5, '工作台应有 5 个方形永久折扣除');
+assert((optHtml.match(/vault-coin/g) || []).length >= 6, '工作台应有 5 色 + 黄金共 6 个圆形筹码格');
+assert(optHtml.indexOf('永久折扣') > 0 && optHtml.indexOf('持有筹码') > 0, '两行要各自标注名称');
+assert(optHtml.indexOf('我的筹码') > 0, '筹码总量要写明归属「我的筹码」');
 assert(optHtml.indexOf('尚无永久红利') < 0, '红利行应固定 5 色，不再用文字占位');
 // 号位标注 + 换手全屏提醒
 assert(optHtml.indexOf('class="seat-no') > 0, '席位条应带号位徽章');
@@ -146,13 +149,13 @@ assert(optHtml.indexOf('portrait-seat') > 0, '本机工作台应标出自己的�
 assert((optHtml.match(/号位/g) || []).length >= 3, '号位文案应出现在席位 / 工作台 / 状态行');
 assert(optHtml.indexOf('turn-flash') > 0, '轮到自己时应弹全屏换手提醒');
 assert(optHtml.indexOf('轮到你出牌') > 0, '换手提醒应写明「轮到你出牌」');
-// 对手席位卡概览：6 列分组（红利在上 / 筹码在下，逐色对齐）+ 黄金列放预购数
-assert(optHtml.indexOf('seat-grid') > 0, '席位卡应有 6 列分组网格');
-assert(optHtml.indexOf('seat-mini-disc') > 0, '席位卡应有红利格');
-assert(optHtml.indexOf('seat-mini-coin') > 0, '席位卡应有筹码格');
-assert((optHtml.match(/class="seat-col"/g) || []).length === 6, '单个对手应渲染 6 列');
-assert(optHtml.indexOf('seat-tags') > 0, '两行应带「红 / 筹」行标');
-assert(optHtml.indexOf('is-res') > 0 && optHtml.indexOf('seat-res-num') > 0, '黄金列应显示预购数');
+// 对手席位卡：三行结构（头像+昵称+号位+声望 / 五色永久折扣 / 五色筹码+黄金+预购）
+assert((optHtml.match(/class="seat-row"/g) || []).length === 2, '席位卡应有折扣行与筹码行两行');
+assert((optHtml.match(/class="seat-sq/g) || []).length === 5, '折扣行应固定 5 个方形格');
+assert((optHtml.match(/class="seat-coin/g) || []).length === 6, '筹码行应为 5 色 + 黄金共 6 个圆形格');
+assert(optHtml.indexOf('seat-row-tag') > 0, '两行应带「折 / 筹」行标');
+assert(optHtml.indexOf('seat-res') > 0 && optHtml.indexOf('seat-res-num') > 0, '筹码行末尾应显示预购数');
+assert(optHtml.indexOf('seat-score') > 0, '席位卡应有独立声望数字');
 
 const giveGem = GEM_KEYS.filter(function (g) { return printedCost[g] > 0; })[0];
 p3.state.players[0].tokens[giveGem] -= 1;
@@ -192,12 +195,47 @@ click('onShowRules');
 assert(a.host.innerHTML.indexOf('玩法速览') > 0, '规则弹层应渲染');
 click('onCloseRules');
 click('onTapCard', { lv: 2, index: 0 });
-assert(a.host.innerHTML.indexOf('购买此卡') > 0, '卡牌详情弹层应渲染');
+assert(a.host.innerHTML.indexOf('逐色实付') > 0, '卡牌详情弹层应渲染成本明细');
+assert(a.host.innerHTML.indexOf('工作台右下的主按钮') > 0, '弹层应说明主操作在工作台');
 click('onCloseDetail');
 click('onShowReserved');
 assert(a.host.innerHTML.indexOf('我的预留卡') > 0, '预留卡弹层应渲染');
 click('onCloseReserved');
 console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
+
+// 4.0 选篮门禁与「-」放回按钮（编译产物必须真的渲染出 catchtap 节点）
+click('onTapPile', { key: 'white' });
+assert(page.data.canConfirm === false, '只选 1 枚不可确认');
+assert(a.host.innerHTML.indexOf('data-catchtap="onRemovePile"') > 0, '已选筹码堆应渲染「-」按钮');
+assert(a.host.innerHTML.indexOf('class="pile-minus"') > 0, '「-」按钮样式类应渲染');
+const bankAtSelect = page.state.bank.white;
+click('onConfirmTake');
+assert(page.state.bank.white === bankAtSelect, '未凑满时误触确认不应扣筹码');
+click('onRemovePile', { key: 'white' });
+assert(page.ui.selectedGems.length === 0, '「-」应放回已选筹码');
+assert(a.host.innerHTML.indexOf('data-catchtap="onRemovePile"') < 0, '放回后「-」按钮应消失');
+click('onTapPile', { key: 'white' });
+click('onTapPile', { key: 'blue' });
+assert(page.data.canConfirm === false, '2 个不同色不可确认');
+click('onTapPile', { key: 'green' });
+assert(page.data.canConfirm === true, '凑满 3 色才可确认');
+click('onCancelSelection');
+console.log('交互链路：选篮门禁 / 「-」放回 / 3 色放行 OK');
+
+// 4.05 待确认摘要：勾选后必须能读到「本次拿取」与「确认后 n/10 → m/10」
+click('onTapPile', { key: 'white' });
+click('onTapPile', { key: 'blue' });
+let summaryHtml = a.host.innerHTML;
+assert(summaryHtml.indexOf('pick-kind') > 0, '工作台应有待确认摘要区');
+assert(summaryHtml.indexOf('本次拿取') > 0, '选中后应显示「本次拿取」明细');
+assert(summaryHtml.indexOf('确认后') > 0, '摘要应给出确认后的总量');
+assert(summaryHtml.indexOf('pick-total-num is-next') > 0, '应并排显示变化后的数值');
+assert(summaryHtml.indexOf('pick-delta') > 0, '应有独立的 +n 增量标记');
+assert(summaryHtml.indexOf('确认拿取 2 枚') < 0, '未凑满时按钮文案不应谎报可提交');
+click('onCancelSelection');
+summaryHtml = a.host.innerHTML;
+assert(summaryHtml.indexOf('未选择筹码') > 0, '清除后摘要应回到空态');
+console.log('交互链路：待确认摘要 · 本次拿取 / 确认后总量 / 清除回空态 OK');
 
 // 4) 模拟真实点击：选取筹码 -> 确认拿取
 const before = page.state.bank.white;

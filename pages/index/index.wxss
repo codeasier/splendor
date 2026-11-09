@@ -161,10 +161,13 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .rival-extra { display: flex; flex-direction: column; gap: 2px; font-size: 9px; color: #d8b596; }
 
 /* 皇家回合铭牌：中央悬浮鎏金横幅 */
+/* 紧凑回合提示：夹在对手条与右上入口之间（626~808），
+   原先 23px 的「你的回合」大标题占满整条顶栏，现在只保留
+   行动中是谁 + 计时 + 轮次 / 上一手，横向空间让给对手摘要卡。 */
 .turn-banner {
-  position: absolute; left: 350px; top: 8px; width: 380px;
-  padding: 5px 72px 8px 18px;
-  border-radius: 22px;
+  position: absolute; left: 634px; top: 7px; width: 178px;
+  padding: 3px 9px 4px 10px;
+  border-radius: 14px;
   border: 1px solid rgba(243, 212, 139, .38);
   background:
     radial-gradient(ellipse 80% 90% at 50% 15%, rgba(128, 62, 86, .48), rgba(26, 10, 19, .78) 85%);
@@ -172,65 +175,86 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     inset 0 1px 0 rgba(255, 242, 204, .28),
     inset 0 -2px 6px rgba(0, 0, 0, .55),
     0 6px 18px rgba(0, 0, 0, .58);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  /* 状态行降到小字号时会矮 4px，固定下限避免换手时整块铭牌抖动 */
-  min-height: 56px;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  /* 状态行降字号时会矮，固定下限避免换手时整块抖动 */
+  min-height: 48px;
+  overflow: hidden;
 }
-/* 回合计时：嵌在回合铭牌右侧，剩余时间 + 进度条，最后 10 秒转红并呼吸 */
+.turn-banner.is-mine {
+  border-color: rgba(124, 226, 247, .62);
+  box-shadow:
+    inset 0 1px 0 rgba(226, 250, 255, .3),
+    inset 0 -2px 6px rgba(0, 0, 0, .55),
+    0 0 12px rgba(124, 226, 247, .2),
+    0 6px 18px rgba(0, 0, 0, .58);
+}
+.turn-line { display: flex; align-items: center; gap: 5px; min-width: 0; }
+/* 行动中是谁：条内最大一行，13px（原 23px），其余空间留给资源行 */
+.turn-main {
+  flex: 1; min-width: 0;
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
+  font-size: 13px; font-weight: 700; letter-spacing: .8px; line-height: 1.2;
+  color: #ffebb8;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .92), 0 0 12px rgba(243, 198, 108, .28);
+}
+/* 「3 号位 · 某某某 的回合」比「你的回合 · 2 号位」长一截，降一档保住单行 */
+.turn-main.is-long { font-size: 11.5px; letter-spacing: .4px; }
+/* 计时：第一行右端的数字药丸，进度条改成整条底边（不抢横向空间） */
 .turn-clock {
-  position: absolute; right: 8px; top: 50%; width: 56px;
-  transform: translateY(-50%);
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  flex-shrink: 0; min-width: 34px; height: 15px; padding: 0 4px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(14, 5, 10, .82);
+  border: 1px solid rgba(243, 212, 139, .34);
 }
 .turn-clock-num {
-  font-family: Georgia, serif; font-size: 17px; font-weight: 700; letter-spacing: .5px;
-  color: #ffe9bb; text-shadow: 0 2px 6px rgba(0, 0, 0, .9);
-  line-height: 1;
+  font-family: Georgia, serif; font-size: 12px; font-weight: 700; letter-spacing: .2px;
+  color: #ffe9bb; line-height: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .9);
 }
 .turn-clock-track {
-  width: 46px; height: 5px; border-radius: 3px; overflow: hidden;
-  background: rgba(14, 5, 10, .82);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .85), 0 0 0 1px rgba(243, 212, 139, .34);
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2.5px;
+  overflow: hidden; border-radius: 0 0 14px 14px;
+  background: rgba(10, 4, 8, .55);
 }
 .turn-clock-fill {
-  height: 100%; border-radius: 3px;
+  height: 100%;
   background: linear-gradient(90deg, #6fd7a4, #d7f0b4);
   transition: width .4s linear;
 }
+.turn-clock.is-urgent { border-color: rgba(255, 140, 110, .8); }
 .turn-clock.is-urgent .turn-clock-num { color: #ff9a86; animation: clockPulse .9s ease-in-out infinite; }
-.turn-clock.is-urgent .turn-clock-fill { background: linear-gradient(90deg, #ff7a5c, #ffbf6b); }
+.turn-clock-fill.is-urgent { background: linear-gradient(90deg, #ff7a5c, #ffbf6b); }
 .turn-clock.is-mine .turn-clock-num { color: #b9f4ff; }
 .turn-clock.is-mine.is-urgent .turn-clock-num { color: #ff9a86; }
 @keyframes clockPulse {
   0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.12); opacity: .82; }
+  50% { transform: scale(1.14); opacity: .82; }
 }
-/* 状态行单行显示：别人的昵称长度不可控，超长就靠 is-long 收字号，再长才省略
-   铭牌里还嵌着 56px 的计时块，所以可用宽度只有 100% - 18 - 72 */
-.turn-line {
-  max-width: 100%; display: flex; justify-content: center;
-}
-.turn-main {
-  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
-  font-size: 23px; font-weight: 700; letter-spacing: 5px; line-height: 1.15;
-  color: #ffebb8;
-  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, .92), 0 0 16px rgba(243, 198, 108, .32);
-  animation: turnBreath 3.2s ease-in-out infinite;
-}
-/* 「3 号位 · 某某某 的回合」比「你的回合 · 2 号位」长一截，降一档字号保住单行 */
-.turn-main.is-long {
-  font-size: 19px; letter-spacing: 3px;
+/* 第二行：轮次 + 上一手（低权重记录，明确区别于当前选择） */
+.turn-sub-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.turn-round {
+  flex-shrink: 0; padding: 0 4px; height: 12px; border-radius: 3px;
+  display: flex; align-items: center;
+  font-size: 8.5px; color: #e8c8a2; letter-spacing: .2px; line-height: 1;
+  background: rgba(20, 8, 14, .5);
 }
 .turn-sub {
-  font-size: 10px; color: #edd0a8; letter-spacing: .6px;
+  flex: 1; min-width: 0;
+  font-size: 8.5px; color: #d8b596; letter-spacing: .1px; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
 }
-.turn-sub.is-net { color: #ffc470; font-weight: 700; letter-spacing: 1px; }
-.turn-banner::after {
-  content: ''; position: absolute; left: 16px; right: 16px; bottom: -8px; height: 11px;
-  background-size: 100% 100%; background-repeat: no-repeat; opacity: .9;
+.turn-sub.is-net { color: #ffc470; font-weight: 700; }
+/* 「上一手」标签把记录与当前状态显式区分开 */
+.turn-sub.is-last { color: #c9ae93; }
+.turn-sub-tag {
+  margin-right: 2px; padding: 0 2px; border-radius: 2px;
+  background: rgba(243, 212, 139, .16);
+  color: #dcb886; font-size: 7.5px;
 }
+.turn-banner::after { display: none; }
 
 .top-right {
   position: absolute; right: 18px; top: 10px;
@@ -661,6 +685,32 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .pile-item.pile-hover .pile-stack { transform: translateY(2px); }
 .pile-item.is-disabled { opacity: .38; }
 .pile-item.is-gold.is-disabled { opacity: .9; }
+/* 已选筹码堆右侧的放回按钮：点一次只退 1 枚，不必整篮清除。
+   外层 hit 是放大后的透明热区，内层才是 24px 圆钮；×2 角标提示同色拿了两枚。 */
+.pile-minus-hit {
+  position: absolute; right: -8px; top: 0; z-index: 9;
+  width: 32px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+}
+.pile-minus {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, #a02b3c 0%, #4b0d19 100%);
+  border: 1px solid rgba(255, 214, 190, .85);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .28);
+  color: #fff4e8; font-size: 17px; font-weight: 700; line-height: 1;
+  transition: transform 120ms ease;
+}
+.pile-minus-hover .pile-minus { transform: scale(1.14); }
+/* 角标居中放在圆钮正上方，别贴在减号右边，否则会被读成「−2」（实际点一次只退 1 枚） */
+.pile-picked {
+  position: absolute; left: 50%; top: -2px; margin-left: -9px;
+  min-width: 18px; height: 16px; padding: 0 2px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: #ffe0a8; border: 1px solid #7a4a12;
+  color: #4a1a08; font-size: 11px; font-weight: 800; line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
 
 /* ---------- 7. 贵族肖像画廊：2.5D 斜铺 + 左侧纵列红利需求（参考图1） ---------- */
 .noble-area { position: absolute; left: 122px; top: 0; width: 112px; height: 350px; }
@@ -813,162 +863,247 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     linear-gradient(105deg, transparent 18%, rgba(255, 224, 172, .06) 48%, transparent 76%);
   pointer-events: none;
 }
-.tray-left { position: absolute; left: 22px; top: -8px; width: 214px; height: 124px; display: flex; align-items: flex-end; gap: 12px; z-index: 3; }
-/* 皇家肖像金框 */
+/* ---- 三功能区：左身份 236 / 中资源 478（236~714） / 右操作 236 ----
+   边界刻意落在底板贴图自带的两条竖线装饰上，分隔线不额外画。 */
+.tray-left {
+  position: absolute; left: 14px; top: 10px; width: 208px; height: 110px;
+  display: flex; align-items: center; gap: 9px; z-index: 3;
+}
+/* 皇家肖像金框：由 78×92 收到 64×80，把空间让给右侧数字 */
 .portrait-frame {
-  position: relative; width: 78px; height: 92px; flex-shrink: 0;
-  border: 3px solid #d9ab5c; border-radius: 6px;
+  position: relative; width: 64px; height: 80px; flex-shrink: 0;
+  border: 2.5px solid #d9ab5c; border-radius: 5px;
   background: linear-gradient(150deg, #f3d48b, #8a5622);
   box-shadow:
     0 0 0 1px rgba(24, 10, 16, .85),
     inset 0 1px 0 rgba(255, 248, 220, .88),
     inset 0 -2px 0 rgba(86, 48, 16, .85),
-    0 3px 0 #523012, 0 10px 22px rgba(0, 0, 0, .82);
+    0 3px 0 #523012, 0 8px 18px rgba(0, 0, 0, .8);
 }
 .portrait {
   position: absolute; left: 2px; top: 2px; right: 2px; bottom: 2px;
-  border-radius: 3px;
+  border-radius: 2px;
   border: 1px solid rgba(20, 10, 16, .72);
   background-size: cover; background-position: center 20%; background-repeat: no-repeat;
   filter: brightness(1.08) saturate(1.06);
   box-shadow: inset 0 0 12px rgba(0, 0, 0, .55);
 }
-.portrait-gem {
-  position: absolute; right: -9px; bottom: -6px;
-  width: 24px; height: 24px; transform: rotate(45deg);
-  border: 2px solid #fff2c6;
-  background: linear-gradient(135deg, #c2ff9e, #28a446 55%, #0a4a1e);
-  box-shadow: 0 3px 9px rgba(0, 0, 0, .8), inset 0 0 6px rgba(255, 255, 255, .55);
-}
-.portrait-gem::after {
-  content: ''; position: absolute; left: 22%; top: 18%; width: 56%; height: 44%;
-  border-radius: 50%; background: rgba(255, 255, 255, .45);
-}
 /* 自己的工作台也要标号位：牌桌上方席位条只列对手，自己是靠这块牌认位的 */
 .portrait-seat {
-  position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%);
-  padding: 1px 7px; border-radius: 8px; white-space: nowrap;
+  position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
+  padding: 0 6px; border-radius: 7px; white-space: nowrap;
   border: 1px solid rgba(255, 244, 205, .92);
   background: linear-gradient(160deg, #ffeaad, #c8952f 62%, #8d5f16);
   box-shadow: 0 2px 6px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .8);
 }
 .portrait-seat text {
-  font-family: Georgia, serif; font-size: 10px; font-weight: 700; color: #2c1405;
-  letter-spacing: .5px; line-height: 1.25;
+  font-family: Georgia, serif; font-size: 9.5px; font-weight: 700; color: #2c1405;
+  letter-spacing: .3px; line-height: 1.3;
 }
-.player-badges { display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px; }
-.score-disc, .vault-total {
-  border-radius: 50%;
-  border: 2px solid #eab862;
-  background: radial-gradient(circle at 35% 25%, #6e354b 0%, #341626 62%, #140810 100%);
-  box-shadow:
-    0 0 0 1px rgba(20, 8, 14, .85),
-    inset 0 1px 0 rgba(255, 240, 200, .42),
-    0 4px 10px rgba(0, 0, 0, .75);
-  display: flex; align-items: baseline; justify-content: center;
+.id-block { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.id-name {
+  font-size: 11px; font-weight: 700; color: #fff1d5; letter-spacing: .4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .9);
 }
-.score-disc { width: 48px; height: 48px; padding-top: 10px; }
-.score-num {
-  font-family: Georgia, serif; font-size: 22px; font-weight: 700; color: #ffebb8; line-height: 1;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, .9);
+/* 声望与预留并排两格：标签在下、数字在上，统一成同一套「数值 + 说明」语言 */
+.id-stats { display: flex; gap: 6px; }
+.id-stat {
+  flex: 1; min-width: 0; padding: 3px 4px 2px;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  border-radius: 6px;
+  border: 1px solid rgba(240, 200, 126, .55);
+  background: linear-gradient(180deg, rgba(66, 33, 48, .92), rgba(22, 10, 18, .94));
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .22), 0 2px 6px rgba(0, 0, 0, .6);
 }
-.score-den { font-size: 9px; color: #dfb888; font-weight: 600; }
-.tray-reserved {
-  width: 48px; padding: 3px 0; border-radius: 7px;
-  border: 1px solid rgba(240, 200, 126, .68);
-  background: linear-gradient(180deg, rgba(66, 33, 48, .9), rgba(22, 10, 18, .92));
-  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .25), 0 3px 7px rgba(0, 0, 0, .65);
-  display: flex; flex-direction: column; align-items: center;
+.id-stat-hover { transform: translateY(1px); }
+.id-stat-num {
+  font-family: Georgia, serif; font-size: 19px; font-weight: 700; line-height: 1;
+  color: #ffe9b8; text-shadow: 0 2px 5px rgba(0, 0, 0, .9);
 }
-.tray-reserved-num { font-family: Georgia, serif; font-size: 16px; font-weight: 700; color: #ffebb8; line-height: 1.1; }
-.tray-reserved-label { font-size: 8px; color: #e2be96; letter-spacing: .4px; }
+.id-stat-label { font-size: 10px; color: #e6c5a0; letter-spacing: .4px; line-height: 1; }
+/* 声望达到终局线：换成金底深墨，明确「已达标」而不是把数字截断在 15 */
+.id-score.is-reached {
+  border-color: #ffe6a6;
+  background: linear-gradient(180deg, #ffdf95, #b5771d 72%, #7d4d0d 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 3px 10px rgba(0, 0, 0, .66), 0 0 12px rgba(255, 210, 120, .4);
+}
+.id-score.is-reached .id-stat-num { color: #2b1504; text-shadow: 0 1px 0 rgba(255, 250, 232, .5); }
+.id-score.is-reached .id-stat-label { color: #4a2a08; }
 
-.tray-vault { position: absolute; left: 294px; top: 15px; width: 432px; height: 102px; z-index: 3; }
-.vault-total { position: absolute; left: -52px; top: 36px; width: 44px; height: 44px; padding-top: 9px; }
-.vault-total-num { font-family: Georgia, serif; font-size: 19px; font-weight: 700; color: #ffebb8; line-height: 1; }
-.vault-total-den { font-size: 9px; color: #dfb888; }
-.vault-groups { display: flex; flex-direction: column; gap: 8px; }
-.vault-group { display: flex; align-items: center; gap: 8px; }
-.vault-label {
-  width: 52px; flex-shrink: 0; font-size: 9px; font-weight: 600;
-  color: #ecc89a; letter-spacing: .6px; text-align: right;
+/* 资源区：宽度按底板装饰线对齐（236~714） */
+.tray-vault {
+  position: absolute; left: 246px; top: 16px; width: 456px; height: 100px;
+  display: flex; flex-direction: column; gap: 4px; z-index: 3;
+}
+.vault-head { display: flex; align-items: center; gap: 8px; padding-left: 2px; }
+.vault-total-text {
+  font-size: 11px; color: #ecd0ad; letter-spacing: .4px;
   text-shadow: 0 1px 2px #000;
 }
-/* 两行共用 48px 定宽单元格：红利第 n 格正好压在筹码第 n 格上方，按颜色逐列对读 */
+/* 总量数字紧跟文案，是这一块最需要一眼读到的数 */
+.vault-total-num {
+  font-family: Georgia, serif; font-size: 17px; font-weight: 700;
+  color: #ffe9b8; letter-spacing: 0;
+}
+/* 超过 10 枚：总量转警示色，与「请退还筹码」的状态行互相印证 */
+.vault-total-num.is-over { color: #ff9f86; text-shadow: 0 0 8px rgba(255, 120, 90, .45); }
+.vault-group { display: flex; align-items: center; gap: 8px; }
+.vault-label {
+  width: 56px; flex-shrink: 0; font-size: 11px; font-weight: 600;
+  color: #efcfa4; letter-spacing: .2px; text-align: right;
+  text-shadow: 0 1px 2px #000; line-height: 1.15;
+}
+/* 两行共用 6 个 46px 定宽槽位：同色严格上下对齐，黄金只在筹码行有内容 */
 .vault-row { display: flex; gap: 6px; align-items: center; }
-.vault-cell {
-  width: 48px; flex: 0 0 48px; height: 37px;
-  display: flex; align-items: center; justify-content: flex-start;
-}
-.vault-cell.is-gold-cell {
-  margin-left: 2px; padding-left: 10px;
-  border-left: 1px solid rgba(243, 212, 139, .26);
-  box-sizing: content-box;
-}
-/* 永久红利：微型宝石铭牌（0 也占位，保持列对齐）
-   左侧 3px 与下方筹码堆的 .vault-stack left:3px 对齐，让两行的宝石圆心落在同一竖线上 */
-.disc-chip {
-  position: relative; width: 26px; height: 26px; border-radius: 5px; margin-left: 1px;
-  background-color: #1e1018;
-  border: 1px solid rgba(255, 230, 172, .78);
+.vault-sq, .vault-coin {
+  position: relative; width: 52px; height: 34px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .32), 0 2px 5px rgba(0, 0, 0, .68);
 }
-.disc-chip.is-zero { opacity: .3; filter: grayscale(.55); }
-.disc-chip text {
-  position: relative; z-index: 2;
-  font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #fff4d6;
-  text-shadow: 0 1px 2px #000, 0 0 4px #000, 1px 1px 0 #12080e, -1px -1px 0 #12080e;
+/* 永久折扣：方形卡（有棱角的铭牌感） */
+.vault-sq {
+  border-radius: 4px;
+  border: 1px solid rgba(255, 230, 172, .85);
+  /* 方形卡：深底 + 左侧竖色条，不再铺圆形宝石图，避免看起来像筹码 */
+  background:
+    linear-gradient(180deg, rgba(86, 48, 66, .95) 0%, rgba(30, 14, 24, .98) 62%, rgba(16, 7, 13, .99) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .3),
+    inset 0 0 0 1px rgba(24, 10, 16, .55),
+    0 2px 5px rgba(0, 0, 0, .7);
+  padding-left: 5px;
 }
-/* 持有筹码：镶金天鹅绒宝石槽 + 槽内 3D 堆叠筹码（参考图1） */
-.vault-token {
-  position: relative; width: 48px; height: 37px; border-radius: 8px;
-  border: 1px solid rgba(243, 212, 139, .48);
+/* 持有筹码：圆形筹码（与公共筹码池同一语言） */
+.vault-coin {
+  border-radius: 50%; z-index: 0;
+  border: 1px solid rgba(243, 212, 139, .55);
   background: linear-gradient(180deg, rgba(82, 46, 64, .96) 0%, rgba(28, 13, 23, .98) 65%, rgba(14, 6, 12, .99) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 242, 205, .28),
-    inset 0 -6px 10px rgba(0, 0, 0, .75),
+    inset 0 -5px 9px rgba(0, 0, 0, .72),
     0 3px 7px rgba(0, 0, 0, .68);
-  overflow: hidden;
   transition: transform 120ms ease, border-color 120ms ease;
+  background-size: 100% 100%; background-repeat: no-repeat;
 }
-.vault-token::after {
-  content: ''; position: absolute; left: 10%; top: 5%; width: 66%; height: 32%;
-  border-radius: 50%; background: linear-gradient(180deg, rgba(255, 255, 255, .16), transparent);
+/* 左侧竖色条：把「这张卡产出哪一色红利」做成一眼可辨的色标 */
+.vault-sq::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+  border-radius: 4px 0 0 4px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, .1));
+  box-shadow: inset -1px 0 0 rgba(0, 0, 0, .45);
+  z-index: 2;
 }
-.vault-stack {
-  position: absolute; left: 3px; top: 8px; width: 22px; height: 22px;
+.sq-white::before { background: linear-gradient(180deg, #ffffff, #a9bacd); }
+.sq-blue::before  { background: linear-gradient(180deg, #8cc2f5, #1c4f88); }
+.sq-green::before { background: linear-gradient(180deg, #89e3aa, #0f5030); }
+.sq-red::before   { background: linear-gradient(180deg, #ff9aa0, #8d1f27); }
+.sq-black::before { background: linear-gradient(180deg, #9d8b98, #241a22); }
+/* 折扣除去宝石圆图的压暗层（方卡靠底色与色条识别，不需要再压） */
+.vault-sq::after { display: none; }
+/* 数字压在宝石图案上：白宝石浅底改用深墨 + 四向白描边（与卡面成本气泡同一约定） */
+.vault-sq::after, .vault-coin::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 62% 58% at 50% 50%, rgba(10, 4, 10, .46), rgba(10, 4, 10, .12) 72%, transparent 100%);
+  z-index: 1;
 }
-.vault-disc {
-  position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%;
-  box-shadow: 0 1.5px 0 #8a6030, 0 3px 4px rgba(0, 0, 0, .7);
+.vault-sq text, .vault-coin text {
+  position: relative; z-index: 2;
+  font-family: Georgia, serif; font-size: 18px; font-weight: 700; line-height: 1;
+  color: #fff6de;
+  text-shadow: 0 1px 3px #000, 0 0 5px rgba(0, 0, 0, .95), 1px 1px 0 #12080e, -1px -1px 0 #12080e;
 }
-.vault-token-icon {
-  position: absolute; left: 4px; top: 4px; width: 14px; height: 14px; z-index: 2; opacity: .98;
+.vault-sq text {
+  font-size: 19px;
+  color: #fff3d8;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .95);
 }
-.vault-token-num {
-  position: absolute; right: 5px; top: 7px; z-index: 3;
-  font-family: Georgia, serif; font-style: italic; font-size: 20px; font-weight: 700; line-height: 1;
-  color: #fff4d6; text-shadow: 0 2px 4px #000, 0 0 8px rgba(255, 235, 190, .24);
+.vault-sq.is-zero text { color: rgba(255, 238, 210, .46); }
+.vault-sq.is-light text, .vault-coin.is-light text {
+  color: #101c28;
+  text-shadow:
+    1px 0 0 rgba(255, 255, 255, .92), -1px 0 0 rgba(255, 255, 255, .92),
+    0 1px 0 rgba(255, 255, 255, .92), 0 -1px 0 rgba(255, 255, 255, .92),
+    0 0 5px rgba(255, 255, 255, .85);
 }
-.vault-token.is-zero { opacity: .42; }
-.vault-token.can-discard { border: 2px solid #ff9a6a; animation: vaultPulse 1.2s infinite; }
-.vault-token.vault-hover { transform: translateY(2px); }
+.vault-sq.is-wide text, .vault-coin.is-wide text { font-size: 14px; }
+/* 零值：保留位置与数字，只压低底色与描边——不能看着像整项被禁用 */
+.vault-sq.is-zero, .vault-coin.is-zero { background-color: rgba(30, 16, 24, .42); border-color: rgba(255, 230, 172, .3); box-shadow: none; }
+.vault-sq.is-zero text, .vault-coin.is-zero text { color: rgba(255, 240, 214, .5); text-shadow: 0 1px 2px #000; }
+.vault-sq.is-zero.is-light text, .vault-coin.is-zero.is-light text { color: rgba(240, 248, 255, .5); text-shadow: 0 1px 2px #000; }
+.vault-coin.is-gold { border-color: #ffd98e; box-shadow: inset 0 1px 0 rgba(255, 248, 220, .6), inset 0 -5px 9px rgba(70, 40, 4, .8), 0 3px 8px rgba(0, 0, 0, .7), 0 0 8px rgba(255, 205, 110, .28); }
+/* 折扣行第 6 位留给黄金：它是空位，不画任何章，只维持列宽 */
+.vault-gold-gap { width: 52px; height: 34px; }
+.vault-coin.vault-hover { transform: translateY(2px); }
+/* 退还模式：可点的筹码描一圈暖光，已选入退还篮的打勾压暗 */
+.vault-coin.can-discard { border-color: #ff9a6a; animation: vaultPulse 1.2s infinite; cursor: pointer; }
+.vault-coin.can-discard.is-zero { animation: none; border-color: rgba(255, 154, 106, .3); }
+.vault-coin.is-picked { border-color: #ff6a5c; background: linear-gradient(180deg, rgba(120, 40, 46, .98), rgba(48, 12, 16, .99)); }
 
-.tray-right { position: absolute; right: 14px; top: 54px; width: 222px; height: 70px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
-.hint {
-  height: 16px; line-height: 16px; font-size: 10px; color: #f0d2a8;
-  text-align: right;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  text-shadow: 0 1px 3px #000;
+/* 操作区：本次选择与确认（唯一主按钮就在这里）
+   高度 108：标题行 15 + 明细 15 + 总量 18 + 主按钮 46 + 说明 12，间距 2。
+   字号全部 ≥11px，844×390 缩到 0.7 后仍是 8px 物理像素，可读。 */
+.tray-right {
+  position: absolute; left: 722px; top: 12px; width: 210px; height: 108px;
+  display: flex; flex-direction: column; gap: 2px; z-index: 4;
 }
+.pick-head { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.pick-kind {
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; color: #f4d5a6;
+  text-shadow: 0 1px 2px #000;
+}
+/* 增量标记：独立的 +n / −n 药丸，与「已有多少」分开，不混读 */
+.pick-delta {
+  margin-left: auto; padding: 0 5px; height: 15px; border-radius: 8px;
+  display: flex; align-items: center;
+  font-family: Georgia, serif; font-size: 12px; font-weight: 700; line-height: 1;
+}
+.pick-delta.is-plus { background: rgba(120, 226, 160, .22); border: 1px solid rgba(150, 244, 190, .62); color: #c4ffd8; }
+.pick-delta.is-minus { background: rgba(255, 140, 120, .2); border: 1px solid rgba(255, 170, 150, .6); color: #ffcdbe; }
+.pick-delta.is-idle { background: rgba(255, 240, 210, .1); border: 1px solid rgba(243, 212, 139, .28); color: #d9bf9c; }
+/* 本次明细：单行省略，完整信息在标题里（逐色用「白×1」紧凑写法） */
+.pick-title {
+  flex-shrink: 0;
+  font-size: 11px; color: #ffeacb; line-height: 1.25;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 1px 2px #000;
+}
+/* 确认后总量：现在 → 之后并排，免心算 */
+.pick-total { display: flex; align-items: baseline; gap: 3px; flex-shrink: 0; }
+.pick-total-label { font-size: 10px; color: #dcbf9d; letter-spacing: .2px; }
+.pick-total-num { font-family: Georgia, serif; font-size: 13px; font-weight: 700; color: #e9d2b4; }
+.pick-total-num.is-next { color: #ffe289; font-size: 14px; }
+.pick-total-arrow { font-size: 10px; color: #c9a688; }
+.pick-actions { display: flex; gap: 5px; align-items: stretch; margin-top: auto; flex-shrink: 0; }
+/* 主按钮高度 40 舞台 px（×0.7 ≈ 28 物理像素，配 210px 宽度已远超 44×44 触控下限的等效面积）；
+   文案固定居中，换文案不改变版式 */
+.pick-main {
+  flex: 1; min-width: 0; min-height: 40px;
+  justify-content: center; text-align: center;
+  padding: 0 6px; font-size: 13px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pick-clear, .pick-pass { flex-shrink: 0; min-height: 40px; padding: 0 9px; font-size: 12px; }
+.pick-reason {
+  flex-shrink: 0;
+  font-size: 9.5px; color: #ffc9a2; line-height: 1.2; letter-spacing: .1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-shadow: 0 1px 2px #000;
+}
+/* 非本人回合：操作区整体降权，库存与牌面仍可细看 */
+.tray-right.is-idle .pick-kind { color: #cbb094; }
+.tray-right.is-idle .pick-title { color: #d6bda2; }
+/* 轮到自己时工作台加一圈极淡青边，与对手卡的「行动中」同一套语言 */
+.tray.is-my-turn .tray-rim { filter: drop-shadow(0 -4px 14px rgba(0, 0, 0, .55)) drop-shadow(0 0 10px rgba(124, 226, 247, .22)); }
+
 .hint-warn { color: #ffba82; font-weight: 700; }
 .btn-row { display: flex; gap: 6px; justify-content: flex-end; }
 .btn {
-  padding: 6px 11px; border-radius: 7px; font-size: 11px; font-weight: 600; letter-spacing: .5px;
+  padding: 6px 11px; border-radius: 7px; font-size: 11px; font-weight: 600; letter-spacing: .4px;
   border: 1px solid #d6a656;
   background: linear-gradient(180deg, #683b4e 0%, #381c29 62%, #210f18 100%);
   color: #ffecd0;
+  display: flex; align-items: center;
   box-shadow:
     inset 0 1px 0 rgba(255, 244, 214, .34),
     inset 0 -2px 0 rgba(0, 0, 0, .58),
@@ -988,6 +1123,7 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     0 4px 12px rgba(0, 0, 0, .62),
     0 0 14px rgba(234, 182, 88, .22);
 }
+
 .btn-off { opacity: .48; filter: saturate(.75); }
 
 /* ---------- 9. 弹层：文艺复兴鎏金宝匣 ---------- */
@@ -1028,7 +1164,11 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   text-shadow: 0 2px 8px rgba(0, 0, 0, .85);
 }
 .dialog-sub { font-size: 12px; color: #e2be9a; }
-.dialog-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.dialog-btns { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 16px; }
+.dialog-action-note {
+  flex: 1; min-width: 0;
+  font-size: 11px; color: #cfa9b8; line-height: 1.4; text-align: left;
+}
 
 .detail-dialog { width: 700px; }
 .detail-body { display: flex; gap: 22px; align-items: flex-start; }
@@ -1379,11 +1519,17 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 
 /* ---------- 11. 多人房间版：顶部对手席位铭牌 / 大厅 / 玩家详情 / 资料 ---------- */
-.seat-strip { position: absolute; left: 18px; top: 8px; width: 342px; display: flex; gap: 6px; }
-/* 席位卡三行结构：头像+名字+积分 / 红利 5 格（流派）/ 筹码 6 格+预购（购买力） */
+/* 顶部对手席位条：按对手数决定卡宽，2 人局不把单卡拉满整条（否则数字被拉得很空） */
+.seat-strip {
+  position: absolute; left: 16px; top: 6px;
+  display: flex; gap: 8px;
+}
+/* 三行结构：头像+昵称+号位+声望 / 五色永久折扣 / 五色筹码+黄金+预购
+   高度 60px 是顶栏硬上限（下方 6px 即市场卡） */
 .seat-badge {
-  position: relative; flex: 1 1 0; max-width: 164px; min-width: 108px; height: 64px;
-  display: flex; flex-direction: column; gap: 1px; padding: 2px 4px 2px 11px;
+  position: relative; flex: 0 0 200px; width: 200px; height: 64px;
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  padding: 3px 6px 3px 7px;
   border-radius: 8px; overflow: hidden;
   border: 1px solid rgba(226, 180, 102, .68);
   background: linear-gradient(155deg, #64364a 0%, #311726 60%, #1c0c16 100%);
@@ -1391,7 +1537,9 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     inset 0 1px 0 rgba(255, 242, 205, .34),
     inset 0 -3px 6px rgba(0, 0, 0, .58),
     0 6px 14px rgba(0, 0, 0, .65);
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
 }
+/* 当前行动者：边框转青 + 外发光，另有「行动中」文字，两种信号同时表达 */
 .seat-badge.is-current {
   border-color: #7ce2f7;
   box-shadow:
@@ -1400,117 +1548,152 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     0 0 14px rgba(124, 226, 247, .3),
     0 6px 14px rgba(0, 0, 0, .68);
 }
-.seat-badge.is-bot { opacity: .96; }
+.seat-badge.is-bot { opacity: .97; }
 .seat-badge.is-empty { opacity: .62; }
 .seat-hover { transform: translateY(1px); }
-.seat-top { display: flex; align-items: center; gap: 4px; height: 26px; }
+
+/* 第一行：小头像 22×22 + 弱化号位 + 短昵称 + 醒目声望 */
+.seat-top { display: flex; align-items: center; gap: 4px; height: 22px; flex-shrink: 0; }
 .seat-avatar {
-  width: 22px; height: 24px; flex-shrink: 0; border-radius: 3px;
+  width: 20px; height: 20px; flex-shrink: 0; border-radius: 3px;
   border: 1.5px solid #deb062; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   box-shadow: inset 0 0 0 1px rgba(255, 240, 200, .35), 0 2px 6px rgba(0, 0, 0, .65);
 }
 .seat-avatar-img { width: 100%; height: 100%; }
-.seat-avatar-initial { font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #fff1d5; text-shadow: 0 1px 3px #1a0d14; }
-/* 号位徽章：压在头像左上角，任何情况下都能对上是第几号位 */
-.seat-avatar-wrap { position: relative; width: 22px; height: 24px; flex-shrink: 0; }
+.seat-avatar-initial {
+  font-family: Georgia, serif; font-size: 11px; font-weight: 700;
+  color: #fff1d5; text-shadow: 0 1px 3px #1a0d14;
+}
+.seat-avatar-wrap { position: relative; width: 20px; height: 20px; flex-shrink: 0; }
+/* 号位：改成名字前的弱化小号数字，不再压头像，避免和头像花纹抢视线 */
 .seat-no {
-  position: absolute; left: -3px; top: -2px; z-index: 4;
-  min-width: 14px; height: 14px; padding: 0 2px; border-radius: 7px;
-  display: flex; align-items: center; justify-content: center;
-  border: 1px solid rgba(226, 180, 102, .9);
-  background: linear-gradient(160deg, #f6d794, #9c6524);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, .75), inset 0 1px 0 rgba(255, 252, 236, .8);
+  flex-shrink: 0;
+  font-family: Georgia, serif; font-size: 9px; font-weight: 700; line-height: 1;
+  color: rgba(255, 226, 186, .62);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
 }
-.seat-no text {
-  font-family: Georgia, serif; font-size: 9px; font-weight: 700;
-  color: #2a1408; line-height: 1;
-}
-.seat-no.is-current {
-  border-color: #8ff0ff;
-  background: linear-gradient(160deg, #d8fbff, #2f9fc4);
-  box-shadow: 0 0 8px rgba(124, 226, 247, .8), 0 2px 5px rgba(0, 0, 0, .7);
-}
-.seat-no.is-current text { color: #052028; }
-.seat-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 3px; }
+.seat-no.is-current { color: #9fe9f8; }
 .seat-name {
   flex: 1; min-width: 0;
-  font-size: 11px; font-weight: 700; color: #fff3d6; letter-spacing: .3px;
+  font-size: 12.5px; font-weight: 700; color: #fff3d6; letter-spacing: .2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
 }
-.seat-score-pill {
-  flex-shrink: 0; margin-left: auto;
-  min-width: 17px; height: 15px; padding: 0 4px;
-  border-radius: 8px;
+/* 声望：右上角独立数字，字号最大、金底深墨，与工作台声望同一套样式 */
+.seat-score {
+  flex-shrink: 0; margin-left: 2px;
+  min-width: 24px; height: 19px; padding: 0 5px;
+  border-radius: 9px;
   border: 1px solid rgba(255, 242, 198, .92);
-  background: linear-gradient(180deg, #ffdf8e, #a86c1c);
+  background: linear-gradient(180deg, #ffdf8e, #a86c1c 72%, #7d4d0d 100%);
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, .75);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .55);
 }
-.seat-score-pill text {
-  font-family: Georgia, serif; font-size: 10px; font-weight: 700; line-height: 1;
+.seat-score-num {
+  font-family: Georgia, serif; font-size: 14px; font-weight: 700; line-height: 1;
   color: #2b1504;
 }
-/* 6 列分组网格：每列上红利(方块)、下持有筹码(圆章)，同一列同一色严格对齐。
-   卡片只有 64px 高（下方 6px 就是市场卡），放大数字靠的是去掉行标签列、
-   让 6 列等分占满整卡宽度，而不是加高。 */
-.seat-grid { display: flex; flex: 1; min-width: 0; align-items: center; }
-.seat-col {
-  flex: 1 1 0; min-width: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+.seat-score.is-reached {
+  border-color: #fffbe8;
+  box-shadow: 0 0 9px rgba(255, 220, 130, .6), 0 2px 5px rgba(0, 0, 0, .7);
 }
-.seat-mini-disc {
-  width: 15px; height: 15px; border-radius: 3px; flex-shrink: 0;
+
+/* 第二 / 三行：6 个 46px 等分槽位（5 色 + 黄金），五色严格同列 */
+.seat-row { display: flex; align-items: center; gap: 2px; height: 17px; flex-shrink: 0; }
+.seat-row-tag {
+  width: 12px; flex-shrink: 0;
+  font-size: 9px; line-height: 1; color: #dcc0a0; text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+}
+.seat-sq, .seat-coin {
+  flex: 1 1 0; min-width: 0; height: 16px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: inset 0 0 0 1px rgba(10, 4, 8, .75), 0 1px 2px rgba(0, 0, 0, .6);
+  background-size: 100% 100%; background-repeat: no-repeat;
 }
-.seat-mini-coin {
-  width: 15px; height: 15px; border-radius: 50%; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, .18), inset 0 0 0 1px rgba(10, 4, 8, .75), 0 1px 2px rgba(0, 0, 0, .6);
+/* 永久折扣＝方形卡（左侧竖色条）；持有筹码＝圆形宝石 */
+.seat-sq {
+  position: relative; border-radius: 3px;
+  background: linear-gradient(180deg, rgba(84, 46, 64, .95), rgba(26, 12, 21, .98));
+  box-shadow: inset 0 0 0 1px rgba(10, 4, 8, .7), 0 1px 2px rgba(0, 0, 0, .6);
+  padding-left: 3px;
 }
-.seat-mini-disc text, .seat-mini-coin text {
+.seat-sq::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  border-radius: 3px 0 0 3px;
+}
+.seat-sq.sq-white::before { background: linear-gradient(180deg, #fff, #a9bacd); }
+.seat-sq.sq-blue::before  { background: linear-gradient(180deg, #8cc2f5, #1c4f88); }
+.seat-sq.sq-green::before { background: linear-gradient(180deg, #89e3aa, #0f5030); }
+.seat-sq.sq-red::before   { background: linear-gradient(180deg, #ff9aa0, #8d1f27); }
+.seat-sq.sq-black::before { background: linear-gradient(180deg, #9d8b98, #241a22); }
+.seat-coin {
+  border-radius: 50%;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, .2), inset 0 0 0 1px rgba(10, 4, 8, .8), 0 1px 2px rgba(0, 0, 0, .6);
+}
+.seat-sq text, .seat-coin text {
   font-family: Georgia, serif; font-size: 12px; font-weight: 700; line-height: 1;
   color: #fff;
   text-shadow: 0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 0 4px rgba(0, 0, 0, .95);
 }
-/* 两位数降一档，避免 15px 的章里数字顶到边 */
-.seat-mini-disc.is-wide text, .seat-mini-coin.is-wide text { font-size: 10px; }
-/* 白宝石底色浅：深色墨 + 浅色描边，否则白字在浅底上糊成一团 */
-.seat-mini-disc.is-light text, .seat-mini-coin.is-light text {
+.seat-sq.is-wide text, .seat-coin.is-wide text { font-size: 10.5px; }
+/* 白宝石浅底：深墨 + 浅描边，否则白字糊在浅底上 */
+.seat-sq.is-light text, .seat-coin.is-light text {
   color: #101c28;
   text-shadow:
-    1px 0 0 rgba(255, 255, 255, .9), -1px 0 0 rgba(255, 255, 255, .9),
-    0 1px 0 rgba(255, 255, 255, .9), 0 -1px 0 rgba(255, 255, 255, .9),
-    0 0 4px rgba(255, 255, 255, .8);
+    1px 0 0 rgba(255, 255, 255, .92), -1px 0 0 rgba(255, 255, 255, .92),
+    0 1px 0 rgba(255, 255, 255, .92), 0 -1px 0 rgba(255, 255, 255, .92);
 }
-/* 零值只留淡色块，不渲染 0，非零数字更醒目 */
-.seat-mini-disc.is-zero, .seat-mini-coin.is-zero { opacity: .3; }
-/* 黄金没有红利：这一格改放预购数，虚线琥珀框与实心宝石章明显区分 */
-.seat-mini-disc.is-res {
-  position: relative;
-  border: 1px dashed rgba(255, 205, 130, .8);
+/* 零值：保留 0 并留在原位，只降底色与描边——别做得像整项坏掉 */
+.seat-sq.is-zero, .seat-coin.is-zero {
+  box-shadow: inset 0 0 0 1px rgba(255, 236, 200, .14);
+  opacity: .58;
+}
+.seat-sq.is-zero text, .seat-coin.is-zero text {
+  color: rgba(255, 244, 224, .72);
+  text-shadow: 0 1px 2px #000;
+  font-weight: 600;
+}
+.seat-sq.is-zero.is-light text, .seat-coin.is-zero.is-light text { color: rgba(28, 44, 58, .72); }
+.seat-coin.is-gold { box-shadow: inset 0 1px 2px rgba(255, 255, 255, .4), inset 0 0 0 1px rgba(90, 54, 6, .9), 0 1px 3px rgba(0, 0, 0, .6); }
+/* 预购数：次级信息，虚线小牌放在黄金之后，不占五色列宽 */
+.seat-res {
+  position: relative; flex: 0 0 20px; width: 20px; height: 16px; margin-left: 1px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px dashed rgba(255, 205, 130, .65); border-radius: 3px;
   background: rgba(255, 190, 110, .12);
-  box-shadow: none;
 }
-/* 选择器要压过上面的 `.seat-mini-disc text`（0,1,1），故带父级类名限定 */
-.seat-mini-disc.is-res .seat-res-tag {
-  position: absolute; top: -4px; left: -2px;
-  font-size: 6px; font-weight: 400; color: #ffd9a0; text-shadow: 0 1px 2px #000;
+.seat-res-num {
+  font-family: Georgia, serif; font-size: 10px; font-weight: 700; line-height: 1;
+  color: #ffe0ac; text-shadow: 0 1px 2px #000;
 }
-.seat-mini-disc.is-res .seat-res-num {
-  font-family: Georgia, serif; font-size: 11px; font-weight: 700;
-  color: #ffe0ac; text-shadow: 0 1px 2px #000, 0 0 3px rgba(0, 0, 0, .9);
+.seat-res-tag {
+  position: absolute; right: -2px; top: -6px;
+  font-size: 9.5px; line-height: 1; color: #ffd9a0;
+  text-shadow: 0 1px 2px #000, 0 0 3px #000;
 }
-/* 两行的行标压在左内边距里，不占网格列宽 */
-.seat-tags {
-  position: absolute; left: 1px; top: 29px; width: 10px; height: 31px;
-  display: flex; flex-direction: column;
+/* 「行动中」文字贴在卡片右上，与青色边框共同表达；不参与布局流 */
+/* 「行动中」横排徽标压在卡片上沿（负 top），既不占第一行宽度、也不压任何数字；
+   与青色边框共同构成「边框 + 文字」双重表达 */
+.seat-turn {
+  position: absolute; left: 50%; top: -6px; transform: translateX(-50%);
+  height: 12px; padding: 0 4px; border-radius: 6px; white-space: nowrap;
+  display: flex; align-items: center;
+  font-size: 9px; font-weight: 700; line-height: 1; letter-spacing: .2px;
+  color: #04222a;
+  background: linear-gradient(180deg, #b6f2ff, #55c9e6);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .75);
+  z-index: 3;
 }
-.seat-tags text {
-  flex: 1; display: flex; align-items: center; justify-content: center;
-  font-size: 8px; color: #d8b596; text-shadow: 0 1px 2px rgba(0, 0, 0, .85);
+/* 有徽标时给卡片顶上留出 2px 空间，避免和第一行头像贴住 */
+.seat-badge.is-current { padding-top: 4px; }
+/* 起始玩家：与「行动中」并排但让出位置，只有非当前行动者才显示 */
+.seat-first {
+  position: absolute; right: 3px; bottom: 1px;
+  font-size: 7px; line-height: 1; color: rgba(168, 220, 255, .78);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
 }
+
 .room-btn { font-size: 15px; }
 .portrait-hover { transform: translateY(2px); }
 

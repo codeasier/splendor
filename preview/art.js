@@ -399,15 +399,24 @@ function brandCrestSVG() {
  * 伪 3D 桌面素材
  * ------------------------------------------------------------------ */
 
-/** 底部用户工作台：S 形拱起的皇家乌木镶金托盘（四边全包金框 + 左右雕花翼板） */
+/**
+ * 底部用户工作台：等高的皇家乌木镶金托盘。
+ *
+ * 旧版是「中间拱起」的 S 形：中央顶边升到 y=5、两侧只有 y=54，
+ * 于是左右两翼的实际可用高度只剩 74px，三功能区（身份 / 资源 / 操作）
+ * 的内容必然溢出到金框外。本版改成整条顶边等高（y=8），
+ * 三块面板都拿到 112px 的可编排高度，分隔立柱正好落在 x=236 / 714，
+ * 与 .tray-left / .tray-vault / .tray-right 的边界一一对应。
+ */
 function trayRimSVG() {
-  const outer = 'M4 124 L4 66 Q4 54 16 54 L196 54 C222 54 220 5 264 5 L686 5 C730 5 728 54 754 54 L934 54 Q946 54 946 66 L946 124 Q946 128 942 128 L8 128 Q4 128 4 124 Z';
-  const topRim = 'M6 64 Q6 54 16 54 L196 54 C222 54 220 5 264 5 L686 5 C730 5 728 54 754 54 L934 54 Q944 54 944 64';
+  const outer = 'M4 124 L4 20 Q4 8 16 8 L934 8 Q946 8 946 20 L946 124 Q946 128 942 128 L8 128 Q4 128 4 124 Z';
+  const topRim = 'M6 22 Q6 8 18 8 L932 8 Q944 8 944 22';
+  const inner = 'M14 26 Q14 16 24 16 L926 16 Q936 16 936 26 L936 118 L14 118 Z';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 130" preserveAspectRatio="none">' +
     '<defs>' +
       '<linearGradient id="well" x1="0" y1="0" x2="0" y2="1">' +
-        '<stop offset="0" stop-color="#26111e" stop-opacity=".97"/>' +
-        '<stop offset=".42" stop-color="#311626" stop-opacity=".97"/>' +
+        '<stop offset="0" stop-color="#2e1424" stop-opacity=".97"/>' +
+        '<stop offset=".38" stop-color="#33172a" stop-opacity=".97"/>' +
         '<stop offset="1" stop-color="#12070e" stop-opacity=".99"/>' +
       '</linearGradient>' +
       '<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">' +
@@ -422,19 +431,22 @@ function trayRimSVG() {
         '<stop offset="1" stop-color="#fff0c0" stop-opacity=".22"/>' +
       '</linearGradient>' +
     '</defs>' +
-    // 上缘外侧的桌布投影：让金边看起来是"压"在绒布上
+    // 上缘外侧的桌布投影：让金边看起来是「压」在绒布上
     '<path d="' + topRim + '" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="10" transform="translate(0,-4)"/>' +
-    // 凹陷主体：完整包边闭合，不再在左右两侧露出直角黑边
+    // 凹陷主体：完整包边闭合
     '<path d="' + outer + '" fill="url(#well)" stroke="url(#rim)" stroke-width="3.2"/>' +
     // 凹槽内壁阴影：金线下方一道暗边，产生深度
-    '<path d="' + topRim + '" fill="none" stroke="#000" stroke-opacity=".68" stroke-width="4.5" transform="translate(0,4.5)"/>' +
+    '<path d="' + topRim + '" fill="none" stroke="#000" stroke-opacity=".68" stroke-width="4.5" transform="translate(0,5)"/>' +
     // 顶部高光细线 + 内嵌细金线
     '<path d="' + topRim + '" fill="none" stroke="url(#sheen)" stroke-width="1.2" transform="translate(0,-1.4)"/>' +
-    '<path d="' + topRim + '" fill="none" stroke="#f3d48b" stroke-opacity=".26" stroke-width=".9" transform="translate(0,7)"/>' +
-    // 左右分区雕花立柱与中拱装饰线
-    '<path d="M236 56 V122 M714 56 V122" stroke="#f3d48b" stroke-opacity=".26" stroke-width="1.2"/>' +
-    '<path d="M236 52l4 4-4 4-4-4zM714 52l4 4-4 4-4-4zM475 1l5 4-5 4-5-4z" fill="#ffe7ad" opacity=".86"/>' +
-    '<path d="M276 52 H674" stroke="#f0cf8d" stroke-opacity=".16" stroke-width=".9"/>' +
+    '<path d="' + inner + '" fill="none" stroke="#f3d48b" stroke-opacity=".22" stroke-width="1"/>' +
+    // 三块面板的分隔立柱：位置与 .tray-left / .tray-vault / .tray-right 边界一致
+    '<path d="M236 12 V124 M714 12 V124" stroke="#f3d48b" stroke-opacity=".22" stroke-width="1.2"/>' +
+    '<path d="M236 10l4 4-4 4-4-4zM714 10l4 4-4 4-4-4z" fill="#ffe7ad" opacity=".8"/>' +
+    // 三条面板各自的顶部分区铭线，弱化但能读出「三块」
+    '<path d="M20 30 H228" stroke="#f0cf8d" stroke-opacity=".14" stroke-width=".9"/>' +
+    '<path d="M244 30 H706" stroke="#f0cf8d" stroke-opacity=".14" stroke-width=".9"/>' +
+    '<path d="M722 30 H930" stroke="#f0cf8d" stroke-opacity=".14" stroke-width=".9"/>' +
     '<path d="M16 123 H934" stroke="#e8bd72" stroke-opacity=".24" stroke-width="1"/>' +
     '</svg>';
 }

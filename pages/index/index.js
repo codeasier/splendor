@@ -12,6 +12,8 @@ const DESIGN_H = 560;
 const GEMS = D.GEMS;
 const ALL = D.ALL_TOKENS;
 const META = D.GEM_META;
+// 终局线：声望达到 15 触发最后一轮。界面按真实数值渲染，不在此截断
+const FINAL_POINTS = 15;
 
 function gemStyle(g) {
   const m = META[g];
@@ -168,6 +170,8 @@ function tokensVM(player, keys) {
 /**
  * 工作台「红利」行：固定 5 色各一格（哪怕为 0 也占位），
  * 才能和下面「持有筹码」行按颜色严格上下对齐，便于逐列做减法。
+ * 零值不再隐藏数字：0 本身是「这色还没有红利」的有效信息，
+ * 只靠减弱底色与描边降权（旧版 opacity .3 且不渲染 0，看起来像整项坏掉）。
  */
 function discountCellsVM(state, idx) {
   const disc = E.getDiscounts(state, idx);
@@ -176,7 +180,10 @@ function discountCellsVM(state, idx) {
     return {
       key: g,
       num: num,
+      numText: String(num),
       zero: num === 0,
+      wide: num >= 10,
+      light: g === 'white',
       label: META[g].label,
       gemClass: 'gem-' + g,
       style: gemStyle(g)
@@ -254,6 +261,208 @@ function nobleSlot(noble) {
   return { photoClass: 'noble-photo-' + (at % 10), artClass: 'noble-art-' + (at % 3) };
 }
 
+/** 把 gems 数组压成 [{key,label,count}]，顺序固定按白蓝绿红黑，便于逐行读数 */
+function tallyGems(gems) {
+  const out = [];
+  for (let i = 0; i < GEMS.length; i++) {
+    const g = GEMS[i];
+    let n = 0;
+    for (let k = 0; k < gems.length; k++) if (gems[k] === g) n += 1;
+    if (n > 0) out.push({ key: g, label: META[g].label, count: n, gemClass: 'gem-' + g, light: g === 'white' });
+  }
+  return out;
+}
+
+/** 「白×1、蓝×1」这种紧凑文案，给摘要行用 */
+function gemsText(list) {
+  const parts = [];
+  for (let i = 0; i < list.length; i++) parts.push(list[i].label + '×' + list[i].count);
+  return parts.join('、');
+}
+
+/** 选篮按色聚合后的「+n」标记：已有数量不动，只表达本次将增加多少 */
+function gainColumns(sel, goldAdd) {
+  const cols = [];
+  for (let i = 0; i < ALL.length; i++) {
+    const g = ALL[i];
+    let n = 0;
+    for (let k = 0; k < sel.length; k++) if (sel[k] === g) n += 1;
+    if (g === 'gold' && goldAdd) n += goldAdd;
+    cols.push({
+      key: g,
+      gemClass: 'gem-' + g,
+      light: g === 'white',
+      isGold: g === 'gold',
+      gain: n,
+      gainText: '+' + n,
+      show: n > 0
+    });
+  }
+  return cols;
+}
+
+/**
+ * 自己的资源两组数据：上行永久折扣（方形卡）、下行持有筹码（圆形）。
+ * 与对手摘要、公共筹码池共用同一顺序（白蓝绿红黑 + 黄金末位）。
+ * 零值也下发数字，用 zero 标记降权而不是隐藏——「这色为 0」本身是有效信息。
+ */
+function myResourceVM(state, idx) {
+  const p = state.players[idx];
+  const disc = E.getDiscounts(state, idx);
+  const discount = GEMS.map(function (g) {
+    const num = disc[g] || 0;
+    return {
+      key: g, num: num, numText: String(num), zero: num === 0,
+      wide: num >= 10, light: g === 'white',
+      // 方形卡左侧竖色条（sq-*）与圆形筹码共用同一套色序，但形状/色标不同
+      sqClass: 'sq-' + g,
+      label: META[g].label, gemClass: 'gem-' + g
+    };
+  });
+  const tokens = ALL.map(function (g) {
+    const num = p.tokens[g] || 0;
+    return {
+      key: g, num: num, numText: String(num), zero: num === 0,
+      wide: num >= 10, light: g === 'white', isGold: g === 'gold',
+      label: META[g] ? META[g].label : '黄金', gemClass: 'gem-' + g
+    };
+  });
+  return { discount: discount, tokens: tokens };
+}
+
+/**
+ * 工作台右下「本次选择 / 待确认摘要」的唯一数据源。
+ *
+ * 四种上下文按优先级排列，同一时刻只会命中一种：
+ *   discard  筹码超 10 枚 → 攒够要退的枚数再一次性确认（旧版点一枚退一枚，退多了没法撤回）
+ *   buy      卡牌详情打开且买得起 → 展示扣除永久折扣后的逐色实付与黄金替代
+ *   reserve  卡牌详情打开且可预留 → 展示预留名额与该次黄金变化
+ *   take     默认 → 本次拿取明细 + 确认后总量
+ *
+ * 这里只做「将要发生什么」的推演，绝不改 state：正式库存只在 applyPlayerAction 后变化。
+ */
+function pickVM(state, ui, seat, takeError, needDiscard) {
+  const p = state.players[seat];
+  const sel = ui.selectedGems || [];
+  const disc = E.getDiscounts(state, seat);
+  const total = E.tokenTotal(p);
+  const out = {
+    mode: 'take',
+    kind: '拿取筹码',
+    title: '',
+    lines: [],
+    goldLine: '',
+    fromText: String(total),
+    toText: String(total),
+    delta: 0,
+    arrow: '→',
+    items: [],
+    gain: gainColumns(sel, 0),
+    hasGain: sel.length > 0,
+    canSubmit: false,
+    reason: takeError || '',
+    label: '确认拿取',
+    pending: needDiscard,
+    discardPicked: [],
+    discardLeft: 0,
+    discardPlan: 0
+  };
+
+  // ① 退还筹码：先攒批，再一次性确认
+  if (needDiscard) {
+    const plan = ui.discardPlan || [];
+    out.mode = 'discard';
+    out.kind = '退还筹码';
+    out.title = plan.length ? '本次退还：' + gemsText(tallyGems(plan)) : '点击下方自己的筹码选择要退还的筹码';
+    out.lines = [];
+    out.gain = gainColumns([], 0);
+    out.hasGain = plan.length > 0;
+    out.items = tallyGems(plan).map(function (it) {
+      it.negative = true;
+      it.sign = '−' + it.count;
+      return it;
+    });
+    out.discardPicked = plan.slice();
+    out.discardPlan = plan.length;
+    out.discardLeft = state.pendingDiscard;
+    out.fromText = String(total);
+    out.toText = String(total - plan.length);
+    out.arrow = '→';
+    out.canSubmit = plan.length === state.pendingDiscard && plan.length > 0;
+    out.reason = plan.length === 0
+      ? '还需选择 ' + state.pendingDiscard + ' 枚'
+      : (out.canSubmit ? '' : '已选 ' + plan.length + '/' + state.pendingDiscard + ' 枚，还差 ' + (state.pendingDiscard - plan.length) + ' 枚');
+    out.label = '确认归还 ' + state.pendingDiscard + ' 枚';
+    return out;
+  }
+
+  // ② / ③ 卡牌详情：购买或预留
+  const d = ui.detail;
+  const card = d ? (d.kind === 'board' ? state.board[d.lv][d.index] : p.reserved[d.index]) : null;
+  if (d && card && state.current === seat && !state.gameOver) {
+    const canAct = !state.pendingNoble;
+    if (d.kind === 'board') {
+      const pay = E.getPayment(state, seat, card);
+      if (pay) {
+        let paid = 0;
+        const paidLines = [];
+        for (let i = 0; i < ALL.length; i++) {
+          const g = ALL[i];
+          if (!pay[g]) continue;
+          paid += pay[g];
+          paidLines.push({
+            key: g, label: META[g] ? META[g].label : '黄金', count: pay[g],
+            gemClass: 'gem-' + g, light: g === 'white', isGold: g === 'gold'
+          });
+        }
+        out.mode = 'buy';
+        out.kind = '购买发展卡';
+        out.title = card.name + ' · 实付 ' + paid + ' 枚' + (pay.gold ? '（含黄金 ' + pay.gold + ' 枚）' : '');
+        out.lines = paidLines.map(function (l) {
+          l.sign = '−' + l.count;
+          l.negative = true;
+          return l;
+        });
+        out.items = paidLines;
+        out.goldLine = pay.gold ? '黄金替代 ' + pay.gold + ' 枚（缺口用万能筹码补足）' : '';
+        out.fromText = String(total);
+        out.toText = String(total - paid);
+        out.delta = -paid;
+        out.label = '购买此卡';
+        out.canSubmit = canAct;
+        out.reason = canAct ? '' : '先挑选到访的贵族';
+        return out;
+      }
+    }
+    const slotsLeft = 3 - p.reserved.length;
+    const getGold = state.bank.gold > 0 ? 1 : 0;
+    out.mode = 'reserve';
+    out.kind = '预留卡牌';
+    out.title = card.name + ' · 预留后名额 ' + (p.reserved.length + 1) + '/3';
+    out.lines = [{ key: 'gold', label: '黄金', count: getGold, gemClass: 'gem-gold', isGold: true, sign: '+' + getGold, positive: true }];
+    out.items = getGold ? out.lines : [];
+    out.goldLine = getGold ? '预留附赠 1 枚黄金万能筹码' : '银行黄金已发完，本次预留不再附赠黄金';
+    out.fromText = String(total);
+    out.toText = String(total + getGold);
+    out.delta = getGold;
+    out.label = '确认预留';
+    out.canSubmit = canAct && slotsLeft > 0 && d.kind === 'board';
+    out.reason = slotsLeft <= 0 ? '预留位已满（3/3），先购买或放弃一张' : (canAct ? '' : '先挑选到访的贵族');
+    return out;
+  }
+
+  // ④ 默认：本次拿取筹码
+  out.title = sel.length ? '本次拿取：' + gemsText(tallyGems(sel)) : '未选择筹码';
+  out.fromText = String(total);
+  out.toText = String(total + sel.length);
+  out.delta = sel.length;
+  out.canSubmit = sel.length > 0 && takeError === null;
+  // 只有真的能提交时才在按钮上报枚数，否则「确认拿取 2 枚」会谎报已就绪
+  out.label = out.canSubmit ? '确认拿取 ' + sel.length + ' 枚' : '确认拿取';
+  out.reason = takeError || '';
+  return out;
+}
+
 /* ---------- 多人房间 / 玩家详情视图模型 ---------- */
 
 function avatarHue(key) {
@@ -263,7 +472,35 @@ function avatarHue(key) {
 }
 
 /**
- * 单个席位的紧凑状态，供顶部席位条与详情弹层共用。
+ * 对手卡第二 / 第三行：五色永久折扣（方形）、五色持有筹码 + 黄金（圆形）。
+ * 两行都从白起按白蓝绿红黑排列，格宽固定，于是同一色在上下两行天然对齐；
+ * 黄金只在筹码行末位出现（它没有永久折扣）。
+ * 零值也渲染 0，只降权——「这色没有」是有效信息，藏起来会被误读成数据缺失。
+ */
+function seatRowsVM(state, idx) {
+  const p = state.players[idx];
+  const disc = E.getDiscounts(state, idx);
+  const discRow = GEMS.map(function (g) {
+    const num = disc[g] || 0;
+    return {
+      key: g, numText: String(num), zero: num === 0, wide: num >= 10,
+      light: g === 'white',
+      sqClass: 'sq-' + g,
+      gemClass: 'gem-' + g
+    };
+  });
+  const tokenRow = ALL.map(function (g) {
+    const num = p.tokens[g] || 0;
+    return {
+      key: g, numText: String(num), zero: num === 0, wide: num >= 10,
+      light: g === 'white', isGold: g === 'gold', gemClass: 'gem-' + g
+    };
+  });
+  return { discRow: discRow, tokenRow: tokenRow };
+}
+
+/**
+ * 对手席位卡的紧凑状态，供顶部席位条与详情弹层共用。
  *
  * 头像只按 uid 从 avatars 映射里取，绝不读 state/room 里的 avatarUrl：
  * 那是「某台设备本地文件」的路径，推到云端后别人的设备一定加载失败。
@@ -278,6 +515,7 @@ function seatVM(state, index, room, selfSeat, avatars) {
   const type = p.type || (p.isAI ? 'bot' : 'human');
   const seatNo = index + 1;
   const name = p.nickname || p.name || ('玩家 ' + seatNo);
+  const isCurrent = state.current === index && !state.gameOver;
   return {
     index: index,
     seatNo: seatNo,
@@ -290,16 +528,26 @@ function seatVM(state, index, room, selfSeat, avatars) {
     type: type,
     isSelf: isSelf,
     isBot: !!p.isAI,
-    isCurrent: state.current === index && !state.gameOver,
+    isCurrent: isCurrent,
+    // 「行动中」文字与青色边框同时表达，只靠边框在小屏上会被误读成选中态
+    turnTag: isCurrent ? '行动中' : '',
+    // 起始玩家（0 号位）与当前行动者是两种身份，用不同标记区分
+    isFirst: index === 0,
     joined: p.joined,
     empty: !p.joined && !p.isAI,
     points: p.points,
+    pointsText: String(p.points),
+    // 声望达到终局线（15）后不再按 15 截断，用 reached 标记重着色
+    pointsReached: p.points >= FINAL_POINTS,
     cardCount: p.cards.length,
     reservedCount: p.reserved.length,
+    reservedText: p.reserved.length + '/3',
     nobleCount: p.nobles.length,
     avatar: avatar,
     avatarUrl: (uid && avatars && avatars[uid]) || '',
     avatarHue: avatarHue(avatar),
+    // 对手卡第二 / 三行：五色永久折扣（方）与五色筹码 + 黄金（圆），同色同序
+    rows: seatRowsVM(state, index),
     // 对手概览：6 列分组，上红利下筹码逐色对齐；旧的两套格子保留给详情/测试
     columns: seatColumnsVM(state, index, p.reserved.length),
     bonusCells: discountCellsVM(state, index),
@@ -912,6 +1160,14 @@ function buildViewModel(state, ui, layout, ctx) {
       discardCount: 0,
       selectionCount: 0,
       canConfirm: false,
+      canPass: false,
+      pickHint: '',
+      pick: {
+        mode: 'take', kind: '拿取筹码', title: '', lines: [], items: [], gain: [],
+        hasGain: false, fromText: '0', toText: '0', delta: 0, arrow: '→',
+        goldLine: '', canSubmit: false, reason: '', label: '确认拿取',
+        pending: false, discardPicked: [], discardLeft: 0, discardPlan: 0
+      },
       confirmLabel: '确认拿取',
       statusText: '',
       statusLong: false,
@@ -939,6 +1195,8 @@ function buildViewModel(state, ui, layout, ctx) {
   const isMyTurn = state.current === seat && !state.gameOver;
   const needDiscard = isMyTurn && state.pendingDiscard > 0;
   const sel = ui.selectedGems;
+  // 选篮是否凑成合法组合：唯一判定在规则引擎，页面只负责把它变成门禁与引导文案
+  const takeError = E.validateTake(state, sel);
 
   // 2 / 3 / 4 人统一由 state.players 驱动，席位条与详情弹层共用同一份视图模型
   const rivals = [];
@@ -988,6 +1246,7 @@ function buildViewModel(state, ui, layout, ctx) {
 
   const bankPiles = ALL.map(function (g, i) {
     const count = state.bank[g];
+    const picked = countIn(sel, g);
     const layers = count <= 0 ? 1 : Math.min(count, 5);
     const stack = [];
     for (let k = 0; k < layers - 1; k++) {
@@ -1012,7 +1271,11 @@ function buildViewModel(state, ui, layout, ctx) {
       style: gemStyle(g),
       stack: stack,
       topStyle: topStyle,
-      selected: countIn(sel, g) > 0,
+      selected: picked > 0,
+      // 已选的筹码堆右侧挂「-」：点一次只放回 1 枚，×2 角标提示同色拿了两枚
+      picked: picked,
+      pickedMany: picked > 1,
+      showMinus: picked > 0 && isMyTurn && !needDiscard && !state.pendingNoble,
       isGold: g === 'gold',
       disabled: g === 'gold' || count <= 0 || !isMyTurn || needDiscard
     };
@@ -1096,13 +1359,48 @@ function buildViewModel(state, ui, layout, ctx) {
   } else if (nobleChoice && nobleChoice.waiting) {
     hint = nobleChoice.seatLabel + ' · ' + nobleChoice.name + ' 正在挑选贵族';
   } else if (needDiscard) {
-    hint = '筹码超过 10 枚 · 点击底部自己的筹码，退还 ' + state.pendingDiscard + ' 枚';
+    hint = '筹码超过 10 枚 · 点击下方自己的筹码，退还 ' + state.pendingDiscard + ' 枚';
   } else if (sel.length > 0) {
-    hint = '已选 ' + selectedText + ' · 点「确认拿取」完成行动';
+    hint = takeError
+      ? '已选 ' + selectedText + ' · ' + takeError
+      : '已选 ' + selectedText + ' · 点「确认拿取」完成行动';
   } else if (ui.toast) {
     hint = ui.toast;
   } else {
     hint = '绿框＝当即可买　金框＝需黄金补足';
+  }
+
+  // 工作台右下：本次选择 / 待确认摘要（只推演，不改 state）
+  const pick = pickVM(state, ui, seat, takeError, needDiscard);
+  // 「跳过」只在没有任何合法动作时出现（规则兜底），不做常驻按钮
+  const canPass = isMyTurn && !needDiscard && !state.pendingNoble && !E.hasAnyAction(state);
+
+  // 操作区底部一行恒定文案：解释「现在该做什么 / 为什么不能点」，
+  // 四种上下文都要有话说，不能出现空行导致按钮上下跳动
+  let pickHint;
+  if (!isMyTurn) {
+    pickHint = '等待 ' + (state.current + 1) + ' 号位行动 · 可查看牌面与库存';
+  } else if (needDiscard) {
+    pickHint = '点击自己的筹码加入退还篮，攒够 ' + state.pendingDiscard + ' 枚再确认';
+  } else if (pick.mode === 'buy' || pick.mode === 'reserve') {
+    pickHint = pick.goldLine || '卡面气泡为印刷成本，左上角为实付';
+  } else if (takeError) {
+    pickHint = takeError;
+  } else if (ui.selectedGems.length) {
+    pickHint = '点「−」可放回单枚';
+  } else {
+    pickHint = canPass ? '已无合法动作，可跳过本回合' : '点右侧筹码堆选取';
+  }
+
+  // 最近一手：从日志里摘出「谁 · 做了什么」，作为低权重记录展示，不与当前选择混排
+  let lastMove = null;
+  if (state.log && state.log.length) {
+    const last = state.log[state.log.length - 1];
+    lastMove = {
+      text: last,
+      // 系统消息（开局 / 结算 / 退还提示）与「上一手」用不同权重，避免混为一谈
+      sys: /对局开始|对局结束|请退还|提前结算/.test(last)
+    };
   }
 
   let statusText;
@@ -1152,6 +1450,9 @@ function buildViewModel(state, ui, layout, ctx) {
     goldCount: state.bank.gold,
     goldStyle: gemStyle('gold'),
     rivals: rivals,
+    // 对手卡定宽 200、间距 8：条宽由对手数算出，2 人局单卡不被拉满，
+    // 3/4 人局 3 张刚好收在中央提示条（x=626）之前
+    rivalStripWidth: rivals.length * 200 + Math.max(0, rivals.length - 1) * 8,
     seats: seats,
     playerCount: state.players.length,
     roomCode: room ? room.code : '',
@@ -1174,13 +1475,22 @@ function buildViewModel(state, ui, layout, ctx) {
     },
     me: {
       name: me.name,
+      nameText: me.nickname || me.name,
       points: me.points,
+      pointsText: String(me.points),
+      // 声望达到终局线后不截断：显示真实值，只换成金色高亮
+      pointsReached: me.points >= FINAL_POINTS,
+      pointsDen: '/' + FINAL_POINTS,
       totalTokens: E.tokenTotal(me),
+      tokenText: E.tokenTotal(me) + '/10',
       reservedCount: me.reserved.length,
+      reservedText: me.reserved.length + '/3',
       tokens: tokensVM(me, ALL),
       discounts: discountsVM(state, seat),
       // 红利行固定 5 色，与筹码行逐列对齐
-      discountCells: discountCellsVM(state, seat)
+      discountCells: discountCellsVM(state, seat),
+      // 工作台两行资源：同色同序（白蓝绿红黑 + 黄金末位），零值可读
+      res: myResourceVM(state, seat)
     },
     reservedCards: reservedCards,
     emptyReservedSlots: emptyReservedSlots,
@@ -1190,15 +1500,25 @@ function buildViewModel(state, ui, layout, ctx) {
     statusLong: statusText.length > 12,
     turnText: '第 ' + (Math.floor(state.turnCount / state.players.length) + 1) + ' 轮',
     logText: state.log.length ? state.log[state.log.length - 1] : '',
+    // 上一手记录：单独一条，权重低于当前选择，不与确认区混排
+    lastMove: lastMove,
     // 断线时用状态行提示重连进度，不额外占版面
     netNotice: ui.netNotice || '',
     hintText: hint,
     isMyTurn: isMyTurn,
     needDiscard: needDiscard,
     discardCount: state.pendingDiscard,
+    // 归还流程：攒批后一次确认（不再点一枚退一枚）
+    discardPlanCount: (ui.discardPlan || []).length,
+    discardPlanText: gemsText(tallyGems(ui.discardPlan || [])),
     selectionCount: sel.length,
-    confirmLabel: sel.length > 0 ? '确认拿取 (' + sel.length + ')' : '确认拿取',
-    canConfirm: isMyTurn && !needDiscard && sel.length > 0,
+    confirmLabel: pick.label,
+    canConfirm: pick.canSubmit && isMyTurn,
+    pick: pick,
+    // 操作区恒定一行解释文案（空态也要有，避免按钮上下跳动）
+    pickHint: pickHint,
+    // 「跳过」是规则兜底，只在无合法动作时出现
+    canPass: canPass,
     detail: detailVM(state, ui, seat),
     showRules: ui.showRules,
     showReserved: ui.showReserved,
@@ -1232,6 +1552,9 @@ function freshUI(config) {
     // 入口界面 / 房间大厅 / 牌桌
     screen: c.screen || 'home',
     selectedGems: [],
+    // 退还流程的暂存选篮：攒够 pendingDiscard 枚再一次性提交，
+    // 与 selectedGems 分开，避免两种选篮互相污染
+    discardPlan: [],
     toast: '',
     detail: null,
     showRules: false,
@@ -1369,6 +1692,7 @@ Page({
     this.ui.showPlayerDetail = false;
     this.ui.showLobby = false;
     this.ui.selectedGems = [];
+    this.ui.discardPlan = [];
     this.ui.showcase = null;
     // 上一屏（如「已离开房间」）的提示不该被带进新一局
     this.ui.toast = '';
@@ -1846,6 +2170,7 @@ Page({
       that.ui.playerCount = res.state.players.length;
       that.ui.detail = null;
       that.ui.selectedGems = [];
+      that.ui.discardPlan = [];
       that._resultRecorded = false;
       that.resetTurnUI();
       that.refresh('牌局开始');
@@ -1943,6 +2268,7 @@ Page({
         that._cloudVersion = 0;
         that.ui.screen = 'room';
         that.ui.selectedGems = [];
+        that.ui.discardPlan = [];
         that.ui.detail = null;
         that.refresh('房主已回到房间，等你重新准备');
         return;
@@ -1951,6 +2277,7 @@ Page({
       that.state = res.state;
       that.ui.detail = null;
       that.ui.selectedGems = [];
+      that.ui.discardPlan = [];
       // 别人刚做的动作：在本地按同一份卡面数据重放（这是「看不到对手动画」的修法）
       that.replayRemoteAction(that.state);
       that.refresh('');
@@ -2011,6 +2338,7 @@ Page({
     if (preShowcase) this.ui.showcase = preShowcase;
     this.stampAction(action, card, actorSeat);
     this.ui.selectedGems = [];
+    this.ui.discardPlan = [];
     this.ui.detail = null;
     this.ui.showReserved = false;
     this.refresh(successMessage || result.message);
@@ -2079,11 +2407,11 @@ Page({
     }
   },
 
-  /** 点选宝石筹码：支持 1~3 枚不同色，或同色 2 枚 */
+  /** 点选宝石筹码：同色 2 枚（库存 ≥4）或 3 种不同色，凑满才可确认 */
   onTapPile(event) {
     const s = this.state;
     const key = event.currentTarget.dataset.key;
-    if (s.current !== this.mySeat || s.gameOver || s.pendingDiscard > 0) return;
+    if (s.current !== this.mySeat || s.gameOver || s.pendingDiscard > 0 || s.pendingNoble) return;
     if (key === 'gold') {
       this.refresh('黄金筹码只能通过「预留卡牌」获得');
       return;
@@ -2098,7 +2426,9 @@ Page({
     const isPair = sel.length === 2 && sel[0] === sel[1];
 
     if (inSel >= 2) {
-      sel.splice(sel.lastIndexOf(key), 1);
+      // 第 3 次点同一色 = 放回 1 枚，与右侧「-」按钮共用同一逻辑
+      this.removePileGem(key);
+      return;
     } else if (isPair) {
       this.refresh('拿 2 枚同色筹码时，不能再拿其他颜色');
       return;
@@ -2114,7 +2444,7 @@ Page({
         return;
       }
       if (inSel > 0) {
-        this.refresh('拿 2 枚同色筹码时，不能再拿其他颜色');
+        this.refresh('该色已在选篮里 · 点右侧「-」可放回 1 枚');
         return;
       }
       sel.push(key);
@@ -2122,14 +2452,100 @@ Page({
     this.refresh('');
   },
 
+  /**
+   * 从选篮放回 1 枚。第 3 次点同色、以及筹码堆右侧「-」都走这里，
+   * 保证「放回」只改 ui.selectedGems，绝不碰 bank / 玩家筹码。
+   */
+  removePileGem(key) {
+    const sel = this.ui.selectedGems;
+    const at = sel.lastIndexOf(key);
+    if (at < 0) return false;
+    sel.splice(at, 1);
+    this.refresh('已放回 1 枚' + (META[key] ? META[key].label : key));
+    return true;
+  },
+
+  /** 已选筹码堆右侧的「-」：catchtap 阻断冒泡，避免再触发一次 onTapPile */
+  onRemovePile(event) {
+    const s = this.state;
+    if (!s || s.current !== this.mySeat || s.gameOver ||
+        s.pendingDiscard > 0 || s.pendingNoble) return;
+    this.removePileGem(event.currentTarget.dataset.key);
+  },
+
+  /**
+   * 主按钮：按当前上下文执行唯一一个动作。
+   * 四种上下文由 pickVM 决定，按钮文案与行为必须一一对应，
+   * 不允许「文案说拿取、实际在扣筹码」这类错配。
+   */
   onConfirmTake() {
-    if (!this.data.canConfirm) return;
-    this.applyPlayerAction({ type: 'take', gems: this.ui.selectedGems.slice() });
+    const s = this.state;
+    if (!s || s.current !== this.mySeat || s.gameOver) return;
+    const pick = this.data.pick;
+    if (!pick) return;
+
+    // ① 退还筹码：攒够 pendingDiscard 枚才提交
+    if (pick.mode === 'discard') {
+      const plan = this.ui.discardPlan || [];
+      if (plan.length !== s.pendingDiscard) {
+        this.refresh('还差 ' + (s.pendingDiscard - plan.length) + ' 枚未选');
+        return;
+      }
+      this.applyPlayerAction({ type: 'discard', gems: plan.slice() });
+      return;
+    }
+
+    if (s.pendingDiscard > 0 || s.pendingNoble) return;
+
+    // ② 卡牌详情打开时，主按钮就是购买 / 预留
+    if (pick.mode === 'buy') {
+      this.onBuyFromDetail();
+      return;
+    }
+    if (pick.mode === 'reserve') {
+      this.onReserveFromDetail();
+      return;
+    }
+
+    // ③ 默认：确认拿取。二次校验不依赖上次渲染结果，轮询后库存变了也能拦住
+    const sel = this.ui.selectedGems;
+    const err = E.validateTake(s, sel);
+    if (err || !this.data.canConfirm) {
+      this.refresh(err || '请先选满筹码再确认');
+      return;
+    }
+    this.applyPlayerAction({ type: 'take', gems: sel.slice() });
   },
 
   onCancelSelection() {
     this.ui.selectedGems = [];
-    this.refresh('已清除所选筹码');
+    this.ui.discardPlan = [];
+    this.ui.detail = null;
+    this.refresh('已清除所选');
+  },
+
+  /** 退还流程：点自己的筹码把它加入「本次退还」，攒够再确认；满额后点已选的可撤回 */
+  onTapDiscardPlan(event) {
+    const s = this.state;
+    if (!s || s.current !== this.mySeat || s.pendingDiscard <= 0) return;
+    const key = event.currentTarget.dataset.key;
+    const plan = this.ui.discardPlan || [];
+    const at = plan.lastIndexOf(key);
+    if (at >= 0) {
+      plan.splice(at, 1);
+      this.refresh('已撤回 1 枚' + (META[key] ? META[key].label : key));
+      return;
+    }
+    if (plan.length >= s.pendingDiscard) {
+      this.refresh('已选满 ' + s.pendingDiscard + ' 枚，点已选筹码可撤回');
+      return;
+    }
+    if (s.players[this.mySeat].tokens[key] - countIn(plan, key) <= 0) {
+      this.refresh('该颜色没有可退还的筹码');
+      return;
+    }
+    plan.push(key);
+    this.refresh('');
   },
 
   onPass() {
@@ -2159,16 +2575,11 @@ Page({
     });
   },
 
-  /** 退还模式下点击自己的筹码，逐枚退还 */
+  /** 退还模式下点击自己的筹码：加入退还暂存（攒够再确认），点已选的则撤回 */
   onTapMyToken(event) {
     const s = this.state;
     if (s.current !== this.mySeat || s.pendingDiscard <= 0) return;
-    const key = event.currentTarget.dataset.key;
-    if (s.players[this.mySeat].tokens[key] <= 0) {
-      this.refresh('该颜色没有可退还的筹码');
-      return;
-    }
-    this.applyPlayerAction({ type: 'discard', gems: [key] });
+    this.onTapDiscardPlan(event);
   },
 
   onTapCard(event) {
@@ -2402,6 +2813,7 @@ Page({
     this.ui.homeNotice = '';
     this.ui.roomNotice = '';
     this.ui.selectedGems = [];
+    this.ui.discardPlan = [];
     this.ui.detail = null;
     this.refresh('');
     if (R.hasCloud()) this.createCloudRoom();
@@ -2571,6 +2983,7 @@ Page({
     this.ui.playerCount = seats.length;
     this.ui.detail = null;
     this.ui.selectedGems = [];
+    this.ui.discardPlan = [];
     this.ui.showLobby = false;
     this.ui.roomNotice = '';
     this._resultRecorded = false;
@@ -2613,6 +3026,7 @@ Page({
     this.state = null;
     this.ui.screen = 'room';
     this.ui.selectedGems = [];
+    this.ui.discardPlan = [];
     this.ui.detail = null;
     this.ui.showReserved = false;
     this.ui.showPlayerDetail = false;

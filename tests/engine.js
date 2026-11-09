@@ -115,18 +115,46 @@ assert(JSON.stringify(nobleKeys) === JSON.stringify(expectNobles),
 assert(new Set(D.NOBLE_POOL.map(function (n) { return n.title; })).size === 10, '贵族名应 10 张不重复');
 console.log('官方贵族牌指纹校验通过（5 张双色 4+4 / 5 张三色 3+3+3）');
 
-// 规则边界
+// 规则边界：选篮必须凑成「同色 2 枚（库存 ≥4）」或「3 种不同色各 1 枚」
 let r = E.performAction(s0, { type: 'take', gems: ['gold'] });
 assert(!r.ok, '黄金不可直接拿取');
+const bankBefore = s0.bank.white;
 r = E.performAction(s0, { type: 'take', gems: ['white'] });
-assert(r.ok, '库存紧张时允许只拿 1 枚');
-assert(s0.bank.white === 3, '拿 1 枚后库存为 3');
-r = E.performAction(s0, { type: 'take', gems: ['white', 'white'] });
-assert(!r.ok, '库存 3 时同色 2 枚应被拒绝');
+assert(!r.ok, '只选 1 枚不应结束回合');
 r = E.performAction(s0, { type: 'take', gems: ['blue', 'green'] });
-assert(r.ok && r.ended, '两种不同色可拿');
+assert(!r.ok, '只选 2 个不同色不应结束回合');
+r = E.performAction(s0, { type: 'take', gems: ['white', 'white', 'white'] });
+assert(!r.ok, '3 枚同色不合法');
+r = E.performAction(s0, { type: 'take', gems: ['white', 'blue', 'white'] });
+assert(!r.ok, '3 枚里夹同色不合法');
+assert(s0.bank.white === bankBefore && s0.bank.blue === bankBefore && s0.bank.green === bankBefore,
+  '非法组合不应扣银行筹码');
+r = E.performAction(s0, { type: 'take', gems: ['white', 'blue', 'green'] });
+assert(r.ok && r.ended, '3 种不同色可拿');
+assert(s0.bank.white === bankBefore - 1 && s0.bank.blue === bankBefore - 1 && s0.bank.green === bankBefore - 1,
+  '三色各扣 1 枚');
 checkConservation(s0);
 console.log('规则边界校验通过');
+
+// 同色 2 枚 / 缺货降级：页面 canConfirm 门禁与引擎共用同一份 validateTake
+{
+  const sx = E.createGame(2);
+  assert(E.validateTake(sx, ['white']) !== null, '库存充足时选 1 枚不可提交');
+  assert(E.validateTake(sx, ['white', 'blue']) !== null, '库存充足时选 2 个不同色不可提交');
+  assert(E.validateTake(sx, ['white', 'white']) === null, '库存 4 时可拿同色 2 枚');
+  assert(E.validateTake(sx, ['white', 'blue', 'green']) === null, '3 种不同色可提交');
+  sx.bank.blue = 0; sx.bank.green = 0; sx.bank.red = 0; sx.bank.black = 0;
+  sx.bank.white = 2;
+  assert(E.validateTake(sx, ['white']) === null, '全桌只剩 1 色时允许拿 1 枚');
+  assert(E.validateTake(sx, ['white', 'white']) !== null, '库存 2 时同色 2 枚仍被拒绝');
+  sx.bank.white = 5;
+  assert(E.validateTake(sx, ['white', 'white']) === null, '只剩 1 色且库存 ≥4 时可拿同色 2 枚');
+  sx.bank.blue = 1;
+  assert(E.validateTake(sx, ['white']) !== null, '剩 2 色时只拿 1 色仍不合法');
+  assert(E.validateTake(sx, ['white', 'blue']) === null, '剩 2 色时拿满 2 色合法');
+  assert(E.performAction(sx, { type: 'take', gems: ['white', 'blue'] }).ok, '缺货降级动作能被引擎接受');
+}
+console.log('拿筹码组合门禁校验通过（同色 2 枚 / 3 不同色 / 缺货降级）');
 
 // 多贵族同时满足：真人席位必须挂起选择，选定后才推进回合
 {

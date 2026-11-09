@@ -155,6 +155,138 @@ function tap(method, dataset) {
   page[method]({ currentTarget: { dataset: dataset } });
 }
 
+// 选篮门禁：只选 1 枚 / 2 个不同色时误触确认不得结束回合
+{
+  const bankStart = page.state.bank.white;
+  const turnStart = page.state.current;
+  tap('onTapPile', { key: 'white' });
+  assert(page.data.selectionCount === 1, '选中 1 枚筹码');
+  assert(page.data.canConfirm === false, '只选 1 枚不可确认');
+  assert(page.data.bankPiles[0].showMinus === true, '已选筹码堆应显示「-」按钮');
+  assert(page.data.bankPiles[0].picked === 1, '筹码堆应记录已选数量');
+  page.onConfirmTake();
+  assert(page.state.current === turnStart, '未凑满时误触确认不应结束回合');
+  assert(page.state.bank.white === bankStart, '未凑满时不应扣银行筹码');
+  assert(page.ui.selectedGems.length === 1, '误触确认不应清空选篮');
+  tap('onTapPile', { key: 'blue' });
+  assert(page.data.canConfirm === false, '选 2 个不同色不可确认');
+  assert(page.data.hintText.indexOf('再选 1 种不同色') > 0, '提示应引导再选 1 色');
+  // 「-」只放回该色 1 枚，不影响另一色，也不动银行
+  tap('onRemovePile', { key: 'white' });
+  assert(page.ui.selectedGems.join(',') === 'blue', '「-」应只放回 1 枚指定色');
+  assert(page.data.bankPiles[0].showMinus === false, '放回后该堆不再显示「-」');
+  assert(page.state.bank.white === bankStart, '放回只改选篮，不动银行');
+  // 同色 2 枚（库存 ≥4）也能凑成合法组合
+  page.onCancelSelection();
+  tap('onTapPile', { key: 'white' });
+  tap('onTapPile', { key: 'white' });
+  assert(page.data.canConfirm === true, '同色 2 枚可确认');
+  assert(page.data.bankPiles[0].pickedMany === true, '同色 2 枚应显示 ×2 角标');
+  tap('onRemovePile', { key: 'white' });
+  assert(page.ui.selectedGems.length === 1, '同色时「-」只放回 1 枚');
+  page.onCancelSelection();
+  assert(page.data.canConfirm === false, '清空后不可确认');
+}
+console.log('OK  拿筹码门禁 · 「-」逐枚放回 · 同色 2 枚');
+
+// 待确认摘要：拿取 / 购买 / 预留 三种上下文各说清「本次变化 + 确认后总量」
+{
+  const pk = page.data.pick;
+  assert(pk.mode === 'take' && pk.label.indexOf('确认拿取') === 0, '默认上下文是拿取');
+  assert(pk.fromText === String(page.data.me.totalTokens), '摘要起点＝当前持有量');
+  assert(pk.toText === String(Number(pk.fromText) + page.ui.selectedGems.length), '终值＝当前 + 本次拿取');
+  assert(pk.delta === page.ui.selectedGems.length, '增量与选篮一致');
+  // 逐色 +n 标记只标本次增加，不覆盖已有数量
+  const gainSum = pk.gain.reduce(function (a, c) { return a + c.gain; }, 0);
+  assert(gainSum === page.ui.selectedGems.length, '+n 标记合计应等于本次拿取数');
+  pk.gain.forEach(function (c) { assert(c.show === (c.gain > 0), '+n 只在有增量时显示：' + c.key); });
+}
+console.log('OK  待确认摘要 · 本次拿取 / +n 增量 / 确认后总量');
+
+// 购买上下文：扣除永久折扣后的实付 + 黄金替代
+{
+  page.onCancelSelection();
+  const st2 = page.state;
+  // 给足筹码，确保至少一张卡买得起；打开详情后摘要应切换为购买
+  st2.players[0].tokens = { white: 7, blue: 7, green: 7, red: 7, black: 7, gold: 2 };
+  page.refresh('');
+  let opened = false;
+  for (let lv = 0; lv < 3 && !opened; lv++) {
+    for (let i = 0; i < 4 && !opened; i++) {
+      if (!st2.board[lv][i]) continue;
+      tap('onTapCard', { lv: lv, index: i });
+      if (page.data.pick.mode === 'buy') opened = true;
+      else page.onCloseDetail();
+    }
+  }
+  assert(opened, '买得起时摘要应切到购买上下文');
+  const bp = page.data.pick;
+  assert(bp.label === '购买此卡', '主按钮文案应为购买此卡');
+  assert(bp.delta < 0 && bp.toText === String(Number(bp.fromText) + bp.delta), '购买应表达为持有量减少');
+  assert(bp.items.length > 0 && bp.items.every(function (it) { return it.negative === true; }), '逐色实付应标为扣减');
+  assert(bp.goldLine === '' || bp.goldLine.indexOf('黄金') >= 0, '有黄金替代时要显式说明');
+  page.onCloseDetail();
+}
+console.log('OK  待确认摘要 · 购买实付 / 黄金替代 / 持有量减少');
+
+// 预留上下文：名额与黄金变化
+{
+  const st3 = page.state;
+  st3.players[0].reserved = [];
+  page.onCancelSelection();
+  let opened = false;
+  for (let i = 0; i < 4 && !opened; i++) {
+    if (!st3.board[0][i]) continue;
+    tap('onTapCard', { lv: 0, index: i });
+    if (page.data.pick.mode === 'reserve') opened = true;
+    else page.onCloseDetail();
+  }
+  if (!opened) {
+    // 买得起时摘要优先给购买；把筹码清空即可让它落到预留
+    st3.players[0].tokens = { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 };
+    page.refresh('');
+    for (let i = 0; i < 4 && !opened; i++) {
+      if (!st3.board[0][i]) continue;
+      tap('onTapCard', { lv: 0, index: i });
+      if (page.data.pick.mode === 'reserve') opened = true;
+      else page.onCloseDetail();
+    }
+  }
+  assert(opened, '可预留时摘要应切到预留上下文');
+  const rp = page.data.pick;
+  assert(rp.label === '确认预留', '主按钮文案应为确认预留');
+  assert(rp.title.indexOf('/3') > 0, '预留摘要要写明名额进度');
+  page.onCloseDetail();
+  page.onCancelSelection();
+}
+console.log('OK  待确认摘要 · 预留名额 / 黄金变化');
+
+// 「跳过」是规则兜底：正常局面不出现
+assert(page.data.canPass === false, '有合法动作时不应出现「跳过」');
+{
+  const s4 = page.state;
+  // 先存后复原：这段只是验证门禁，不能破坏后续用例的银行与牌面
+  const keepBank = JSON.parse(JSON.stringify(s4.bank));
+  const keepBoard = s4.board.map(function (r) { return r.slice(); });
+  const keepDecks = s4.decks.map(function (d) { return d.slice(); });
+  const keepReserved = s4.players[0].reserved.slice();
+  const keepTokens = JSON.parse(JSON.stringify(s4.players[0].tokens));
+  s4.bank = { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 };
+  s4.board = [[null, null, null, null], [null, null, null, null], [null, null, null, null]];
+  s4.decks = [[], [], []];
+  s4.players[0].reserved = [];
+  s4.players[0].tokens = { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 };
+  page.refresh('');
+  assert(page.data.canPass === true, '无任何合法动作时才出现「跳过」');
+  s4.bank = keepBank;
+  s4.board = keepBoard;
+  s4.decks = keepDecks;
+  s4.players[0].reserved = keepReserved;
+  s4.players[0].tokens = keepTokens;
+  page.refresh('');
+}
+console.log('OK  跳过按钮由规则决定 · 无解时才出现');
+
 // 点选 3 个不同色筹码并确认
 ['white', 'blue', 'green'].forEach(function (k) { tap('onTapPile', { key: k }); });
 assert(page.data.selectionCount === 3, '选中 3 枚筹码');
@@ -193,7 +325,7 @@ assert(page.state.players[0].reserved.length === 1, '预留卡 +1');
 drain(80);
 console.log('OK  盲抽预留牌库顶');
 
-// 退还筹码路径：构造超限再逐枚退还
+// 退还筹码路径：攒批后一次性确认（旧版点一枚退一枚，退多了无法撤回）
 const s = page.state;
 s.current = 0;
 s.pendingDiscard = 0;
@@ -202,13 +334,25 @@ s.bank = { white: 1, blue: 1, green: 2, red: 2, black: 2, gold: 4 };
 s.pendingDiscard = 3;
 page.refresh('');
 assert(page.data.needDiscard === true, '退还模式开启');
+assert(page.data.pick.mode === 'discard', '退还时主按钮切到归还上下文');
+assert(page.data.canConfirm === false, '未选够不可确认');
 tap('onTapMyToken', { key: 'white' });
-assert(s.pendingDiscard === 2, '退还 1 枚后剩余 2');
+assert(s.pendingDiscard === 3, '点筹码只入退还篮，不立即提交');
+assert(page.data.discardPlanCount === 1, '退还篮记 1 枚');
+assert(page.data.canConfirm === false, '还差 2 枚不可确认');
+// 再点同一色 = 撤回
+tap('onTapMyToken', { key: 'white' });
+assert(page.data.discardPlanCount === 0, '再点同一色应撤回');
+tap('onTapMyToken', { key: 'white' });
 tap('onTapMyToken', { key: 'blue' });
 tap('onTapMyToken', { key: 'green' });
-assert(s.pendingDiscard === 0, '退还完毕');
+assert(page.data.discardPlanCount === 3, '攒够 3 枚');
+assert(page.data.canConfirm === true, '攒够才可确认');
+page.onConfirmTake();
+assert(s.pendingDiscard === 0, '确认后完成退还');
+assert(page.data.pick.mode !== 'discard', '退还完成后主按钮回到拿取');
 drain(80);
-console.log('OK  超额筹码逐枚退还');
+console.log('OK  超额筹码攒批退还 · 可撤回 · 一次确认');
 
 // 重开后完整跑一局：玩家始终执行「买得起就买，否则拿 3 枚」
 page.onRestart();
@@ -216,6 +360,13 @@ let guard = 0;
 while (!page.state.gameOver && guard < 300) {
   if (page.state.current !== 0) { drain(80); continue; }
   const s2 = page.state;
+  // 同时满足多张贵族时真实 UI 会弹选择层；模拟脚本直接选第一张，否则所有动作都会被门禁拒绝
+  if (s2.pendingNoble && s2.pendingNoble.seat === 0) {
+    page.applyPlayerAction({ type: 'chooseNoble', id: s2.pendingNoble.options[0] });
+    drain(80);
+    guard += 1;
+    continue;
+  }
   const E = require(ROOT + '/utils/game-engine.js');
   let bought = false;
   // 真实 UI 在 pendingDiscard 时只开放「退还」入口（onTapCard/onTapPile/onPass 均有保护），
@@ -253,7 +404,12 @@ while (!page.state.gameOver && guard < 300) {
   drain(80);
   guard += 1;
 }
-assert(page.state.gameOver, '完整对局能结束 (guard=' + guard + ')');
+assert(page.state.gameOver, '完整对局能结束 (guard=' + guard +
+  ', current=' + page.state.current +
+  ', pendingNoble=' + !!page.state.pendingNoble +
+  ', pendingDiscard=' + page.state.pendingDiscard +
+  ', bank=' + JSON.stringify(page.state.bank) +
+  ', points=' + page.state.players.map(function (p) { return p.points; }).join('/') + ')');
 assert(page.data.gameOver === true, '结算弹层状态');
 assert(page.data.resultTitle.length > 0, '结算标题');
 
@@ -617,9 +773,20 @@ page.data.rivals.forEach(function (r, i) {
   assert(r.reservedCount === p.reserved.length, '预购数应与预留卡数一致');
 });
 assert(page.data.rivals[0].bonusCells[0].zero === true, '开局零红利应淡显');
+// 声望达到终局线后必须显示真实值，不能截断在 15
+{
+  const keep = page.state.players[1].points;
+  page.state.players[1].points = 21;
+  page.refresh('');
+  const r1 = page.data.rivals[0];
+  assert(r1.pointsText === '21', '声望超过 15 不得截断：' + r1.pointsText);
+  assert(r1.pointsReached === true, '达到终局线应标记 reached');
+  page.state.players[1].points = keep;
+  page.refresh('');
+}
 console.log('OK  对手席位卡 · 红利 / 筹码 / 预购概览与真实状态一致');
 
-/* ---------- 6 列分组网格：红利/筹码逐色上下对齐、零值不显示数字、两位数降档 ---------- */
+/* ---------- 对手卡三行结构：五色折扣 / 五色筹码 + 黄金 / 零值仍可读 ---------- */
 const gridState = page.state;
 gridState.players[1].cards = [];
 for (let ci = 0; ci < 12; ci++) {
@@ -627,17 +794,23 @@ for (let ci = 0; ci < 12; ci++) {
 }
 gridState.players[1].tokens = { white: 10, blue: 0, green: 3, red: 0, black: 1, gold: 2 };
 page.refresh('');
-const cols = page.data.rivals[0].columns;
-assert(cols.length === 6, '每位对手应固定 6 列分组');
-assert(cols[0].key === 'white' && cols[5].key === 'gold', '列顺序应为白蓝绿红黑 + 黄金');
-assert(cols[0].light === true && cols[1].light === false, '白宝石列应标记为浅底（深色墨）');
-assert(cols[0].bonus === '12' && cols[0].bonusShow === true, '红利列应显示 12');
-assert(cols[0].bonusWide === true, '红利两位数应降一档字号');
-assert(cols[0].token === '10' && cols[0].tokenWide === true, '筹码两位数应降一档字号');
-assert(cols[5].isGold === true && cols[5].bonusShow === false, '黄金列没有红利');
-assert(cols[1].token === '0' && cols[1].tokenShow === false, '零值只留色块不渲染 0');
-assert(cols[2].bonusShow === false && cols[2].token === '3', '同一列红利/筹码互不串色');
-console.log('OK  席位卡 6 列分组 · 上下对齐 / 零值留白 / 两位数降档');
+const rival0 = page.data.rivals[0];
+const discRow = rival0.rows.discRow;
+const tokenRow = rival0.rows.tokenRow;
+assert(discRow.length === 5, '折扣行应固定 5 色');
+assert(tokenRow.length === 6 && tokenRow[5].isGold === true, '筹码行应为 5 色 + 黄金末位');
+assert(discRow[0].key === 'white' && tokenRow[0].key === 'white', '两行同序，白起');
+assert(discRow.map(function (c) { return c.key; }).join(',') === 'white,blue,green,red,black', '折扣行顺序：白蓝绿红黑');
+assert(tokenRow.map(function (c) { return c.key; }).join(',') === 'white,blue,green,red,black,gold', '筹码行顺序：五色 + 黄金');
+assert(discRow[0].numText === '12' && discRow[0].wide === true, '折扣两位数应降一档');
+assert(tokenRow[0].numText === '10' && tokenRow[0].wide === true, '筹码两位数应降一档');
+// 零值必须仍然渲染 0（不再隐藏），只降权
+assert(tokenRow[1].numText === '0' && tokenRow[1].zero === true, '零值筹码应显示 0 并标记 zero');
+assert(discRow[2].numText === '0' && discRow[2].zero === true, '零值折扣同样显示 0');
+assert(discRow[0].sqClass === 'sq-white', '方卡需带 sq-* 类名以绘制竖色条');
+assert(tokenRow[5].numText === '2', '黄金独立计在筹码行末位');
+assert(rival0.pointsText === String(gridState.players[1].points), '声望以文本形式下发，不做截断');
+console.log('OK  对手卡三行结构 · 五色同序 / 黄金末位 / 零值仍可读 / 两位数降档');
 
 /* ---------- 多贵族同时满足：挂起挑选 / 门禁 / 选择后结算 / 远端重放 ---------- */
 page.startLocalGame();

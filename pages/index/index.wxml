@@ -22,12 +22,15 @@
     <!-- ========== 牌桌图层：仅在 screen === 'game' 时渲染 ========== -->
     <view wx:if="{{screen === 'game'}}" class="board-layer">
 
-    <!-- ========== 组件：多席位状态条 / 回合提示 / 右上入口 ========== -->
+    <!-- ========== 组件：多席位状态条 / 紧凑回合提示 / 右上入口 ==========
+         顶栏高度全部让给对手卡：回合标题从 23px 大标题收成 15px 紧凑提示，
+         中央只保留「行动中是谁 + 轮次 + 计时 + 上一手」四件必要信息。 -->
     <view class="top-bar">
-      <view class="seat-strip">
+      <view class="seat-strip" style="width:{{rivalStripWidth}}px;">
         <view wx:for="{{rivals}}" wx:key="index"
               class="seat-badge {{item.isCurrent ? 'is-current' : ''}} {{item.isBot ? 'is-bot' : ''}} {{item.empty ? 'is-empty' : ''}}"
               bindtap="onTapPlayer" data-index="{{item.index}}" hover-class="seat-hover">
+          <!-- 第一行：小头像 + 短昵称 + 弱号位 + 醒目声望 -->
           <view class="seat-top">
             <view class="seat-avatar-wrap">
               <view wx:if="{{item.avatarUrl}}" class="seat-avatar">
@@ -37,44 +40,55 @@
                     style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);">
                 <text class="seat-avatar-initial">{{item.initial}}</text>
               </view>
-              <view class="seat-no {{item.isCurrent ? 'is-current' : ''}}"><text>{{item.seatNo}}</text></view>
             </view>
-            <view class="seat-head">
-              <text class="seat-name">{{item.name}}</text>
-              <view class="seat-score-pill"><text>{{item.points}}</text></view>
-            </view>
-          </view>
-          <!-- 6 列分组：同一列上方红利(方块)、下方持有筹码(圆章)，逐色严格对齐；
-               黄金没有红利，该格改放预购数；零值只留淡色块，不显示 0 -->
-          <view class="seat-grid">
-            <view wx:for="{{item.columns}}" wx:for-item="cell" wx:key="key" class="seat-col">
-              <view wx:if="{{cell.isGold}}" class="seat-mini-disc is-res">
-                <text class="seat-res-tag">预</text>
-                <text class="seat-res-num">{{cell.res}}</text>
-              </view>
-              <view wx:else class="seat-mini-disc gem-icon {{cell.gemClass}} {{cell.bonusShow ? '' : 'is-zero'}} {{cell.bonusWide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}}">
-                <text wx:if="{{cell.bonusShow}}">{{cell.bonus}}</text>
-              </view>
-              <view class="seat-mini-coin gem-icon {{cell.gemClass}} {{cell.tokenShow ? '' : 'is-zero'}} {{cell.tokenWide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}}">
-                <text wx:if="{{cell.tokenShow}}">{{cell.token}}</text>
-              </view>
+            <text class="seat-no {{item.isCurrent ? 'is-current' : ''}}">{{item.seatNo}}</text>
+            <text class="seat-name">{{item.name}}</text>
+            <view class="seat-score {{item.isCurrent ? 'is-current' : ''}} {{item.pointsReached ? 'is-reached' : ''}}">
+              <text class="seat-score-num">{{item.pointsText}}</text>
             </view>
           </view>
-          <view class="seat-tags"><text>红</text><text>筹</text></view>
+          <!-- 第二行：五色永久折扣（方形卡片样式，与工作台同一语言） -->
+          <view class="seat-row">
+            <text class="seat-row-tag">折</text>
+            <view wx:for="{{item.rows.discRow}}" wx:for-item="cell" wx:key="key"
+                  class="seat-sq {{cell.sqClass}} {{cell.zero ? 'is-zero' : ''}} {{cell.wide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}}">
+              <text>{{cell.numText}}</text>
+            </view>
+          </view>
+          <!-- 第三行：五色持有筹码 + 黄金末位（圆形筹码样式） -->
+          <view class="seat-row">
+            <text class="seat-row-tag">筹</text>
+            <view wx:for="{{item.rows.tokenRow}}" wx:for-item="cell" wx:key="key"
+                  class="seat-coin gem-icon {{cell.gemClass}} {{cell.zero ? 'is-zero' : ''}} {{cell.wide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}} {{cell.isGold ? 'is-gold' : ''}}">
+              <text>{{cell.numText}}</text>
+            </view>
+            <view class="seat-res" catchtap="onTapPlayer" data-index="{{item.index}}">
+              <text class="seat-res-num">{{item.reservedCount}}</text>
+              <text class="seat-res-tag">预</text>
+            </view>
+          </view>
+          <!-- 行动中：贴在卡片左外沿的竖排小旗，不占任何数字的位置 -->
+          <text wx:if="{{item.turnTag}}" class="seat-turn">{{item.turnTag}}</text>
+          <text wx:if="{{item.isFirst}}" class="seat-first">先</text>
         </view>
       </view>
 
-      <view class="turn-banner">
+      <view class="turn-banner {{isMyTurn ? 'is-mine' : ''}}">
         <view class="turn-line">
           <text class="turn-main {{statusLong ? 'is-long' : ''}}">{{statusText}}</text>
-        </view>
-        <text wx:if="{{netNotice}}" class="turn-sub is-net">{{netNotice}}</text>
-        <text wx:else class="turn-sub">{{turnText}} · {{logText}}</text>
-        <view wx:if="{{turnClock.on}}" class="turn-clock {{turnClock.urgent ? 'is-urgent' : ''}} {{isMyTurn ? 'is-mine' : ''}}">
-          <view class="turn-clock-track">
-            <view class="turn-clock-fill" style="width:{{turnClock.pct}}%;"></view>
+          <view wx:if="{{turnClock.on}}" class="turn-clock {{turnClock.urgent ? 'is-urgent' : ''}} {{isMyTurn ? 'is-mine' : ''}}">
+            <text class="turn-clock-num">{{turnClock.text}}</text>
           </view>
-          <text class="turn-clock-num">{{turnClock.text}}</text>
+        </view>
+        <view class="turn-sub-row">
+          <text class="turn-round">{{turnText}}</text>
+          <text wx:if="{{netNotice}}" class="turn-sub is-net">{{netNotice}}</text>
+          <text wx:elif="{{lastMove && !lastMove.sys}}" class="turn-sub is-last"><text class="turn-sub-tag">上一手</text>{{lastMove.text}}</text>
+          <text wx:else class="turn-sub">{{logText}}</text>
+        </view>
+        <!-- 计时进度条贴在整条底边：不额外占横向空间，也不和标题抢行 -->
+        <view wx:if="{{turnClock.on}}" class="turn-clock-track">
+          <view class="turn-clock-fill {{turnClock.urgent ? 'is-urgent' : ''}}" style="width:{{turnClock.pct}}%;"></view>
         </view>
       </view>
 
@@ -82,7 +96,7 @@
       <view class="top-right" style="top:{{topRightTop}}px;">
         <view class="gold-box">
           <view class="gold-coin coin-face coin-gold"><view class="pile-gem gem-icon gem-gold"></view></view>
-          <text class="gold-label">黄金 {{goldCount}}</text>
+          <text class="gold-label">金 {{goldCount}}</text>
         </view>
         <view wx:if="{{roomMode}}" class="round-btn room-btn" bindtap="onOpenLobby"><text>⚑</text></view>
         <view class="round-btn" bindtap="onOpenProfile"><text>☻</text></view>
@@ -224,6 +238,11 @@
               </view>
             </view>
             <view class="pile-count"><text>{{item.count}}</text></view>
+            <view wx:if="{{item.showMinus}}" class="pile-minus-hit" catchtap="onRemovePile"
+                  data-key="{{item.key}}" hover-class="pile-minus-hover">
+              <view class="pile-minus"><text>−</text></view>
+              <view wx:if="{{item.pickedMany}}" class="pile-picked"><text>×{{item.picked}}</text></view>
+            </view>
             <text class="pile-name">{{item.label}}</text>
           </view>
         </view>
@@ -249,71 +268,83 @@
       </view>
     </view>
 
-    <!-- ========== 组件：当前玩家工作台（深色皮革 + 三层金属倒角 + 柔和弧缘） ========== -->
-    <view class="tray">
+    <!-- ========== 组件：当前玩家工作台（深色皮革 + 三层金属倒角 + 柔和弧缘） ==========
+         三功能区：左＝身份与声望 / 中＝资源（永久折扣 + 持有筹码）/ 右＝本次选择与确认 -->
+    <view class="tray {{isMyTurn ? 'is-my-turn' : ''}}">
       <view class="tray-rim"></view>
 
+      <!-- ① 身份区：头像 + 号位 + 声望 + 预留（预留只在这里做主要展示） -->
       <view class="tray-left">
         <view class="portrait-frame" bindtap="onTapMyPortrait" hover-class="portrait-hover">
           <view class="portrait"></view>
-          <view class="portrait-gem"></view>
           <view class="portrait-seat"><text>{{meSeatLabel}}</text></view>
         </view>
-        <view class="player-badges">
-          <view class="score-disc">
-            <text class="score-num">{{me.points}}</text>
-            <text class="score-den">/15</text>
-          </view>
-          <view class="tray-reserved" bindtap="onShowReserved">
-            <text class="tray-reserved-num">{{me.reservedCount}}</text>
-            <text class="tray-reserved-label">预留卡</text>
+        <view class="id-block">
+          <text class="id-name">{{me.nameText}}</text>
+          <view class="id-stats">
+            <view class="id-stat id-score {{me.pointsReached ? 'is-reached' : ''}}">
+              <text class="id-stat-num">{{me.pointsText}}</text>
+              <text class="id-stat-label">声望</text>
+            </view>
+            <view class="id-stat id-reserved" bindtap="onShowReserved" hover-class="id-stat-hover">
+              <text class="id-stat-num">{{me.reservedText}}</text>
+              <text class="id-stat-label">预留</text>
+            </view>
           </view>
         </view>
       </view>
 
+      <!-- ② 资源区：上行永久折扣（方形卡）/ 下行持有筹码（圆形），同色逐列对齐 -->
       <view class="tray-vault">
-        <view class="vault-total">
-          <text class="vault-total-num">{{me.totalTokens}}</text>
-          <text class="vault-total-den">/10</text>
+        <view class="vault-head">
+          <text class="vault-total-text">我的筹码 <text class="vault-total-num {{me.totalTokens > 10 ? 'is-over' : ''}}">{{me.tokenText}}</text></text>
         </view>
-        <view class="vault-groups">
-          <view class="vault-group">
-            <text class="vault-label">红利</text>
-            <!-- 固定 5 色各一格：与下面筹码行逐列对齐，方便按颜色做减法 -->
-            <view class="vault-row">
-              <view wx:for="{{me.discountCells}}" wx:key="key" class="vault-cell">
-                <view class="disc-chip gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}}">
-                  <text>{{item.num}}</text>
-                </view>
-              </view>
+        <view class="vault-group">
+          <text class="vault-label">永久折扣</text>
+          <view class="vault-row vault-row-disc">
+            <view wx:for="{{me.res.discount}}" wx:key="key"
+                  class="vault-sq {{item.sqClass}} {{item.zero ? 'is-zero' : ''}} {{item.wide ? 'is-wide' : ''}} {{item.light ? 'is-light' : ''}}">
+              <text>{{item.numText}}</text>
             </view>
+            <view class="vault-gold-gap"></view>
           </view>
-          <view class="vault-group">
-            <text class="vault-label">持有筹码</text>
-            <view class="vault-row">
-              <view wx:for="{{me.tokens}}" wx:key="key" class="vault-cell {{item.isGold ? 'is-gold-cell' : ''}}">
-                <view class="vault-token {{item.zero ? 'is-zero' : ''}} {{needDiscard ? 'can-discard' : ''}}"
-                      bindtap="onTapMyToken" data-key="{{item.key}}" hover-class="vault-hover">
-                  <view class="vault-stack">
-                    <view wx:for="{{item.stack}}" wx:for-item="req" wx:key="idx"
-                          class="vault-disc coin-face {{item.coinClass}}" style="{{req.style}}"></view>
-                    <view class="vault-token-icon gem-icon {{item.gemClass}}"></view>
-                  </view>
-                  <text class="vault-token-num">{{item.count}}</text>
-                </view>
-              </view>
+        </view>
+        <view class="vault-group">
+          <text class="vault-label">持有筹码</text>
+          <view class="vault-row vault-row-token">
+            <view wx:for="{{me.res.tokens}}" wx:key="key"
+                  class="vault-coin gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}} {{item.wide ? 'is-wide' : ''}} {{item.light ? 'is-light' : ''}} {{item.isGold ? 'is-gold' : ''}} {{needDiscard ? 'can-discard' : ''}} {{(needDiscard && !item.zero) ? 'is-picked' : ''}}"
+                  bindtap="onTapMyToken" data-key="{{item.key}}" hover-class="vault-hover">
+              <text class="vault-coin-num">{{item.numText}}</text>
             </view>
           </view>
         </view>
       </view>
 
-      <view class="tray-right">
-        <text class="hint {{needDiscard ? 'hint-warn' : ''}}">{{hintText}}</text>
-        <view class="btn-row">
-          <view class="btn btn-primary {{canConfirm ? '' : 'btn-off'}}" bindtap="onConfirmTake">{{confirmLabel}}</view>
-          <view class="btn" bindtap="onCancelSelection">清除</view>
-          <view class="btn" bindtap="onPass">跳过</view>
+      <!-- ③ 操作区：固定的待确认摘要 + 唯一主按钮 + 次级清除
+           摘要只用「本次…」+「确认后 n/10 → m/10」两行：逐色明细已并入第一行，
+           省下的高度全部给主按钮（命中外框统一 ≥46 舞台 px）。 -->
+      <view class="tray-right {{isMyTurn ? '' : 'is-idle'}}">
+        <view class="pick-head">
+          <text class="pick-kind">{{pick.kind}}</text>
+          <text wx:if="{{pick.delta > 0}}" class="pick-delta is-plus">+{{pick.delta}}</text>
+          <text wx:elif="{{pick.delta < 0}}" class="pick-delta is-minus">{{pick.delta}}</text>
+          <text wx:elif="{{pick.mode === 'take'}}" class="pick-delta is-idle">0</text>
         </view>
+        <text class="pick-title">{{pick.title}}</text>
+        <view class="pick-total">
+          <text class="pick-total-label">确认后</text>
+          <text class="pick-total-num">{{pick.fromText}}/10</text>
+          <text class="pick-total-arrow">→</text>
+          <text class="pick-total-num is-next">{{pick.toText}}/10</text>
+        </view>
+        <view class="pick-actions">
+          <view class="btn btn-primary pick-main {{canConfirm ? '' : 'btn-off'}}" bindtap="onConfirmTake">{{isMyTurn ? pick.label : '等待其他玩家'}}</view>
+          <view class="btn pick-clear {{(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'}}"
+                bindtap="onCancelSelection">清除</view>
+          <view wx:if="{{canPass}}" class="btn pick-pass" bindtap="onPass">跳过</view>
+        </view>
+        <text class="pick-reason">{{isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint}}</text>
       </view>
     </view>
 
@@ -632,10 +663,12 @@
             <text class="detail-note">卡面气泡恒为印刷成本；桌面上绿框＝现有筹码直接可买，金框＝缺口需用黄金补齐。买不起时仍可先预留，并获 1 枚黄金万能筹码。</text>
           </view>
         </view>
+        <!-- 主操作统一在工作台右下（唯一高亮按钮）。这里只留次级入口：
+             关闭弹层后可核对摘要再提交，避免两处高亮按钮让玩家分不清该点哪个。 -->
         <view class="dialog-btns">
-          <view class="btn btn-primary {{detail.canBuy && detail.canAct ? '' : 'btn-off'}}" bindtap="onBuyFromDetail">购买此卡</view>
+          <text class="dialog-action-note">购买 / 预留请在弹层关闭后，用工作台右下的主按钮确认</text>
           <view wx:if="{{detail.kind === 'board'}}" class="btn {{detail.canReserve && detail.canAct ? '' : 'btn-off'}}" bindtap="onReserveFromDetail">预留此卡</view>
-          <view class="btn" bindtap="onCloseDetail">关闭</view>
+          <view class="btn btn-primary" bindtap="onCloseDetail">返回牌桌</view>
         </view>
       </view>
     </view>
