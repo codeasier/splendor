@@ -27,6 +27,41 @@ function refundIfNeeded(s) {
   }
 }
 
+check('云端 SDK 内置：无需「构建 npm」也能加载', function () {
+  // 体验版如果没有 miniprogram_npm，require('@tencent-ai/...') 会直接抛错，
+  // 云端静默降级成本机房间 —— 这是「好友点分享卡进不来」的根因，必须锁死。
+  const fs = require('fs');
+  const path = require('path');
+  const ROOT = path.resolve(__dirname, '..');
+
+  assert.ok(
+    fs.existsSync(path.join(ROOT, 'utils/vendor/workbuddy-cloud-sdk.js')),
+    '必须存在内置 SDK 产物 utils/vendor/workbuddy-cloud-sdk.js'
+  );
+  const sdk = require('../utils/vendor/workbuddy-cloud-sdk.js');
+  assert.equal(
+    typeof sdk.createMiniProgramWorkBuddyCloud,
+    'function',
+    '内置 SDK 应导出 createMiniProgramWorkBuddyCloud'
+  );
+
+  // 运行时文件不得直接 require npm 包名，否则又依赖构建步骤
+  const runtimeFiles = ['app.js', 'utils/cloud.js', 'utils/room.js'];
+  runtimeFiles.forEach(function (f) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.ok(
+      src.indexOf("require('@tencent-ai/workbuddy-cloud-sdk") === -1
+      && src.indexOf('require("@tencent-ai/workbuddy-cloud-sdk') === -1,
+      f + ' 不应直接 require npm 包名（小程序运行时不认 node_modules）'
+    );
+  });
+
+  // Node 环境无全局 wx，cloud.js 必须安全加载并保持未注入
+  const cloudMod = require('../utils/cloud.js');
+  assert.equal(cloudMod.cloud, null, '无 wx 时不应初始化云端客户端');
+  assert.ok(cloudMod.publicConfig.endpoint.indexOf('https://') === 0, 'publicConfig 应带 endpoint');
+});
+
 check('2 / 3 / 4 人牌局的银行、贵族与市场', function () {
   [2, 3, 4].forEach(function (n) {
     const s = E.createGame(n);
