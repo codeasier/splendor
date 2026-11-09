@@ -120,8 +120,12 @@
           <view wx:for="{{bankPiles}}" wx:key="key"
                 class="pile-item {{item.slotClass}} {{item.isGold ? 'is-gold' : ''}} {{item.selected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
                 bindtap="onTapPile" data-key="{{item.key}}" hover-class="pile-hover">
-            <view class="pile-coin coin-face {{item.coinClass}}">
-              <view class="pile-gem gem-icon {{item.gemClass}}"></view>
+            <view class="pile-stack">
+              <view wx:for="{{item.stack}}" wx:for-item="req" wx:key="idx"
+                    class="pile-disc coin-face {{item.coinClass}}" style="{{req.style}}"></view>
+              <view class="pile-coin coin-face {{item.coinClass}}" style="{{item.topStyle}}">
+                <view class="pile-gem gem-icon {{item.gemClass}}"></view>
+              </view>
             </view>
             <view class="pile-count"><text>{{item.count}}</text></view>
             <text class="pile-name">{{item.label}}</text>
@@ -191,7 +195,11 @@
               <view wx:for="{{me.tokens}}" wx:key="key"
                     class="vault-token {{item.zero ? 'is-zero' : ''}} {{needDiscard ? 'can-discard' : ''}}"
                     bindtap="onTapMyToken" data-key="{{item.key}}" hover-class="vault-hover">
-                <view class="vault-token-icon gem-icon {{item.gemClass}}"></view>
+                <view class="vault-stack">
+                  <view wx:for="{{item.stack}}" wx:for-item="req" wx:key="idx"
+                        class="vault-disc coin-face {{item.coinClass}}" style="{{req.style}}"></view>
+                  <view class="vault-token-icon gem-icon {{item.gemClass}}"></view>
+                </view>
                 <text class="vault-token-num">{{item.count}}</text>
               </view>
             </view>
@@ -205,6 +213,59 @@
           <view class="btn btn-primary {{canConfirm ? '' : 'btn-off'}}" bindtap="onConfirmTake">{{confirmLabel}}</view>
           <view class="btn" bindtap="onCancelSelection">清除</view>
           <view class="btn" bindtap="onPass">跳过</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ========== 组件：3段式桌面动作展演（取出/翻起 → 全员悬停展示 1.2s → 收入工作台/席位） ========== -->
+    <view wx:for="{{showcaseList}}" wx:key="seq" class="action-showcase" style="{{item.motionStyle}}">
+      <view class="showcase-backdrop"></view>
+      <view class="showcase-banner">
+        <text class="showcase-badge">{{item.badgeText}}</text>
+        <text class="showcase-title">{{item.title}}</text>
+        <text class="showcase-sub">{{item.subtitle}}</text>
+      </view>
+
+      <view wx:if="{{item.kind === 'card'}}" class="showcase-actor">
+        <view class="showcase-halo"></view>
+        <view class="showcase-card-row">
+          <view wx:if="{{item.blindBack}}" class="deck-stack showcase-deck {{item.deckArtClass}}">
+            <view class="deck-edges"></view>
+            <view class="deck-face"></view>
+            <view class="deck-sheen"></view>
+            <view class="deck-crest"><text class="deck-label">{{item.deckLabel}}</text></view>
+          </view>
+          <view wx:else class="card card-showcase">
+            <view class="card-art">
+              <view class="card-photo {{item.card.photoClass}} {{item.card.artClass}}"></view>
+              <view class="art-glaze"></view>
+              <text class="card-name">{{item.card.name}}</text>
+            </view>
+            <text wx:if="{{item.card.pointsText}}" class="card-points">{{item.card.pointsText}}</text>
+            <view class="card-gem gem-icon {{item.card.gemClass}}"></view>
+            <view class="card-foot">
+              <view wx:for="{{item.card.costs}}" wx:for-item="cost" wx:key="key"
+                    class="cost-bubble gem-icon {{cost.gemClass}} {{cost.covered ? 'is-covered' : ''}}">
+                <text style="color:{{cost.ink}}">{{cost.display}}</text>
+              </view>
+            </view>
+          </view>
+          <view wx:if="{{item.gotGold}}" class="showcase-gold-bonus">
+            <view class="showcase-coin coin-face coin-gold">
+              <view class="showcase-coin-gem gem-icon gem-gold"></view>
+            </view>
+            <text class="showcase-gold-tag">+1 黄金</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{item.kind === 'take'}}" class="showcase-coins">
+        <view wx:for="{{item.coins}}" wx:for-item="cost" wx:key="idx"
+              class="showcase-coin-item" style="{{cost.itemStyle}}">
+          <view class="showcase-coin coin-face {{cost.coinClass}}">
+            <view class="showcase-coin-gem gem-icon {{cost.gemClass}}"></view>
+          </view>
+          <text class="showcase-coin-label">{{cost.label}}</text>
         </view>
       </view>
     </view>

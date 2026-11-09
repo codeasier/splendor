@@ -443,56 +443,61 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .round-btn:active { transform: translateY(1px); }
 
-/* ---------- 4. 左侧牌库：侧转的皇家塔罗牌叠 ---------- */
-.left-rail { position: absolute; left: 122px; top: 88px; width: 98px; height: 346px; z-index: 4; }
+/* ---------- 4. 左侧牌库：沿 2.5D 牌桌左缘斜铺的厚牌叠（参考图1） ---------- */
+.left-rail { position: absolute; left: 118px; top: 86px; width: 102px; height: 348px; z-index: 4; }
 .rail-shadow {
   position: absolute; left: -12px; top: -8px; width: 124px; height: 362px;
   border-radius: 12px;
   border: 1px solid rgba(243, 212, 139, .14);
-  background: linear-gradient(160deg, rgba(38, 15, 26, .48), rgba(16, 6, 12, .62));
+  background: linear-gradient(160deg, rgba(38, 15, 26, .42), rgba(16, 6, 12, .56));
   box-shadow: inset 0 3px 14px rgba(0, 0, 0, .48), 0 6px 18px rgba(0, 0, 0, .38);
+  transform: perspective(520px) rotateX(14deg) rotateZ(4deg);
 }
-.deck-slot { position: absolute; left: 0; width: 86px; height: 112px; }
-.deck-lv-2 { top: 0; left: 10px; }
-.deck-lv-1 { top: 117px; left: 5px; }
-.deck-lv-0 { top: 234px; left: 0; }
+.deck-slot { position: absolute; left: 0; width: 88px; height: 112px; }
+/* 沿 2.5D 透视左缘自上而下向右下方延伸，与参考图1一致 */
+.deck-lv-2 { top: 0; left: 18px; transform: scale(.93); }
+.deck-lv-1 { top: 116px; left: 9px; transform: scale(.97); }
+.deck-lv-0 { top: 232px; left: 0; transform: scale(1.01); }
 .deck-stack {
-  position: absolute; left: 12px; top: 4px;
+  position: absolute; left: 14px; top: 4px;
   width: 60px; height: 104px;
   border-radius: 4px;
-  transform: perspective(620px) rotateY(-20deg) rotateZ(3.5deg);
-  transform-origin: 62% 50%;
-  transition: transform 160ms cubic-bezier(.2, .8, .3, 1), box-shadow 160ms;
+  transform: perspective(360px) rotateX(22deg) rotateY(22deg) rotateZ(7deg);
+  transform-origin: 50% 55%;
+  transition: transform 180ms cubic-bezier(.2, .8, .3, 1), box-shadow 180ms;
   box-shadow:
-    6px 10px 16px rgba(8, 3, 8, .82),
-    1px 1px 0 rgba(255, 242, 208, .28),
-    inset 0 0 0 1px rgba(255, 230, 168, .65);
+    -6px 10px 18px rgba(6, 2, 6, .88),
+    0 3px 0 #d8be92,
+    0 6px 0 #917148,
+    inset 0 0 0 1px rgba(255, 236, 184, .75);
 }
-.deck-slot.deck-hover .deck-stack { transform: perspective(620px) rotateY(-14deg) rotateZ(2.5deg) translateX(-2px); }
+.deck-slot.deck-hover .deck-stack {
+  transform: perspective(360px) rotateX(16deg) rotateY(16deg) rotateZ(5deg) translateY(-4px);
+}
 .deck-face {
   position: absolute; left: 0; top: 0; right: 0; bottom: 0;
   border-radius: 3px;
   background-size: 100% 100%; background-repeat: no-repeat;
 }
-/* 右侧可见的烫金卡纸层叠 */
+/* 左侧可见的厚重象牙白纸叠侧壁（参考图1左侧牌库立面） */
 .deck-edges {
-  position: absolute; right: -8px; top: 3px; width: 8px; height: 98px;
+  position: absolute; left: -9px; top: 3px; width: 9px; height: 99px;
   z-index: 3;
-  transform: skewY(-5deg);
-  background: repeating-linear-gradient(180deg, #fae8c8 0px, #fae8c8 2px, #b89362 2px, #b89362 3px);
-  border-right: 1px solid #7d5b34;
-  box-shadow: 3px 4px 8px rgba(10, 4, 10, .7);
+  transform: skewY(8deg);
+  background: repeating-linear-gradient(180deg, #fff6e2 0px, #fff6e2 2px, #c4a272 2px, #c4a272 3px);
+  border-left: 1px solid #8a683e;
+  box-shadow: -3px 4px 8px rgba(8, 3, 8, .75);
 }
 .deck-stack::after {
-  content: ''; position: absolute; left: 2px; right: -6px; bottom: -5px; height: 6px;
-  background: repeating-linear-gradient(90deg, #f3dfc0 0px, #f3dfc0 3px, #aa8658 3px, #aa8658 4px);
-  transform: skewX(-28deg);
-  box-shadow: 0 3px 6px rgba(10, 4, 10, .68);
+  content: ''; position: absolute; left: -7px; right: 2px; bottom: -6px; height: 7px;
+  background: repeating-linear-gradient(90deg, #fae9cc 0px, #fae9cc 3px, #b08c5c 3px, #b08c5c 4px);
+  transform: skewX(26deg);
+  box-shadow: 0 4px 8px rgba(8, 3, 8, .75);
 }
 .deck-sheen {
   position: absolute; left: 0; top: 0; right: 0; bottom: 0;
   border-radius: 3px;
-  background: linear-gradient(118deg, rgba(255, 255, 255, .32) 0%, rgba(255, 255, 255, .07) 28%, transparent 52%, rgba(0, 0, 0, .38) 100%);
+  background: linear-gradient(118deg, rgba(255, 255, 255, .34) 0%, rgba(255, 255, 255, .08) 28%, transparent 52%, rgba(0, 0, 0, .4) 100%);
 }
 .deck-crest {
   position: absolute; left: 50%; top: 43%;
@@ -512,7 +517,7 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   line-height: 1; color: #ffecb8; text-shadow: 0 1px 4px #000;
 }
 .deck-count {
-  position: absolute; right: 2px; bottom: 7px;
+  position: absolute; right: 0px; bottom: 5px;
   min-width: 24px; height: 19px; padding: 0 5px; border-radius: 10px;
   border: 1px solid #ecc478;
   background: linear-gradient(180deg, #3b1e2c, #180b13);
@@ -528,22 +533,24 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   text-shadow: 0 1px 3px rgba(0, 0, 0, .9);
 }
 
-/* ---------- 5. 中央市场：三行四列皇家发展卡 ---------- */
+/* ---------- 5. 中央市场：2.5D 透视斜铺发展卡（参考图1全幅插画 + 顶栏声望宝石 + 左下纵列成本） ---------- */
 .board {
-  position: absolute; left: 248px; top: 88px;
-  width: 540px; height: 346px;
+  position: absolute; left: 248px; top: 82px;
+  width: 540px; height: 350px;
   display: flex; flex-direction: column; justify-content: space-between;
+  transform: perspective(760px) rotateX(15deg);
+  transform-origin: 50% 68%;
   z-index: 5;
 }
 .board::before {
-  content: ''; position: absolute; left: -14px; top: -10px; right: -14px; bottom: -10px;
-  border: 1px solid rgba(243, 212, 139, .24); border-radius: 12px;
+  content: ''; position: absolute; left: -14px; top: -8px; right: -14px; bottom: -10px;
+  border: 1px solid rgba(243, 212, 139, .22); border-radius: 14px;
   background:
-    radial-gradient(ellipse 80% 70% at 50% 45%, rgba(255, 224, 172, .045), rgba(16, 6, 12, .36));
+    radial-gradient(ellipse 80% 70% at 50% 45%, rgba(255, 224, 172, .05), rgba(16, 6, 12, .38));
   box-shadow:
     inset 0 0 0 1px rgba(20, 8, 15, .65),
     inset 0 4px 18px rgba(10, 3, 8, .52),
-    0 8px 24px rgba(0, 0, 0, .35);
+    0 12px 28px rgba(0, 0, 0, .45);
 }
 .card-row { position: relative; height: 112px; display: flex; justify-content: space-between; }
 .row-label {
@@ -555,98 +562,103 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   line-height: 24px; text-align: center; color: #ffe6ae;
   box-shadow: inset 0 1px 0 rgba(255, 240, 200, .32), 0 3px 7px rgba(0, 0, 0, .62);
 }
-/* 远端行略小 5%，中端 2.5%，保持字正立与可读性 */
+/* 2.5D 远近透视阶梯：远端行略小、近端行略大，配合卡片自身的 rotateX(21deg) 呈现真实斜铺牌面 */
 .card-slot {
-  position: relative; width: 88px; height: 112px;
-  transition: transform 150ms cubic-bezier(.2, .8, .3, 1);
-  animation: cardDeal 300ms ease-out both;
+  position: relative; width: 90px; height: 112px;
+  transition: transform 180ms cubic-bezier(.2, .8, .3, 1);
+  animation: cardDeal 340ms cubic-bezier(.2, .8, .3, 1) both;
 }
-.row-far .card-slot { transform: scale(.95); }
-.row-mid .card-slot { transform: scale(.975); }
-.row-near .card-slot { transform: scale(1); }
-.card-slot.is-selected { transform: translateY(-5px) scale(1.03); z-index: 7; }
+.row-far .card-slot { transform: scale(.93) translateY(2px); }
+.row-mid .card-slot { transform: scale(.97); }
+.row-near .card-slot { transform: scale(1.015) translateY(-1px); }
+.card-slot.is-selected { transform: translateY(-8px) scale(1.05); z-index: 7; }
 .card-slot.slot-hover { transform: translateY(2px) scale(.99); }
 
-/* 典藏发展卡：鎏金象牙卡框、立体纸厚、油画光泽、高对比成本徽章 */
+/* 典藏发展卡：参考图1的全幅油画 + 顶部半透明羊皮高光带 + 左下纵列成本圆章 + 底部立体纸厚 */
 .card {
-  position: relative; width: 88px; height: 112px;
-  border-radius: 6px;
-  border-top: 1px solid rgba(255, 250, 230, .95);
+  position: relative; width: 90px; height: 112px;
+  border-radius: 7px;
+  border-top: 1px solid rgba(255, 252, 236, .96);
   border-left: 1px solid rgba(248, 232, 192, .88);
   border-right: 1px solid #9e7b4f;
-  border-bottom: 1px solid #6e502f;
-  background: #f2e5c9;
+  border-bottom: 1px solid #5e4224;
+  background: #2b1822;
   overflow: hidden;
+  transform-origin: 50% 60%;
   box-shadow:
-    0 1px 0 #c9a874,
-    0 2px 0 #7d5d3b,
-    0 3px 0 #4a341e,
-    4px 7px 13px rgba(12, 4, 10, .72),
-    inset 0 0 0 1px rgba(255, 248, 225, .65);
-  transition: box-shadow 150ms ease, border-color 150ms ease;
+    0 1.5px 0 #ebd4a8,
+    0 3px 0 #b8925a,
+    0 4.5px 0 #6e502a,
+    0 10px 16px rgba(8, 2, 7, .85),
+    4px 14px 22px rgba(0, 0, 0, .62),
+    inset 0 0 0 1px rgba(255, 248, 225, .48);
+  transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
-/* 可购买：皇家暖金微光外框 + 顶部金辉 */
+/* 可购买：参考图1的青蓝/暖金高光外轮廓 + 立体纸厚 */
 .card.is-affordable {
-  border-color: #ffe299;
+  border-color: #ffe49e;
   box-shadow:
-    0 0 0 1.5px rgba(255, 218, 132, .88),
-    0 0 12px rgba(255, 202, 98, .36),
-    0 1px 0 #c9a874,
-    0 2px 0 #7d5d3b,
-    4px 8px 14px rgba(12, 4, 10, .74);
+    0 0 0 1.5px rgba(255, 222, 138, .92),
+    0 0 14px rgba(255, 204, 96, .42),
+    0 1.5px 0 #ebd4a8,
+    0 3px 0 #b8925a,
+    0 4.5px 0 #6e502a,
+    0 11px 18px rgba(8, 2, 7, .86);
 }
-/* 选中：璀璨青蓝宝石光环 + 抬升阴影 */
+/* 选中：璀璨青蓝宝石光环 + 抬升悬浮感 */
 .card-slot.is-selected .card {
-  border-color: #7ce2f7;
+  border-color: #6fe3ff;
   box-shadow:
-    0 0 0 2px #7ce2f7,
-    0 0 18px rgba(124, 226, 247, .55),
-    0 6px 0 #6f543a,
-    8px 16px 24px rgba(10, 4, 10, .78);
+    0 0 0 2px #6fe3ff,
+    0 0 20px rgba(111, 227, 255, .65),
+    0 4px 0 #b8925a,
+    0 7px 0 #6e502a,
+    8px 18px 26px rgba(8, 2, 7, .86);
 }
-/* 插画层与信息层分离 */
+/* 全幅油画铺满整张卡面（参考图1） */
 .card-art {
-  position: absolute; left: 0; right: 0; top: 0; height: 81px;
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0; height: 100%;
   overflow: hidden;
 }
 .card-photo {
   position: absolute; left: 0; top: 0; right: 0; bottom: 0;
-  background-size: cover; background-position: 42% center; background-repeat: no-repeat;
+  background-size: cover; background-position: 48% center; background-repeat: no-repeat;
   background-color: #4a3340;
-  filter: brightness(1.06) saturate(1.08) contrast(1.03);
+  filter: brightness(1.08) saturate(1.12) contrast(1.04);
 }
+/* 顶部半透明亮带承托声望与红利宝石，底部柔暗承托卡名（参考图1） */
 .art-glaze {
   position: absolute; left: 0; top: 0; right: 0; bottom: 0;
   background:
-    radial-gradient(circle at 16% 18%, rgba(18, 8, 14, .52) 0%, transparent 38%),
-    linear-gradient(122deg, rgba(255, 248, 225, .14) 0%, rgba(255, 255, 255, .02) 26%, transparent 48%),
-    linear-gradient(0deg, rgba(16, 7, 13, .86) 0%, rgba(16, 7, 13, .28) 28%, transparent 56%);
-  box-shadow: inset 0 0 0 1px rgba(243, 212, 139, .28);
+    linear-gradient(180deg, rgba(255, 248, 232, .68) 0%, rgba(246, 232, 204, .28) 23%, transparent 34%),
+    linear-gradient(122deg, rgba(255, 248, 225, .14) 0%, transparent 44%),
+    linear-gradient(0deg, rgba(14, 6, 12, .84) 0%, rgba(14, 6, 12, .22) 22%, transparent 44%);
+  box-shadow: inset 0 0 0 1px rgba(243, 212, 139, .26);
 }
 .card-name {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
-  padding: 2px 3px 3px; text-align: center;
+  position: absolute; right: 4px; bottom: 3px; z-index: 3;
+  padding: 1px 4px; border-radius: 4px;
   font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
-  font-size: 10px; font-weight: 700; letter-spacing: .8px;
+  font-size: 9px; font-weight: 700; letter-spacing: .5px;
   color: #fff3d6;
-  text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, .95);
+  background: rgba(16, 6, 12, .52);
+  text-shadow: 0 1px 2px #000;
 }
-/* 左上声望：浮雕烫金衬线大字 */
+/* 左上声望：参考图1的醒目白金立体衬线数字 */
 .card-points {
-  position: absolute; left: 5px; top: 1px; z-index: 4;
+  position: absolute; left: 6px; top: 1px; z-index: 4;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 26px; font-style: italic; font-weight: 700; line-height: 1;
-  color: #fff6db;
+  font-size: 27px; font-style: italic; font-weight: 700; line-height: 1;
+  color: #fff8e4;
   text-shadow:
     0 1px 0 #7a5216,
-    0 0 4px #12080e, 0 0 8px #12080e,
-    1.5px 1.5px 2px #12080e, -1.5px -1.5px 2px #12080e,
-    1.5px -1.5px 2px #12080e, -1.5px 1.5px 2px #12080e,
-    0 3px 6px rgba(0, 0, 0, .95);
+    0 0 4px #12080e, 0 0 7px rgba(18, 8, 14, .9),
+    1.5px 1.5px 2px #12080e, -1px -1px 2px #12080e,
+    1px -1px 2px #12080e, -1px 1px 2px #12080e;
 }
-/* 右上永久红利：双层金圈镶座内的切面宝石 */
+/* 右上永久红利：切面宝石徽章 */
 .card-gem {
-  position: absolute; right: 4px; top: 4px; z-index: 4;
+  position: absolute; right: 5px; top: 4px; z-index: 4;
   width: 23px; height: 23px; border-radius: 50%;
   border: 1.5px solid #f7dc9c;
   background-color: #1f101a;
@@ -656,23 +668,26 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     0 2px 6px rgba(0, 0, 0, .8);
   overflow: hidden;
 }
-/* 底部羊皮纸镶金托带：成本徽章高对比呈现 */
+/* 左下角纵列成本圆章（参考图1：气泡沿卡片左下侧纵向排列，直接叠在全幅插画上） */
 .card-foot {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 31px; z-index: 4;
-  display: flex; flex-wrap: wrap; align-content: center; gap: 3px; padding: 3px 4px;
-  background: linear-gradient(180deg, #fbf2de 0%, #ead5b0 56%, #d4b88c 100%);
-  border-top: 1.5px solid #a67c44;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -1px 2px rgba(96, 64, 28, .28);
+  position: absolute; left: 4px; bottom: 4px; top: auto; right: auto;
+  width: 44px; height: auto; max-height: 76px; z-index: 4;
+  display: flex; flex-direction: column-reverse; flex-wrap: wrap;
+  align-content: flex-start; gap: 2px; padding: 0;
+  background: transparent;
+  border-top: none;
+  box-shadow: none;
 }
 .cost-bubble {
-  position: relative; width: 19px; height: 19px; border-radius: 50%;
+  position: relative; width: 20px; height: 20px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background-color: #1f1119;
-  border: 1px solid rgba(255, 232, 178, .85);
+  border: 1.2px solid rgba(255, 238, 192, .92);
   box-shadow:
-    0 0 0 1px rgba(28, 14, 18, .82),
-    inset 0 1px 2px rgba(255, 255, 255, .4),
-    0 1px 3px rgba(0, 0, 0, .58);
+    0 0 0 1px rgba(20, 8, 14, .88),
+    0 2px 0 rgba(20, 8, 14, .85),
+    inset 0 1px 2px rgba(255, 255, 255, .45),
+    0 3px 5px rgba(0, 0, 0, .72);
   overflow: hidden;
 }
 .cost-bubble text {
@@ -686,133 +701,150 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .cost-bubble.is-covered { opacity: .48; filter: saturate(.75); }
 .card-empty {
-  width: 88px; height: 112px; border-radius: 6px;
+  width: 90px; height: 112px; border-radius: 7px;
   border: 1px dashed rgba(243, 212, 139, .28);
   background: rgba(18, 7, 14, .32);
   box-shadow: inset 0 3px 12px rgba(0, 0, 0, .48);
+  transform: perspective(420px) rotateX(21deg);
 }
 
-/* ---------- 6. 右侧栏：皇家宝石筹码盘 & 贵族画廊 ---------- */
-.right-rail { position: absolute; left: 800px; top: 88px; width: 264px; height: 346px; z-index: 5; }
+/* ---------- 6. 右侧栏：2.5D 立体堆叠筹码柱 & 斜铺贵族画廊（参考图1） ---------- */
+.right-rail { position: absolute; left: 800px; top: 86px; width: 264px; height: 348px; z-index: 5; }
 .rail-title {
   display: block; height: 16px; line-height: 16px; white-space: nowrap;
   font-size: 9px; font-weight: 600; letter-spacing: .6px; color: #f3d48b;
   text-shadow: 0 1px 3px rgba(0, 0, 0, .9);
 }
-.pile-area { position: absolute; left: 0; top: 0; width: 92px; height: 346px; }
+.pile-area { position: absolute; left: 0; top: 0; width: 94px; height: 348px; }
 .pile-area::before {
   content: ''; position: absolute; left: -8px; top: -8px; width: 102px; bottom: -10px;
   border-radius: 12px;
-  border: 1px solid rgba(243, 212, 139, .18);
-  background: linear-gradient(160deg, rgba(38, 15, 26, .44), rgba(14, 5, 11, .6));
+  border: 1px solid rgba(243, 212, 139, .16);
+  background: linear-gradient(160deg, rgba(38, 15, 26, .38), rgba(14, 5, 11, .54));
   box-shadow: inset 0 3px 12px rgba(0, 0, 0, .45);
   pointer-events: none;
 }
-.pile-list { position: absolute; left: 0; top: 20px; width: 92px; height: 320px; }
+.pile-list { position: absolute; left: 0; top: 20px; width: 92px; height: 324px; }
 .pile-item {
-  position: absolute; width: 76px; height: 52px;
+  position: absolute; width: 82px; height: 52px;
   display: flex; align-items: center;
   transition: transform 220ms cubic-bezier(.2, .8, .3, 1);
 }
-.pile-slot-5 { left: 0px;  top: 0px; }
-.pile-slot-3 { left: 2px;  top: 54px; }
-.pile-slot-1 { left: 4px;  top: 108px; }
-.pile-slot-0 { left: 6px;  top: 162px; }
-.pile-slot-2 { left: 8px;  top: 216px; }
-.pile-slot-4 { left: 10px; top: 270px; }
-.pile-coin {
-  position: relative; width: 46px; height: 46px; border-radius: 50%;
-  box-shadow:
-    0 2px 0 -1px #6e4a26,
-    0 4px 0 -1px #4c3118,
-    0 6px 0 -2px #331f10,
-    0 8px 0 -3px #1c1009,
-    5px 12px 16px rgba(8, 3, 8, .78),
-    inset 0 1px 0 rgba(255, 250, 224, .5);
-  transition: transform 240ms cubic-bezier(.2, .8, .3, 1), box-shadow 240ms;
+.pile-slot-5 { left: 2px;  top: 0px; }
+.pile-slot-3 { left: 4px;  top: 54px; }
+.pile-slot-1 { left: 6px;  top: 108px; }
+.pile-slot-0 { left: 8px;  top: 162px; }
+.pile-slot-2 { left: 10px; top: 216px; }
+.pile-slot-4 { left: 12px; top: 270px; }
+/* 3D 筹码堆叠容器：顶层在 y=0，底层向下层叠出清晰的筹码柱侧面，参考图1 */
+.pile-stack {
+  position: relative; left: 16px; top: -4px;
+  width: 46px; height: 48px;
+  transition: transform 220ms cubic-bezier(.2, .8, .3, 1);
+  filter: drop-shadow(3px 8px 8px rgba(6, 2, 6, .75));
 }
-.pile-gem { width: 24px; height: 24px; margin-left: -12px; margin-top: -12px; }
+.pile-disc {
+  position: absolute; left: 0; top: 0;
+  width: 44px; height: 44px; border-radius: 50%;
+  box-shadow:
+    0 2px 0 #e6c27a,
+    0 3.2px 0 #4a2c10,
+    inset 0 -2px 3px rgba(0, 0, 0, .35);
+}
+.pile-coin {
+  position: absolute; left: 0; top: 0;
+  width: 44px; height: 44px; border-radius: 50%;
+  box-shadow:
+    0 2px 0 #f0cf88,
+    0 3.4px 0 #593614,
+    inset 0 1px 0 rgba(255, 252, 232, .68);
+  transition: transform 220ms cubic-bezier(.2, .8, .3, 1), box-shadow 220ms;
+}
+.pile-gem { width: 23px; height: 23px; margin-left: -11.5px; margin-top: -11.5px; }
+/* 筹码库存数字：参考图1置于筹码堆左下角，斜体衬线大字 */
 .pile-count {
-  position: absolute; left: 41px; top: 26px;
-  min-width: 20px; height: 19px; padding: 0 4px; border-radius: 10px;
-  border: 1px solid #ecc478;
+  position: absolute; left: -2px; bottom: 1px; z-index: 6;
+  min-width: 19px; height: 18px; padding: 0 4px; border-radius: 9px;
+  border: 1px solid rgba(243, 212, 139, .82);
   background: linear-gradient(180deg, #3b1e2c, #160a12);
-  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .28), 0 2px 6px rgba(0, 0, 0, .72);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .3), 0 2px 6px rgba(0, 0, 0, .78);
   display: flex; align-items: center; justify-content: center;
-  font-family: Georgia, serif; font-size: 11px; font-weight: 700; color: #ffecb8;
+  font-family: Georgia, serif; font-style: italic; font-size: 12px; font-weight: 700; color: #fff2c6;
 }
 .pile-name { display: none; }
 .pile-tip { display: none; }
+.pile-item.is-selected .pile-stack { transform: translateY(-5px) scale(1.05); }
 .pile-item.is-selected .pile-coin {
-  transform: translateY(-4px);
   box-shadow:
     0 0 0 2px #7ce2f7,
-    0 0 18px rgba(124, 226, 247, .58),
-    0 3px 0 -1px #6e4a26,
-    0 6px 0 -1px #4c3118,
-    0 9px 0 -2px #331f10,
-    7px 16px 22px rgba(8, 3, 8, .82);
+    0 0 18px rgba(124, 226, 247, .65),
+    0 3px 0 #b8843e,
+    0 6px 0 #6e481c,
+    7px 16px 22px rgba(6, 2, 6, .85);
 }
-.pile-item.pile-hover .pile-coin { transform: translateY(2px); }
-.pile-item.is-disabled { opacity: .4; }
-.pile-item.is-gold.is-disabled { opacity: .82; }
+.pile-item.pile-hover .pile-stack { transform: translateY(2px); }
+.pile-item.is-disabled { opacity: .38; }
+.pile-item.is-gold.is-disabled { opacity: .88; }
 
-/* ---------- 7. 贵族肖像画廊 ---------- */
-.noble-area { position: absolute; left: 116px; top: 0; width: 104px; height: 346px; }
+/* ---------- 7. 贵族肖像画廊：2.5D 斜铺 + 左侧纵列红利需求（参考图1） ---------- */
+.noble-area { position: absolute; left: 116px; top: 0; width: 106px; height: 348px; }
 .noble-area::before {
-  content: ''; position: absolute; left: -8px; top: -10px; right: -6px; bottom: -10px;
+  content: ''; position: absolute; left: -8px; top: -8px; right: -6px; bottom: -10px;
   border-radius: 12px;
   border: 1px solid rgba(243, 212, 139, .16);
-  background: linear-gradient(160deg, rgba(38, 15, 26, .42), rgba(14, 5, 11, .58));
+  background: linear-gradient(160deg, rgba(38, 15, 26, .38), rgba(14, 5, 11, .54));
   box-shadow: inset 0 3px 12px rgba(0, 0, 0, .45);
   pointer-events: none;
 }
-.noble-row { position: absolute; left: 0; top: 20px; display: flex; flex-direction: column; gap: 7px; }
+.noble-row { position: absolute; left: 2px; top: 20px; display: flex; flex-direction: column; gap: 8px; }
 .noble {
-  position: relative; width: 92px; height: 100px;
+  position: relative; width: 92px; height: 98px;
   border-radius: 6px;
-  border: 1.5px solid #d9ab5c;
+  border: 1.5px solid #e2b668;
   background: linear-gradient(165deg, #472435 0%, #24111c 68%, #160911 100%);
+  transform: perspective(420px) rotateX(18deg) rotateY(-9deg) rotateZ(-2.5deg);
   box-shadow:
-    0 1px 0 #9c7332, 0 3px 0 #4a2e14,
-    4px 8px 14px rgba(10, 4, 10, .74),
-    inset 0 0 0 1px rgba(255, 240, 200, .24);
+    0 2px 0 #b88c46, 0 4px 0 #5e3d16,
+    5px 10px 16px rgba(8, 3, 8, .8),
+    inset 0 0 0 1px rgba(255, 240, 200, .28);
   overflow: hidden;
   animation: nobleIn 420ms ease-out both;
 }
 .noble-face {
-  position: absolute; left: 3px; right: 3px; top: 3px; height: 67px;
-  border-radius: 3px;
-  border: 1px solid rgba(243, 212, 139, .45);
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0; height: 100%;
   overflow: hidden;
 }
 .noble-photo {
   position: absolute; left: 0; top: 0; right: 0; bottom: 0;
-  background-size: cover; background-position: center 22%; background-repeat: no-repeat;
+  background-size: cover; background-position: 62% 22%; background-repeat: no-repeat;
   background-color: #3a2530;
-  filter: brightness(1.08) saturate(1.08);
+  filter: brightness(1.08) saturate(1.1);
 }
 .noble-face::after {
   content: ''; position: absolute; left: 0; top: 0; right: 0; bottom: 0;
-  background: radial-gradient(ellipse 78% 84% at 50% 38%, transparent 38%, rgba(12, 5, 12, .58) 100%);
+  background:
+    linear-gradient(90deg, rgba(246, 232, 204, .75) 0%, rgba(236, 216, 180, .52) 26%, transparent 34%),
+    linear-gradient(0deg, rgba(12, 5, 12, .72) 0%, transparent 36%);
 }
 .noble-points {
-  position: absolute; right: 4px; bottom: 6px; z-index: 3;
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 1px solid #fff3c8;
-  background: radial-gradient(circle at 36% 26%, #fff0b8, #d8a248 68%, #7d4c16);
-  display: flex; align-items: center; justify-content: center;
-  font-family: Georgia, serif; font-size: 14px; font-weight: 700; color: #2e1804;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, .72), inset 0 1px 0 rgba(255, 255, 255, .65);
+  position: absolute; right: 5px; bottom: 4px; z-index: 3;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px; font-style: italic; font-weight: 700; line-height: 1;
+  color: #fff6db;
+  text-shadow: 0 1px 0 #6e4514, 0 0 5px #000, 1px 1px 2px #000, -1px -1px 2px #000;
 }
 .noble-title { display: none; }
-.noble-reqs { position: absolute; left: 4px; bottom: 7px; z-index: 3; display: flex; gap: 3px; }
+/* 左侧纵列红利需求卡标（参考图1贵族卡左侧竖排方章） */
+.noble-reqs {
+  position: absolute; left: 3px; bottom: 5px; z-index: 3;
+  display: flex; flex-direction: column; gap: 2px;
+}
 .noble-req {
-  position: relative; width: 17px; height: 17px; border-radius: 4px;
+  position: relative; width: 17px; height: 19px; border-radius: 3px;
   background-color: #1e1018;
-  border: 1px solid rgba(255, 232, 178, .75);
+  border: 1px solid rgba(255, 236, 188, .88);
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .68);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .75);
 }
 .noble-req text {
   position: relative; z-index: 2;
@@ -821,20 +853,19 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .noble-none { font-size: 11px; color: #d8b596; }
 
-/* 3/4 人局 4~5 张贵族：紧凑双列画廊 */
+/* 3/4 人局 4~5 张贵族：紧凑双列 2.5D 画廊 */
 .noble-area.is-compact { left: 114px; width: 148px; }
 .noble-area.is-compact .noble-row {
   top: 18px; display: grid; grid-template-columns: repeat(2, 68px); gap: 6px;
   grid-auto-flow: row;
 }
 .noble-area.is-compact .noble { width: 68px; height: 90px; }
-.noble-area.is-compact .noble-face { height: 58px; }
+.noble-area.is-compact .noble-face { height: 100%; }
 .noble-area.is-compact .noble-points {
-  top: 3px; right: 3px; bottom: auto;
-  width: 18px; height: 18px; font-size: 12px;
+  right: 4px; bottom: 3px; font-size: 18px;
 }
-.noble-area.is-compact .noble-reqs { left: 3px; bottom: 5px; gap: 2px; }
-.noble-area.is-compact .noble-req { width: 14px; height: 14px; }
+.noble-area.is-compact .noble-reqs { left: 3px; bottom: 4px; gap: 2px; }
+.noble-area.is-compact .noble-req { width: 14px; height: 15px; }
 .noble-area.is-compact .noble-req text { font-size: 8px; }
 
 /* ---------- 8. 底部玩家皇家工作台 ---------- */
@@ -942,10 +973,10 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   border: 1px dashed rgba(243, 212, 139, .24);
   background: rgba(18, 8, 14, .45);
 }
-/* 持有筹码：镶金天鹅绒宝石槽 */
+/* 持有筹码：镶金天鹅绒宝石槽 + 槽内 3D 堆叠筹码（参考图1） */
 .vault-token {
-  position: relative; width: 46px; height: 35px; border-radius: 8px;
-  border: 1px solid rgba(243, 212, 139, .45);
+  position: relative; width: 48px; height: 37px; border-radius: 8px;
+  border: 1px solid rgba(243, 212, 139, .48);
   background: linear-gradient(180deg, rgba(82, 46, 64, .96) 0%, rgba(28, 13, 23, .98) 65%, rgba(14, 6, 12, .99) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 242, 205, .28),
@@ -958,9 +989,18 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   content: ''; position: absolute; left: 10%; top: 5%; width: 66%; height: 32%;
   border-radius: 50%; background: linear-gradient(180deg, rgba(255, 255, 255, .16), transparent);
 }
-.vault-token-icon { position: absolute; left: 4px; top: 6px; width: 21px; height: 21px; opacity: .96; }
+.vault-stack {
+  position: absolute; left: 3px; top: 8px; width: 22px; height: 22px;
+}
+.vault-disc {
+  position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%;
+  box-shadow: 0 1.5px 0 #8a6030, 0 3px 4px rgba(0, 0, 0, .7);
+}
+.vault-token-icon {
+  position: absolute; left: 4px; top: 4px; width: 14px; height: 14px; z-index: 2; opacity: .98;
+}
 .vault-token-num {
-  position: absolute; right: 5px; top: 6px; z-index: 2;
+  position: absolute; right: 5px; top: 7px; z-index: 3;
   font-family: Georgia, serif; font-style: italic; font-size: 20px; font-weight: 700; line-height: 1;
   color: #fff4d6; text-shadow: 0 2px 4px #000, 0 0 8px rgba(255, 235, 190, .24);
 }
@@ -1051,11 +1091,11 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   box-shadow: 0 0 0 2px #7ce2f7, 0 0 18px rgba(124, 226, 247, .42),
     0 4px 0 #6f543a, 9px 18px 26px rgba(12, 5, 12, .78);
 }
-.card-big .card-art { height: 150px; }
-.card-big .card-foot { height: 54px; padding: 5px; gap: 5px; }
-.card-big .card-name { font-size: 14px; bottom: 3px; }
-.card-big .card-points { font-size: 40px; left: 8px; }
-.card-big .card-gem { width: 32px; height: 32px; right: 8px; top: 8px; }
+.card-big .card-art { height: 100%; }
+.card-big .card-foot { left: 7px; bottom: 8px; width: 66px; max-height: 132px; gap: 4px; }
+.card-big .card-name { font-size: 13px; right: 6px; bottom: 6px; padding: 2px 7px; }
+.card-big .card-points { font-size: 40px; left: 8px; top: 2px; }
+.card-big .card-gem { width: 32px; height: 32px; right: 8px; top: 6px; }
 .card-big .cost-bubble { width: 28px; height: 28px; }
 .card-big .cost-bubble text { font-size: 16px; }
 .detail-info { flex: 1; display: flex; flex-direction: column; gap: 9px; }
@@ -1078,13 +1118,13 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .reserved-dialog { width: 620px; }
 .reserved-list { display: flex; gap: 14px; min-height: 168px; align-items: flex-start; flex-wrap: wrap; }
 .card-small { width: 110px; height: 150px; }
-.card-small .card-art { height: 106px; }
-.card-small .card-foot { height: 44px; }
+.card-small .card-art { height: 100%; }
+.card-small .card-foot { left: 5px; bottom: 6px; width: 50px; max-height: 98px; gap: 3px; }
 .card-small .card-points { font-size: 30px; }
 .card-small .card-gem { width: 25px; height: 25px; }
 .card-small .cost-bubble { width: 22px; height: 22px; }
 .card-small .cost-bubble text { font-size: 13px; }
-.card-small .card-name { font-size: 12px; }
+.card-small .card-name { font-size: 11px; right: 5px; bottom: 5px; }
 .empty-tip { font-size: 13px; color: #d6b4c0; line-height: 1.7; }
 
 .rules-dialog { width: 720px; }
@@ -1102,7 +1142,198 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .result-detail { font-size: 14px; color: #edd0a8; text-align: center; }
 .result-dialog .dialog-btns { justify-content: center; }
 
-/* ---------- 10. 动效 ---------- */
+/* ---------- 10. 动效 & 3段式桌面动作展演（取出/翻起 → 悬停展示 1.2s → 飞入工作台） ---------- */
+.action-showcase {
+  position: absolute; left: 0; top: 0; width: 1080px; height: 560px;
+  z-index: 16; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  animation: showcaseLifecycle 1750ms ease-out both;
+}
+.showcase-backdrop {
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  background:
+    radial-gradient(ellipse 46% 48% at 50% 48%, rgba(255, 214, 128, .24) 0%, rgba(20, 6, 14, .58) 56%, transparent 82%);
+  animation: showcaseBackdrop 1750ms ease-out both;
+}
+.showcase-banner {
+  position: absolute; left: 50%; top: 76px;
+  width: 440px; margin-left: -220px;
+  padding: 8px 20px 10px;
+  border-radius: 28px;
+  border: 1.5px solid rgba(255, 230, 168, .85);
+  background:
+    radial-gradient(ellipse 85% 90% at 50% 10%, rgba(136, 56, 82, .92), rgba(26, 9, 18, .95) 85%);
+  box-shadow:
+    0 0 0 2px rgba(18, 6, 12, .85),
+    0 0 24px rgba(255, 206, 112, .45),
+    0 12px 28px rgba(0, 0, 0, .82);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  z-index: 4;
+  animation: showcaseBanner 1750ms cubic-bezier(.2, .8, .3, 1) both;
+}
+.showcase-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 3px; color: #ffd984;
+}
+.showcase-title {
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
+  font-size: 19px; font-weight: 700; letter-spacing: 2px; color: #fff5d6;
+  text-shadow: 0 2px 6px #000;
+}
+.showcase-sub {
+  font-size: 11px; color: #edd0a8; letter-spacing: .5px;
+}
+
+/* 卡牌展演主体：从卡槽/牌库坐标翻起 → 中央悬停展示 ~1.2s → 飞入工作台/对手席位 */
+.showcase-actor {
+  position: relative; z-index: 3;
+  margin-top: 24px;
+  display: flex; align-items: center; justify-content: center;
+  animation: showcaseCardFlight 1750ms cubic-bezier(.22, .82, .28, 1) both;
+}
+.showcase-halo {
+  position: absolute; left: 50%; top: 50%;
+  width: 240px; height: 240px; margin-left: -120px; margin-top: -120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 224, 148, .52) 0%, rgba(255, 196, 92, .18) 46%, transparent 72%);
+  filter: blur(2px);
+}
+.showcase-card-row {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; gap: 18px;
+}
+.card-showcase {
+  width: 138px; height: 184px;
+  border-radius: 9px;
+  border: 2px solid #fff0be;
+  box-shadow:
+    0 0 0 2px #7ce2f7,
+    0 0 28px rgba(255, 214, 122, .75),
+    0 4px 0 #b8925a,
+    0 8px 0 #6e502a,
+    0 22px 42px rgba(0, 0, 0, .88);
+}
+.card-showcase .card-art { height: 100%; }
+.card-showcase .card-points { font-size: 38px; left: 8px; top: 2px; }
+.card-showcase .card-gem { width: 32px; height: 32px; right: 7px; top: 6px; }
+.card-showcase .card-foot { left: 6px; bottom: 7px; width: 62px; max-height: 120px; gap: 4px; }
+.card-showcase .cost-bubble { width: 26px; height: 26px; }
+.card-showcase .cost-bubble text { font-size: 15px; }
+.card-showcase .card-name { font-size: 12px; right: 6px; bottom: 5px; padding: 2px 6px; }
+
+.showcase-deck {
+  position: relative; left: 0; top: 0;
+  width: 118px; height: 172px;
+  transform: none;
+  box-shadow:
+    0 0 26px rgba(255, 214, 122, .65),
+    0 6px 0 #917148,
+    0 20px 38px rgba(0, 0, 0, .85);
+}
+.showcase-deck .deck-edges { height: 164px; }
+.showcase-deck .deck-crest { width: 52px; height: 52px; margin-left: -26px; margin-top: -26px; }
+.showcase-deck .deck-label { font-size: 24px; }
+
+.showcase-gold-bonus {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.showcase-gold-tag {
+  padding: 2px 9px; border-radius: 12px;
+  font-size: 11px; font-weight: 700; color: #2b1504;
+  border: 1px solid #fff2c6;
+  background: linear-gradient(180deg, #ffeaad, #d49b3c);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .65);
+}
+
+/* 拿取筹码展演主体：每枚筹码从右侧各自筹码堆升起 → 中央并排悬停展示 ~1.2s → 飞入工作台筹码槽 */
+.showcase-coins {
+  position: relative; z-index: 3;
+  margin-top: 28px;
+  display: flex; align-items: center; justify-content: center; gap: 22px;
+}
+.showcase-coin-item {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  animation: showcaseCoinFlight 1750ms cubic-bezier(.22, .82, .28, 1) both;
+}
+.showcase-coin {
+  position: relative; width: 68px; height: 68px; border-radius: 50%;
+  box-shadow:
+    0 0 0 2px #fff0be,
+    0 0 24px rgba(255, 214, 122, .68),
+    0 4px 0 #b8843e,
+    0 8px 0 #5e3d16,
+    0 16px 28px rgba(0, 0, 0, .85);
+}
+.showcase-coin-gem {
+  position: absolute; left: 50%; top: 50%;
+  width: 36px; height: 36px; margin-left: -18px; margin-top: -18px;
+}
+.showcase-coin-label {
+  padding: 3px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 700; color: #fff4d6;
+  border: 1px solid rgba(243, 212, 139, .78);
+  background: rgba(22, 9, 16, .88);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .72);
+}
+
+@keyframes showcaseLifecycle {
+  0%, 96% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+@keyframes showcaseBackdrop {
+  0% { opacity: 0; }
+  14%, 76% { opacity: 1; }
+  94%, 100% { opacity: 0; }
+}
+@keyframes showcaseBanner {
+  0% { opacity: 0; transform: translateY(-16px) scale(.92); }
+  14%, 78% { opacity: 1; transform: translateY(0) scale(1); }
+  95%, 100% { opacity: 0; transform: translateY(-10px) scale(.95); }
+}
+@keyframes showcaseCardFlight {
+  0% {
+    opacity: .85;
+    transform: translate3d(var(--from-x, 0px), var(--from-y, 0px), 0) perspective(520px) rotateX(24deg) rotateY(var(--flip-from, 0deg)) scale(.54);
+  }
+  18% {
+    opacity: 1;
+    transform: translate3d(0, -4px, 0) perspective(520px) rotateX(4deg) rotateY(0deg) scale(1.06);
+  }
+  26%, 76% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) perspective(520px) rotateX(2deg) rotateY(0deg) scale(1);
+  }
+  96% {
+    opacity: .22;
+    transform: translate3d(var(--to-x, 0px), var(--to-y, 210px), 0) perspective(520px) rotateX(18deg) rotateY(0deg) scale(.26);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--to-x, 0px), var(--to-y, 210px), 0) scale(.2);
+  }
+}
+@keyframes showcaseCoinFlight {
+  0% {
+    opacity: .85;
+    transform: translate3d(var(--coin-from-x, 280px), var(--coin-from-y, 0px), 0) perspective(460px) rotateX(24deg) scale(.56);
+  }
+  18% {
+    opacity: 1;
+    transform: translate3d(0, -6px, 0) perspective(460px) rotateX(4deg) scale(1.08);
+  }
+  26%, 76% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) perspective(460px) rotateX(2deg) scale(1);
+  }
+  96% {
+    opacity: .22;
+    transform: translate3d(var(--coin-to-x, 0px), var(--coin-to-y, 220px), 0) perspective(460px) rotateX(18deg) scale(.32);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--coin-to-x, 0px), var(--coin-to-y, 220px), 0) scale(.22);
+  }
+}
+
 @keyframes cardDeal {
   0% { opacity: .35; }
   100% { opacity: 1; }
@@ -1112,8 +1343,8 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   100% { transform: translateY(-4px); }
 }
 @keyframes nobleIn {
-  0% { opacity: 0; transform: translateY(-8px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% { opacity: 0; transform: perspective(420px) rotateX(18deg) rotateY(-9deg) rotateZ(-2.5deg) translateY(-8px); }
+  100% { opacity: 1; transform: perspective(420px) rotateX(18deg) rotateY(-9deg) rotateZ(-2.5deg) translateY(0); }
 }
 @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes dialogIn {
@@ -3027,7 +3258,7 @@ module.exports = {
 });
 
 
-var EXPR_TEXTS = ["stageRotate","stageScale","screen === 'game'","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.avatarHue","item.index + 1","item.name","item.points","item.subtitle","item.cardCount","item.reservedCount","statusText","netNotice","turnText","logText","goldCount","roomMode","decks","item.lv","item.artClass","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.affordable ? 'is-affordable' : ''","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costs","cost.gemClass","cost.covered ? 'is-covered' : ''","cost.ink","cost.display","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.coinClass","item.gemClass","noblesCompact ? 'is-compact' : ''","nobles","item.photoClass","item.title","item.reqs","req.gemClass","req.num","nobles.length === 0","me.points","me.reservedCount","me.totalTokens","me.discounts","item.num","me.discounts.length === 0","me.tokens","item.zero ? 'is-zero' : ''","needDiscard ? 'can-discard' : ''","needDiscard ? 'hint-warn' : ''","hintText","canConfirm ? '' : 'btn-off'","confirmLabel","screen === 'home'","home.avatarUrl","home.avatarHue","home.nickname","home.soloCounts","item.active ? 'is-active' : ''","item.n","home.roomCounts","home.joinCode","home.cloud ? 'is-cloud' : ''","home.cloudText","home.notice","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.isSelf ? 'is-self' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.seatNo","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.notice","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.canBuy ? '' : 'btn-off'","detail.kind === 'board'","detail.canReserve ? '' : 'btn-off'","showReserved","reservedCards.length","reservedCards","item.pointsText","item.costs","reservedCards.length === 0","showRules","playerCount","gameOver","resultTitle","resultDetail","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","item.value","playerDetail.discounts","playerDetail.discounts.length === 0","playerDetail.tokens","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice"];
+var EXPR_TEXTS = ["stageRotate","stageScale","screen === 'game'","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.avatarHue","item.index + 1","item.name","item.points","item.subtitle","item.cardCount","item.reservedCount","statusText","netNotice","turnText","logText","goldCount","roomMode","decks","item.lv","item.artClass","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.affordable ? 'is-affordable' : ''","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costs","cost.gemClass","cost.covered ? 'is-covered' : ''","cost.ink","cost.display","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.gemClass","noblesCompact ? 'is-compact' : ''","nobles","item.photoClass","item.title","item.reqs","req.gemClass","req.num","nobles.length === 0","me.points","me.reservedCount","me.totalTokens","me.discounts","item.num","me.discounts.length === 0","me.tokens","item.zero ? 'is-zero' : ''","needDiscard ? 'can-discard' : ''","needDiscard ? 'hint-warn' : ''","hintText","canConfirm ? '' : 'btn-off'","confirmLabel","showcaseList","item.motionStyle","item.badgeText","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","screen === 'home'","home.avatarUrl","home.avatarHue","home.nickname","home.soloCounts","item.active ? 'is-active' : ''","item.n","home.roomCounts","home.joinCode","home.cloud ? 'is-cloud' : ''","home.cloudText","home.notice","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.isSelf ? 'is-self' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.seatNo","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.notice","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.canBuy ? '' : 'btn-off'","detail.kind === 'board'","detail.canReserve ? '' : 'btn-off'","showReserved","reservedCards.length","reservedCards","item.pointsText","item.costs","reservedCards.length === 0","showRules","playerCount","gameOver","resultTitle","resultDetail","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","item.value","playerDetail.discounts","playerDetail.discounts.length === 0","playerDetail.tokens","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice"];
 var EXPR_CACHE = {};
 function EV(id, scope) {
   var fn = EXPR_CACHE[id] || (EXPR_CACHE[id] = new Function('$s', 'with ($s) { return (' + EXPR_TEXTS[id] + '); }'));
@@ -3633,14 +3864,39 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("pile-coin coin-face " + String(EV(54, $s6)))));
+      $h.push(ESC("pile-stack"));
+      $h.push("\"");
+      $h.push(">");
+      var $list7 = EV(54, $s6) || [];
+      for (var $i7 = 0; $i7 < $list7.length; $i7++) {
+        var $s7 = Object.create($s6);
+        $s7.item = $list7[$i7];
+        $s7.index = $i7;
+        $s7.req = $list7[$i7];
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC(("pile-disc coin-face " + String(EV(55, $s7)))));
+        $h.push("\"");
+        $h.push(" style=\"");
+        $h.push(ESC(String(EV(56, $s7))));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("</div>");
+      }
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("pile-coin coin-face " + String(EV(55, $s6)))));
+      $h.push("\"");
+      $h.push(" style=\"");
+      $h.push(ESC(String(EV(57, $s6))));
       $h.push("\"");
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("pile-gem gem-icon " + String(EV(55, $s6)))));
+      $h.push(ESC(("pile-gem gem-icon " + String(EV(58, $s6)))));
       $h.push("\"");
       $h.push(">");
+      $h.push("</div>");
       $h.push("</div>");
       $h.push("</div>");
       $h.push("<div");
@@ -3673,7 +3929,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("noble-area " + String(EV(56, $s)))));
+    $h.push(ESC(("noble-area " + String(EV(59, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("<text");
@@ -3688,11 +3944,11 @@ window.renderStage = function (data) {
     $h.push(ESC("noble-row"));
     $h.push("\"");
     $h.push(">");
-    var $list7 = EV(57, $s) || [];
-    for (var $i7 = 0; $i7 < $list7.length; $i7++) {
-      var $s7 = Object.create($s);
-      $s7.item = $list7[$i7];
-      $s7.index = $i7;
+    var $list8 = EV(60, $s) || [];
+    for (var $i8 = 0; $i8 < $list8.length; $i8++) {
+      var $s8 = Object.create($s);
+      $s8.item = $list8[$i8];
+      $s8.index = $i8;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("noble"));
@@ -3705,7 +3961,7 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("noble-photo " + String(EV(58, $s7)) + " " + String(EV(24, $s7)))));
+      $h.push(ESC(("noble-photo " + String(EV(61, $s8)) + " " + String(EV(24, $s8)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -3715,41 +3971,41 @@ window.renderStage = function (data) {
       $h.push(ESC("noble-points"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(12, $s7)));
+      $h.push(ESC(EV(12, $s8)));
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("noble-title"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(59, $s7)));
+      $h.push(ESC(EV(62, $s8)));
       $h.push("</text>");
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("noble-reqs"));
       $h.push("\"");
       $h.push(">");
-      var $list8 = EV(60, $s7) || [];
-      for (var $i8 = 0; $i8 < $list8.length; $i8++) {
-        var $s8 = Object.create($s7);
-        $s8.item = $list8[$i8];
-        $s8.index = $i8;
-        $s8.req = $list8[$i8];
+      var $list9 = EV(63, $s8) || [];
+      for (var $i9 = 0; $i9 < $list9.length; $i9++) {
+        var $s9 = Object.create($s8);
+        $s9.item = $list9[$i9];
+        $s9.index = $i9;
+        $s9.req = $list9[$i9];
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("noble-req gem-icon " + String(EV(61, $s8)))));
+        $h.push(ESC(("noble-req gem-icon " + String(EV(64, $s9)))));
         $h.push("\"");
         $h.push(">");
         $h.push("<text");
         $h.push(">");
-        $h.push(ESC(EV(62, $s8)));
+        $h.push(ESC(EV(65, $s9)));
         $h.push("</text>");
         $h.push("</div>");
       }
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(63, $s)) {
+    if (EV(66, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("noble-none"));
@@ -3814,7 +4070,7 @@ window.renderStage = function (data) {
     $h.push(ESC("score-num"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(64, $s)));
+    $h.push(ESC(EV(67, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -3835,7 +4091,7 @@ window.renderStage = function (data) {
     $h.push(ESC("tray-reserved-num"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(65, $s)));
+    $h.push(ESC(EV(68, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -3862,7 +4118,7 @@ window.renderStage = function (data) {
     $h.push(ESC("vault-total-num"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(66, $s)));
+    $h.push(ESC(EV(69, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -3894,23 +4150,23 @@ window.renderStage = function (data) {
     $h.push(ESC("vault-row"));
     $h.push("\"");
     $h.push(">");
-    var $list9 = EV(67, $s) || [];
-    for (var $i9 = 0; $i9 < $list9.length; $i9++) {
-      var $s9 = Object.create($s);
-      $s9.item = $list9[$i9];
-      $s9.index = $i9;
+    var $list10 = EV(70, $s) || [];
+    for (var $i10 = 0; $i10 < $list10.length; $i10++) {
+      var $s10 = Object.create($s);
+      $s10.item = $list10[$i10];
+      $s10.index = $i10;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("disc-chip gem-icon " + String(EV(55, $s9)))));
+      $h.push(ESC(("disc-chip gem-icon " + String(EV(58, $s10)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(68, $s9)));
+      $h.push(ESC(EV(71, $s10)));
       $h.push("</text>");
       $h.push("</div>");
     }
-    if (EV(69, $s)) {
+    if (EV(72, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("disc-empty"));
@@ -3938,18 +4194,18 @@ window.renderStage = function (data) {
     $h.push(ESC("vault-row"));
     $h.push("\"");
     $h.push(">");
-    var $list10 = EV(70, $s) || [];
-    for (var $i10 = 0; $i10 < $list10.length; $i10++) {
-      var $s10 = Object.create($s);
-      $s10.item = $list10[$i10];
-      $s10.index = $i10;
+    var $list11 = EV(73, $s) || [];
+    for (var $i11 = 0; $i11 < $list11.length; $i11++) {
+      var $s11 = Object.create($s);
+      $s11.item = $list11[$i11];
+      $s11.index = $i11;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("vault-token " + String(EV(71, $s10)) + " " + String(EV(72, $s10)))));
+      $h.push(ESC(("vault-token " + String(EV(74, $s11)) + " " + String(EV(75, $s11)))));
       $h.push("\"");
       $h.push(" data-tap=\"onTapMyToken\"");
       $h.push(" data-key=\"");
-      $h.push(ESC(String(EV(53, $s10))));
+      $h.push(ESC(String(EV(53, $s11))));
       $h.push("\"");
       $h.push(" hover-class=\"");
       $h.push(ESC("vault-hover"));
@@ -3957,16 +4213,38 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("vault-token-icon gem-icon " + String(EV(55, $s10)))));
+      $h.push(ESC("vault-stack"));
       $h.push("\"");
       $h.push(">");
+      var $list12 = EV(54, $s11) || [];
+      for (var $i12 = 0; $i12 < $list12.length; $i12++) {
+        var $s12 = Object.create($s11);
+        $s12.item = $list12[$i12];
+        $s12.index = $i12;
+        $s12.req = $list12[$i12];
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC(("vault-disc coin-face " + String(EV(55, $s12)))));
+        $h.push("\"");
+        $h.push(" style=\"");
+        $h.push(ESC(String(EV(56, $s12))));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("</div>");
+      }
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("vault-token-icon gem-icon " + String(EV(58, $s11)))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("</div>");
       $h.push("</div>");
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("vault-token-num"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(27, $s10)));
+      $h.push(ESC(EV(27, $s11)));
       $h.push("</text>");
       $h.push("</div>");
     }
@@ -3981,10 +4259,10 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("<text");
     $h.push(" class=\"");
-    $h.push(ESC(("hint " + String(EV(73, $s)))));
+    $h.push(ESC(("hint " + String(EV(76, $s)))));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(74, $s)));
+    $h.push(ESC(EV(77, $s)));
     $h.push("</text>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -3993,11 +4271,11 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("btn btn-primary " + String(EV(75, $s)))));
+    $h.push(ESC(("btn btn-primary " + String(EV(78, $s)))));
     $h.push("\"");
     $h.push(" data-tap=\"onConfirmTake\"");
     $h.push(">");
-    $h.push(ESC(EV(76, $s)));
+    $h.push(ESC(EV(79, $s)));
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -4018,9 +4296,259 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
     $h.push("</div>");
+    var $list13 = EV(80, $s) || [];
+    for (var $i13 = 0; $i13 < $list13.length; $i13++) {
+      var $s13 = Object.create($s);
+      $s13.item = $list13[$i13];
+      $s13.index = $i13;
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("action-showcase"));
+      $h.push("\"");
+      $h.push(" style=\"");
+      $h.push(ESC(String(EV(81, $s13))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("showcase-backdrop"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("</div>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("showcase-banner"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("showcase-badge"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(82, $s13)));
+      $h.push("</text>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("showcase-title"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(62, $s13)));
+      $h.push("</text>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("showcase-sub"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(13, $s13)));
+      $h.push("</text>");
+      $h.push("</div>");
+      if (EV(83, $s13)) {
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC("showcase-actor"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC("showcase-halo"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("</div>");
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC("showcase-card-row"));
+        $h.push("\"");
+        $h.push(">");
+        if (EV(84, $s13)) {
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC(("deck-stack showcase-deck " + String(EV(85, $s13)))));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("deck-edges"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("deck-face"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("deck-sheen"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("deck-crest"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("<text");
+          $h.push(" class=\"");
+          $h.push(ESC("deck-label"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push(ESC(EV(86, $s13)));
+          $h.push("</text>");
+          $h.push("</div>");
+          $h.push("</div>");
+        } else {
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("card card-showcase"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("card-art"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC(("card-photo " + String(EV(87, $s13)) + " " + String(EV(88, $s13)))));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("art-glaze"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("<text");
+          $h.push(" class=\"");
+          $h.push(ESC("card-name"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push(ESC(EV(89, $s13)));
+          $h.push("</text>");
+          $h.push("</div>");
+          if (EV(90, $s13)) {
+            $h.push("<text");
+            $h.push(" class=\"");
+            $h.push(ESC("card-points"));
+            $h.push("\"");
+            $h.push(">");
+            $h.push(ESC(EV(90, $s13)));
+            $h.push("</text>");
+          }
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC(("card-gem gem-icon " + String(EV(91, $s13)))));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("card-foot"));
+          $h.push("\"");
+          $h.push(">");
+          var $list14 = EV(92, $s13) || [];
+          for (var $i14 = 0; $i14 < $list14.length; $i14++) {
+            var $s14 = Object.create($s13);
+            $s14.item = $list14[$i14];
+            $s14.index = $i14;
+            $s14.cost = $list14[$i14];
+            $h.push("<div");
+            $h.push(" class=\"");
+            $h.push(ESC(("cost-bubble gem-icon " + String(EV(44, $s14)) + " " + String(EV(45, $s14)))));
+            $h.push("\"");
+            $h.push(">");
+            $h.push("<text");
+            $h.push(" style=\"");
+            $h.push(ESC(("color:" + String(EV(46, $s14)))));
+            $h.push("\"");
+            $h.push(">");
+            $h.push(ESC(EV(47, $s14)));
+            $h.push("</text>");
+            $h.push("</div>");
+          }
+          $h.push("</div>");
+          $h.push("</div>");
+        }
+        if (EV(93, $s13)) {
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("showcase-gold-bonus"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("showcase-coin coin-face coin-gold"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("showcase-coin-gem gem-icon gem-gold"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("</div>");
+          $h.push("<text");
+          $h.push(" class=\"");
+          $h.push(ESC("showcase-gold-tag"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("+1 黄金");
+          $h.push("</text>");
+          $h.push("</div>");
+        }
+        $h.push("</div>");
+        $h.push("</div>");
+      }
+      if (EV(94, $s13)) {
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC("showcase-coins"));
+        $h.push("\"");
+        $h.push(">");
+        var $list15 = EV(95, $s13) || [];
+        for (var $i15 = 0; $i15 < $list15.length; $i15++) {
+          var $s15 = Object.create($s13);
+          $s15.item = $list15[$i15];
+          $s15.index = $i15;
+          $s15.cost = $list15[$i15];
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("showcase-coin-item"));
+          $h.push("\"");
+          $h.push(" style=\"");
+          $h.push(ESC(String(EV(96, $s15))));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC(("showcase-coin coin-face " + String(EV(97, $s15)))));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC(("showcase-coin-gem gem-icon " + String(EV(44, $s15)))));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("</div>");
+          $h.push("<text");
+          $h.push(" class=\"");
+          $h.push(ESC("showcase-coin-label"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push(ESC(EV(98, $s15)));
+          $h.push("</text>");
+          $h.push("</div>");
+        }
+        $h.push("</div>");
+      }
+      $h.push("</div>");
+    }
     $h.push("</div>");
   }
-  if (EV(77, $s)) {
+  if (EV(99, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("screen-layer home-screen"));
@@ -4164,7 +4692,7 @@ window.renderStage = function (data) {
     $h.push(ESC("brand-player-hover"));
     $h.push("\"");
     $h.push(">");
-    if (EV(78, $s)) {
+    if (EV(100, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("brand-avatar"));
@@ -4175,7 +4703,7 @@ window.renderStage = function (data) {
       $h.push(ESC("brand-avatar-img"));
       $h.push("\"");
       $h.push(" src=\"");
-      $h.push(ESC(String(EV(78, $s))));
+      $h.push(ESC(String(EV(100, $s))));
       $h.push("\"");
       $h.push(" mode=\"");
       $h.push(ESC("aspectFill"));
@@ -4189,7 +4717,7 @@ window.renderStage = function (data) {
       $h.push(ESC("brand-avatar"));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(79, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(101, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -4204,7 +4732,7 @@ window.renderStage = function (data) {
     $h.push(ESC("brand-player-name"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(80, $s)));
+    $h.push(ESC(EV(102, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -4295,21 +4823,21 @@ window.renderStage = function (data) {
     $h.push(ESC("choice-counts"));
     $h.push("\"");
     $h.push(">");
-    var $list11 = EV(81, $s) || [];
-    for (var $i11 = 0; $i11 < $list11.length; $i11++) {
-      var $s11 = Object.create($s);
-      $s11.item = $list11[$i11];
-      $s11.index = $i11;
+    var $list16 = EV(103, $s) || [];
+    for (var $i16 = 0; $i16 < $list16.length; $i16++) {
+      var $s16 = Object.create($s);
+      $s16.item = $list16[$i16];
+      $s16.index = $i16;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("count-chip " + String(EV(82, $s11)))));
+      $h.push(ESC(("count-chip " + String(EV(104, $s16)))));
       $h.push("\"");
       $h.push(" data-tap=\"onSelectSoloCount\"");
       $h.push(" data-n=\"");
-      $h.push(ESC(String(EV(83, $s11))));
+      $h.push(ESC(String(EV(105, $s16))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(26, $s11)));
+      $h.push(ESC(EV(26, $s16)));
       $h.push("</div>");
     }
     $h.push("</div>");
@@ -4391,21 +4919,21 @@ window.renderStage = function (data) {
     $h.push(ESC("choice-counts"));
     $h.push("\"");
     $h.push(">");
-    var $list12 = EV(84, $s) || [];
-    for (var $i12 = 0; $i12 < $list12.length; $i12++) {
-      var $s12 = Object.create($s);
-      $s12.item = $list12[$i12];
-      $s12.index = $i12;
+    var $list17 = EV(106, $s) || [];
+    for (var $i17 = 0; $i17 < $list17.length; $i17++) {
+      var $s17 = Object.create($s);
+      $s17.item = $list17[$i17];
+      $s17.index = $i17;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("count-chip " + String(EV(82, $s12)))));
+      $h.push(ESC(("count-chip " + String(EV(104, $s17)))));
       $h.push("\"");
       $h.push(" data-tap=\"onSelectRoomCount\"");
       $h.push(" data-n=\"");
-      $h.push(ESC(String(EV(83, $s12))));
+      $h.push(ESC(String(EV(105, $s17))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(26, $s12)));
+      $h.push(ESC(EV(26, $s17)));
       $h.push("</div>");
     }
     $h.push("</div>");
@@ -4440,7 +4968,7 @@ window.renderStage = function (data) {
     $h.push(ESC("6"));
     $h.push("\"");
     $h.push(" value=\"");
-    $h.push(ESC(String(EV(85, $s))));
+    $h.push(ESC(String(EV(107, $s))));
     $h.push("\"");
     $h.push(" placeholder=\"");
     $h.push(ESC("输入 6 位房间号加入"));
@@ -4467,25 +4995,25 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("<text");
     $h.push(" class=\"");
-    $h.push(ESC(("home-cloud " + String(EV(86, $s)))));
+    $h.push(ESC(("home-cloud " + String(EV(108, $s)))));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(87, $s)));
+    $h.push(ESC(EV(109, $s)));
     $h.push("</text>");
-    if (EV(88, $s)) {
+    if (EV(110, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(88, $s)));
+      $h.push(ESC(EV(110, $s)));
       $h.push("</text>");
     }
     $h.push("</div>");
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(89, $s)) {
+  if (EV(111, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("screen-layer room-screen"));
@@ -4513,14 +5041,14 @@ window.renderStage = function (data) {
     $h.push(ESC("room-code-big"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(90, $s)));
+    $h.push(ESC(EV(112, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("room-backend"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(91, $s)));
+    $h.push(ESC(EV(113, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -4533,14 +5061,14 @@ window.renderStage = function (data) {
     $h.push(ESC("room-status-main"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(92, $s)));
+    $h.push(ESC(EV(114, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("room-status-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(93, $s)));
+    $h.push(ESC(EV(115, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -4557,21 +5085,21 @@ window.renderStage = function (data) {
     $h.push(ESC("room-seat-row"));
     $h.push("\"");
     $h.push(">");
-    var $list13 = EV(94, $s) || [];
-    for (var $i13 = 0; $i13 < $list13.length; $i13++) {
-      var $s13 = Object.create($s);
-      $s13.item = $list13[$i13];
-      $s13.index = $i13;
+    var $list18 = EV(116, $s) || [];
+    for (var $i18 = 0; $i18 < $list18.length; $i18++) {
+      var $s18 = Object.create($s);
+      $s18.item = $list18[$i18];
+      $s18.index = $i18;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("room-seat " + String(EV(95, $s13)) + " " + String(EV(6, $s13)) + " " + String(EV(96, $s13)) + " " + String(EV(97, $s13)))));
+      $h.push(ESC(("room-seat " + String(EV(117, $s18)) + " " + String(EV(6, $s18)) + " " + String(EV(118, $s18)) + " " + String(EV(119, $s18)))));
       $h.push("\"");
       $h.push(" data-tap=\"onRoomSeatTap\"");
       $h.push(" data-index=\"");
-      $h.push(ESC(String(EV(7, $s13))));
+      $h.push(ESC(String(EV(7, $s18))));
       $h.push("\"");
       $h.push(">");
-      if (EV(8, $s13)) {
+      if (EV(8, $s18)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("room-avatar"));
@@ -4582,7 +5110,7 @@ window.renderStage = function (data) {
         $h.push(ESC("room-avatar-img"));
         $h.push("\"");
         $h.push(" src=\"");
-        $h.push(ESC(String(EV(8, $s13))));
+        $h.push(ESC(String(EV(8, $s18))));
         $h.push("\"");
         $h.push(" mode=\"");
         $h.push(ESC("aspectFill"));
@@ -4593,10 +5121,10 @@ window.renderStage = function (data) {
       } else {
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("room-avatar " + String(EV(6, $s13)))));
+        $h.push(ESC(("room-avatar " + String(EV(6, $s18)))));
         $h.push("\"");
         $h.push(" style=\"");
-        $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(9, $s13)) + " 52%, rgba(20,10,16,.92) 100%);")));
+        $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(9, $s18)) + " 52%, rgba(20,10,16,.92) 100%);")));
         $h.push("\"");
         $h.push(">");
         $h.push("<text");
@@ -4604,7 +5132,7 @@ window.renderStage = function (data) {
         $h.push(ESC("room-avatar-no"));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(98, $s13)));
+        $h.push(ESC(EV(120, $s18)));
         $h.push("</text>");
         $h.push("</div>");
       }
@@ -4613,36 +5141,36 @@ window.renderStage = function (data) {
       $h.push(ESC("room-seat-label"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(26, $s13)));
+      $h.push(ESC(EV(26, $s18)));
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-seat-name"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(11, $s13)));
+      $h.push(ESC(EV(11, $s18)));
       $h.push("</text>");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("room-seat-state " + String(EV(99, $s13)))));
+      $h.push(ESC(("room-seat-state " + String(EV(121, $s18)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(100, $s13)));
+      $h.push(ESC(EV(122, $s18)));
       $h.push("</text>");
       $h.push("</div>");
-      if (EV(101, $s13)) {
+      if (EV(123, $s18)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("room-seat-action"));
         $h.push("\"");
         $h.push(" data-catchtap=\"onRoomToggleBot\"");
         $h.push(" data-index=\"");
-        $h.push(ESC(String(EV(7, $s13))));
+        $h.push(ESC(String(EV(7, $s18))));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(102, $s13)));
+        $h.push(ESC(EV(124, $s18)));
         $h.push("</div>");
       }
       $h.push("</div>");
@@ -4650,10 +5178,10 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("room-tip " + String(EV(103, $s)))));
+    $h.push(ESC(("room-tip " + String(EV(125, $s)))));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(104, $s)));
+    $h.push(ESC(EV(126, $s)));
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -4691,7 +5219,7 @@ window.renderStage = function (data) {
     $h.push("好友点分享卡片即自动入席");
     $h.push("</text>");
     $h.push("</div>");
-    if (EV(105, $s)) {
+    if (EV(127, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("room-counts"));
@@ -4704,32 +5232,32 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("人数");
       $h.push("</text>");
-      var $list14 = EV(106, $s) || [];
-      for (var $i14 = 0; $i14 < $list14.length; $i14++) {
-        var $s14 = Object.create($s);
-        $s14.item = $list14[$i14];
-        $s14.index = $i14;
+      var $list19 = EV(128, $s) || [];
+      for (var $i19 = 0; $i19 < $list19.length; $i19++) {
+        var $s19 = Object.create($s);
+        $s19.item = $list19[$i19];
+        $s19.index = $i19;
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("count-chip " + String(EV(82, $s14)))));
+        $h.push(ESC(("count-chip " + String(EV(104, $s19)))));
         $h.push("\"");
         $h.push(" data-tap=\"onRoomCount\"");
         $h.push(" data-n=\"");
-        $h.push(ESC(String(EV(83, $s14))));
+        $h.push(ESC(String(EV(105, $s19))));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(26, $s14)));
+        $h.push(ESC(EV(26, $s19)));
         $h.push("</div>");
       }
       $h.push("</div>");
     }
-    if (EV(107, $s)) {
+    if (EV(129, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(107, $s)));
+      $h.push(ESC(EV(129, $s)));
       $h.push("</text>");
     }
     $h.push("</div>");
@@ -4743,31 +5271,31 @@ window.renderStage = function (data) {
     $h.push(ESC("room-action-note"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(108, $s)));
+    $h.push(ESC(EV(130, $s)));
     $h.push("</text>");
-    if (EV(105, $s)) {
+    if (EV(127, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("btn btn-primary room-start " + String(EV(109, $s)))));
+      $h.push(ESC(("btn btn-primary room-start " + String(EV(131, $s)))));
       $h.push("\"");
       $h.push(" data-tap=\"onRoomStart\"");
       $h.push(">");
-      $h.push(ESC(EV(110, $s)));
+      $h.push(ESC(EV(132, $s)));
       $h.push("</div>");
     } else {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("btn btn-primary room-start " + String(EV(111, $s)))));
+      $h.push(ESC(("btn btn-primary room-start " + String(EV(133, $s)))));
       $h.push("\"");
       $h.push(" data-tap=\"onRoomToggleReady\"");
       $h.push(">");
-      $h.push(ESC(EV(110, $s)));
+      $h.push(ESC(EV(132, $s)));
       $h.push("</div>");
     }
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(112, $s)) {
+  if (EV(134, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -4790,7 +5318,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(113, $s)));
+    $h.push(ESC(EV(135, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -4798,11 +5326,11 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("第 ");
-    $h.push(ESC(EV(114, $s)));
+    $h.push(ESC(EV(136, $s)));
     $h.push(" 级发展卡 · ");
-    $h.push(ESC(EV(115, $s)));
+    $h.push(ESC(EV(137, $s)));
     $h.push(" · 产出");
-    $h.push(ESC(EV(116, $s)));
+    $h.push(ESC(EV(138, $s)));
     $h.push("红利");
     $h.push("</text>");
     $h.push("</div>");
@@ -4823,7 +5351,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card-photo " + String(EV(117, $s)) + " " + String(EV(118, $s)))));
+    $h.push(ESC(("card-photo " + String(EV(139, $s)) + " " + String(EV(140, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("</div>");
@@ -4838,21 +5366,21 @@ window.renderStage = function (data) {
     $h.push(ESC("card-name"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(113, $s)));
+    $h.push(ESC(EV(135, $s)));
     $h.push("</text>");
     $h.push("</div>");
-    if (EV(119, $s)) {
+    if (EV(141, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("card-points"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(119, $s)));
+      $h.push(ESC(EV(141, $s)));
       $h.push("</text>");
     }
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card-gem gem-icon " + String(EV(120, $s)))));
+    $h.push(ESC(("card-gem gem-icon " + String(EV(142, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("</div>");
@@ -4861,23 +5389,23 @@ window.renderStage = function (data) {
     $h.push(ESC("card-foot"));
     $h.push("\"");
     $h.push(">");
-    var $list15 = EV(121, $s) || [];
-    for (var $i15 = 0; $i15 < $list15.length; $i15++) {
-      var $s15 = Object.create($s);
-      $s15.item = $list15[$i15];
-      $s15.index = $i15;
-      $s15.cost = $list15[$i15];
+    var $list20 = EV(143, $s) || [];
+    for (var $i20 = 0; $i20 < $list20.length; $i20++) {
+      var $s20 = Object.create($s);
+      $s20.item = $list20[$i20];
+      $s20.index = $i20;
+      $s20.cost = $list20[$i20];
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("cost-bubble gem-icon " + String(EV(44, $s15)) + " " + String(EV(45, $s15)))));
+      $h.push(ESC(("cost-bubble gem-icon " + String(EV(44, $s20)) + " " + String(EV(45, $s20)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(" style=\"");
-      $h.push(ESC(("color:" + String(EV(46, $s15)))));
+      $h.push(ESC(("color:" + String(EV(46, $s20)))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(47, $s15)));
+      $h.push(ESC(EV(47, $s20)));
       $h.push("</text>");
       $h.push("</div>");
     }
@@ -4895,19 +5423,19 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("购买成本（气泡为扣除红利后的实付量）");
     $h.push("</text>");
-    var $list16 = EV(122, $s) || [];
-    for (var $i16 = 0; $i16 < $list16.length; $i16++) {
-      var $s16 = Object.create($s);
-      $s16.item = $list16[$i16];
-      $s16.index = $i16;
+    var $list21 = EV(144, $s) || [];
+    for (var $i21 = 0; $i21 < $list21.length; $i21++) {
+      var $s21 = Object.create($s);
+      $s21.item = $list21[$i21];
+      $s21.index = $i21;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("cost-line " + String(EV(123, $s16)))));
+      $h.push(ESC(("cost-line " + String(EV(145, $s21)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("cost-line-dot gem-icon " + String(EV(55, $s16)))));
+      $h.push(ESC(("cost-line-dot gem-icon " + String(EV(58, $s21)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -4916,7 +5444,7 @@ window.renderStage = function (data) {
       $h.push(ESC("cost-line-label"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(26, $s16)));
+      $h.push(ESC(EV(26, $s21)));
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
@@ -4924,20 +5452,20 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("印刷 ");
-      $h.push(ESC(EV(124, $s16)));
+      $h.push(ESC(EV(146, $s21)));
       $h.push(" − 红利 ");
-      $h.push(ESC(EV(125, $s16)));
+      $h.push(ESC(EV(147, $s21)));
       $h.push(" = 实付 ");
-      $h.push(ESC(EV(126, $s16)));
+      $h.push(ESC(EV(148, $s21)));
       $h.push("</text>");
       $h.push("</div>");
     }
     $h.push("<text");
     $h.push(" class=\"");
-    $h.push(ESC(("detail-summary " + String(EV(127, $s)))));
+    $h.push(ESC(("detail-summary " + String(EV(149, $s)))));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(128, $s)));
+    $h.push(ESC(EV(150, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -4955,16 +5483,16 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("btn btn-primary " + String(EV(129, $s)))));
+    $h.push(ESC(("btn btn-primary " + String(EV(151, $s)))));
     $h.push("\"");
     $h.push(" data-tap=\"onBuyFromDetail\"");
     $h.push(">");
     $h.push("购买此卡");
     $h.push("</div>");
-    if (EV(130, $s)) {
+    if (EV(152, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("btn " + String(EV(131, $s)))));
+      $h.push(ESC(("btn " + String(EV(153, $s)))));
       $h.push("\"");
       $h.push(" data-tap=\"onReserveFromDetail\"");
       $h.push(">");
@@ -4983,7 +5511,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(132, $s)) {
+  if (EV(154, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -5007,7 +5535,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("我的预留卡（");
-    $h.push(ESC(EV(133, $s)));
+    $h.push(ESC(EV(155, $s)));
     $h.push("/3）");
     $h.push("</text>");
     $h.push("<text");
@@ -5023,18 +5551,18 @@ window.renderStage = function (data) {
     $h.push(ESC("reserved-list"));
     $h.push("\"");
     $h.push(">");
-    var $list17 = EV(134, $s) || [];
-    for (var $i17 = 0; $i17 < $list17.length; $i17++) {
-      var $s17 = Object.create($s);
-      $s17.item = $list17[$i17];
-      $s17.index = $i17;
+    var $list22 = EV(156, $s) || [];
+    for (var $i22 = 0; $i22 < $list22.length; $i22++) {
+      var $s22 = Object.create($s);
+      $s22.item = $list22[$i22];
+      $s22.index = $i22;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("reserved-item"));
       $h.push("\"");
       $h.push(" data-tap=\"onTapReservedCard\"");
       $h.push(" data-index=\"");
-      $h.push(ESC(String(EV(7, $s17))));
+      $h.push(ESC(String(EV(7, $s22))));
       $h.push("\"");
       $h.push(">");
       $h.push("<div");
@@ -5049,7 +5577,7 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("card-photo " + String(EV(58, $s17)) + " " + String(EV(24, $s17)))));
+      $h.push(ESC(("card-photo " + String(EV(61, $s22)) + " " + String(EV(24, $s22)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -5064,21 +5592,21 @@ window.renderStage = function (data) {
       $h.push(ESC("card-name"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(11, $s17)));
+      $h.push(ESC(EV(11, $s22)));
       $h.push("</text>");
       $h.push("</div>");
-      if (EV(135, $s17)) {
+      if (EV(157, $s22)) {
         $h.push("<text");
         $h.push(" class=\"");
         $h.push(ESC("card-points"));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(135, $s17)));
+        $h.push(ESC(EV(157, $s22)));
         $h.push("</text>");
       }
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("card-gem gem-icon " + String(EV(55, $s17)))));
+      $h.push(ESC(("card-gem gem-icon " + String(EV(58, $s22)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -5087,23 +5615,23 @@ window.renderStage = function (data) {
       $h.push(ESC("card-foot"));
       $h.push("\"");
       $h.push(">");
-      var $list18 = EV(136, $s17) || [];
-      for (var $i18 = 0; $i18 < $list18.length; $i18++) {
-        var $s18 = Object.create($s17);
-        $s18.item = $list18[$i18];
-        $s18.index = $i18;
-        $s18.cost = $list18[$i18];
+      var $list23 = EV(158, $s22) || [];
+      for (var $i23 = 0; $i23 < $list23.length; $i23++) {
+        var $s23 = Object.create($s22);
+        $s23.item = $list23[$i23];
+        $s23.index = $i23;
+        $s23.cost = $list23[$i23];
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("cost-bubble gem-icon " + String(EV(44, $s18)) + " " + String(EV(45, $s18)))));
+        $h.push(ESC(("cost-bubble gem-icon " + String(EV(44, $s23)) + " " + String(EV(45, $s23)))));
         $h.push("\"");
         $h.push(">");
         $h.push("<text");
         $h.push(" style=\"");
-        $h.push(ESC(("color:" + String(EV(46, $s18)))));
+        $h.push(ESC(("color:" + String(EV(46, $s23)))));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(47, $s18)));
+        $h.push(ESC(EV(47, $s23)));
         $h.push("</text>");
         $h.push("</div>");
       }
@@ -5111,7 +5639,7 @@ window.renderStage = function (data) {
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(137, $s)) {
+    if (EV(159, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -5138,7 +5666,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(138, $s)) {
+  if (EV(160, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay overlay-top"));
@@ -5168,7 +5696,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(139, $s)));
+    $h.push(ESC(EV(161, $s)));
     $h.push(" 人对局 · 先达到 15 声望者胜 · 点击任意头像可查看详情");
     $h.push("</text>");
     $h.push("</div>");
@@ -5244,7 +5772,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(140, $s)) {
+  if (EV(162, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -5268,14 +5796,14 @@ window.renderStage = function (data) {
     $h.push(ESC("result-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(141, $s)));
+    $h.push(ESC(EV(163, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("result-detail"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(142, $s)));
+    $h.push(ESC(EV(164, $s)));
     $h.push("</text>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -5312,7 +5840,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(143, $s)) {
+  if (EV(165, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay overlay-top"));
@@ -5336,16 +5864,16 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("房间 · ");
-    $h.push(ESC(EV(90, $s)));
+    $h.push(ESC(EV(112, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(92, $s)));
+    $h.push(ESC(EV(114, $s)));
     $h.push(" · ");
-    $h.push(ESC(EV(91, $s)));
+    $h.push(ESC(EV(113, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -5370,11 +5898,11 @@ window.renderStage = function (data) {
     $h.push(ESC("seat-setup"));
     $h.push("\"");
     $h.push(">");
-    var $list19 = EV(94, $s) || [];
-    for (var $i19 = 0; $i19 < $list19.length; $i19++) {
-      var $s19 = Object.create($s);
-      $s19.item = $list19[$i19];
-      $s19.index = $i19;
+    var $list24 = EV(116, $s) || [];
+    for (var $i24 = 0; $i24 < $list24.length; $i24++) {
+      var $s24 = Object.create($s);
+      $s24.item = $list24[$i24];
+      $s24.index = $i24;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("setup-seat"));
@@ -5385,7 +5913,7 @@ window.renderStage = function (data) {
       $h.push(ESC("setup-avatar"));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(9, $s19)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(9, $s24)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -5394,21 +5922,21 @@ window.renderStage = function (data) {
       $h.push(ESC("setup-label"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(26, $s19)));
+      $h.push(ESC(EV(26, $s24)));
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("setup-name"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(11, $s19)));
+      $h.push(ESC(EV(11, $s24)));
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
-      $h.push(ESC(("setup-state " + String(EV(144, $s19)))));
+      $h.push(ESC(("setup-state " + String(EV(166, $s24)))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(100, $s19)));
+      $h.push(ESC(EV(122, $s24)));
       $h.push("</text>");
       $h.push("</div>");
     }
@@ -5436,7 +5964,7 @@ window.renderStage = function (data) {
     $h.push(ESC("room-code"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(90, $s)));
+    $h.push(ESC(EV(112, $s)));
     $h.push("</text>");
     $h.push("<button");
     $h.push(" class=\"");
@@ -5469,16 +5997,16 @@ window.renderStage = function (data) {
     $h.push(ESC("room-hint"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(93, $s)));
+    $h.push(ESC(EV(115, $s)));
     $h.push("</text>");
     $h.push("</div>");
-    if (EV(107, $s)) {
+    if (EV(129, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(107, $s)));
+      $h.push(ESC(EV(129, $s)));
       $h.push("</text>");
     }
     $h.push("</div>");
@@ -5507,7 +6035,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(145, $s)) {
+  if (EV(167, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -5530,14 +6058,14 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(146, $s)));
+    $h.push(ESC(EV(168, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(147, $s)));
+    $h.push(ESC(EV(169, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -5550,7 +6078,7 @@ window.renderStage = function (data) {
     $h.push(ESC("player-left"));
     $h.push("\"");
     $h.push(">");
-    if (EV(148, $s)) {
+    if (EV(170, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("player-avatar"));
@@ -5561,7 +6089,7 @@ window.renderStage = function (data) {
       $h.push(ESC("player-avatar-img"));
       $h.push("\"");
       $h.push(" src=\"");
-      $h.push(ESC(String(EV(148, $s))));
+      $h.push(ESC(String(EV(170, $s))));
       $h.push("\"");
       $h.push(" mode=\"");
       $h.push(ESC("aspectFill"));
@@ -5575,7 +6103,7 @@ window.renderStage = function (data) {
       $h.push(ESC("player-avatar"));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(149, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(171, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -5585,7 +6113,7 @@ window.renderStage = function (data) {
     $h.push(ESC("player-score"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(150, $s)));
+    $h.push(ESC(EV(172, $s)));
     $h.push(" / 15 声望");
     $h.push("</text>");
     $h.push("<text");
@@ -5594,11 +6122,11 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("发展卡 ");
-    $h.push(ESC(EV(151, $s)));
+    $h.push(ESC(EV(173, $s)));
     $h.push(" · 预留 ");
-    $h.push(ESC(EV(152, $s)));
+    $h.push(ESC(EV(174, $s)));
     $h.push(" · 筹码 ");
-    $h.push(ESC(EV(153, $s)));
+    $h.push(ESC(EV(175, $s)));
     $h.push("/10");
     $h.push("</text>");
     $h.push("<text");
@@ -5608,11 +6136,11 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("声望构成");
     $h.push("</text>");
-    var $list20 = EV(154, $s) || [];
-    for (var $i20 = 0; $i20 < $list20.length; $i20++) {
-      var $s20 = Object.create($s);
-      $s20.item = $list20[$i20];
-      $s20.index = $i20;
+    var $list25 = EV(176, $s) || [];
+    for (var $i25 = 0; $i25 < $list25.length; $i25++) {
+      var $s25 = Object.create($s);
+      $s25.item = $list25[$i25];
+      $s25.index = $i25;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("score-line"));
@@ -5620,11 +6148,11 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(26, $s20)));
+      $h.push(ESC(EV(26, $s25)));
       $h.push("</text>");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(155, $s20)));
+      $h.push(ESC(EV(177, $s25)));
       $h.push("</text>");
       $h.push("</div>");
     }
@@ -5640,23 +6168,23 @@ window.renderStage = function (data) {
     $h.push(ESC("player-chips"));
     $h.push("\"");
     $h.push(">");
-    var $list21 = EV(156, $s) || [];
-    for (var $i21 = 0; $i21 < $list21.length; $i21++) {
-      var $s21 = Object.create($s);
-      $s21.item = $list21[$i21];
-      $s21.index = $i21;
+    var $list26 = EV(178, $s) || [];
+    for (var $i26 = 0; $i26 < $list26.length; $i26++) {
+      var $s26 = Object.create($s);
+      $s26.item = $list26[$i26];
+      $s26.index = $i26;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("disc-chip gem-icon " + String(EV(55, $s21)))));
+      $h.push(ESC(("disc-chip gem-icon " + String(EV(58, $s26)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(68, $s21)));
+      $h.push(ESC(EV(71, $s26)));
       $h.push("</text>");
       $h.push("</div>");
     }
-    if (EV(157, $s)) {
+    if (EV(179, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("disc-empty"));
@@ -5678,19 +6206,19 @@ window.renderStage = function (data) {
     $h.push(ESC("player-chips"));
     $h.push("\"");
     $h.push(">");
-    var $list22 = EV(158, $s) || [];
-    for (var $i22 = 0; $i22 < $list22.length; $i22++) {
-      var $s22 = Object.create($s);
-      $s22.item = $list22[$i22];
-      $s22.index = $i22;
+    var $list27 = EV(180, $s) || [];
+    for (var $i27 = 0; $i27 < $list27.length; $i27++) {
+      var $s27 = Object.create($s);
+      $s27.item = $list27[$i27];
+      $s27.index = $i27;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("disc-chip gem-icon " + String(EV(55, $s22)) + " " + String(EV(71, $s22)))));
+      $h.push(ESC(("disc-chip gem-icon " + String(EV(58, $s27)) + " " + String(EV(74, $s27)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(27, $s22)));
+      $h.push(ESC(EV(27, $s27)));
       $h.push("</text>");
       $h.push("</div>");
     }
@@ -5707,7 +6235,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("预留卡（");
-    $h.push(ESC(EV(159, $s)));
+    $h.push(ESC(EV(181, $s)));
     $h.push("/3）· 气泡为卡面印刷成本");
     $h.push("</text>");
     $h.push("<div");
@@ -5715,11 +6243,11 @@ window.renderStage = function (data) {
     $h.push(ESC("pd-cards"));
     $h.push("\"");
     $h.push(">");
-    var $list23 = EV(160, $s) || [];
-    for (var $i23 = 0; $i23 < $list23.length; $i23++) {
-      var $s23 = Object.create($s);
-      $s23.item = $list23[$i23];
-      $s23.index = $i23;
+    var $list28 = EV(182, $s) || [];
+    for (var $i28 = 0; $i28 < $list28.length; $i28++) {
+      var $s28 = Object.create($s);
+      $s28.item = $list28[$i28];
+      $s28.index = $i28;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("pd-card"));
@@ -5737,7 +6265,7 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("card-photo " + String(EV(58, $s23)) + " " + String(EV(24, $s23)))));
+      $h.push(ESC(("card-photo " + String(EV(61, $s28)) + " " + String(EV(24, $s28)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -5752,21 +6280,21 @@ window.renderStage = function (data) {
       $h.push(ESC("card-name"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(11, $s23)));
+      $h.push(ESC(EV(11, $s28)));
       $h.push("</text>");
       $h.push("</div>");
-      if (EV(135, $s23)) {
+      if (EV(157, $s28)) {
         $h.push("<text");
         $h.push(" class=\"");
         $h.push(ESC("card-points"));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(135, $s23)));
+        $h.push(ESC(EV(157, $s28)));
         $h.push("</text>");
       }
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("card-gem gem-icon " + String(EV(55, $s23)))));
+      $h.push(ESC(("card-gem gem-icon " + String(EV(58, $s28)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -5775,23 +6303,23 @@ window.renderStage = function (data) {
       $h.push(ESC("card-foot"));
       $h.push("\"");
       $h.push(">");
-      var $list24 = EV(136, $s23) || [];
-      for (var $i24 = 0; $i24 < $list24.length; $i24++) {
-        var $s24 = Object.create($s23);
-        $s24.item = $list24[$i24];
-        $s24.index = $i24;
-        $s24.cost = $list24[$i24];
+      var $list29 = EV(158, $s28) || [];
+      for (var $i29 = 0; $i29 < $list29.length; $i29++) {
+        var $s29 = Object.create($s28);
+        $s29.item = $list29[$i29];
+        $s29.index = $i29;
+        $s29.cost = $list29[$i29];
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("cost-bubble gem-icon " + String(EV(44, $s24)))));
+        $h.push(ESC(("cost-bubble gem-icon " + String(EV(44, $s29)))));
         $h.push("\"");
         $h.push(">");
         $h.push("<text");
         $h.push(" style=\"");
-        $h.push(ESC(("color:" + String(EV(46, $s24)))));
+        $h.push(ESC(("color:" + String(EV(46, $s29)))));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(47, $s24)));
+        $h.push(ESC(EV(47, $s29)));
         $h.push("</text>");
         $h.push("</div>");
       }
@@ -5803,16 +6331,16 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("第 ");
-      $h.push(ESC(EV(161, $s23)));
+      $h.push(ESC(EV(183, $s28)));
       $h.push(" 级 · ");
-      $h.push(ESC(EV(162, $s23)));
+      $h.push(ESC(EV(184, $s28)));
       $h.push(" · ");
-      $h.push(ESC(EV(163, $s23)));
+      $h.push(ESC(EV(185, $s28)));
       $h.push("红利");
       $h.push("</text>");
       $h.push("</div>");
     }
-    if (EV(164, $s)) {
+    if (EV(186, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -5828,7 +6356,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("贵族到访（");
-    $h.push(ESC(EV(165, $s)));
+    $h.push(ESC(EV(187, $s)));
     $h.push("）");
     $h.push("</text>");
     $h.push("<div");
@@ -5836,11 +6364,11 @@ window.renderStage = function (data) {
     $h.push(ESC("pd-list"));
     $h.push("\"");
     $h.push(">");
-    var $list25 = EV(166, $s) || [];
-    for (var $i25 = 0; $i25 < $list25.length; $i25++) {
-      var $s25 = Object.create($s);
-      $s25.item = $list25[$i25];
-      $s25.index = $i25;
+    var $list30 = EV(188, $s) || [];
+    for (var $i30 = 0; $i30 < $list30.length; $i30++) {
+      var $s30 = Object.create($s);
+      $s30.item = $list30[$i30];
+      $s30.index = $i30;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("pd-noble"));
@@ -5851,7 +6379,7 @@ window.renderStage = function (data) {
       $h.push(ESC("pd-noble-title"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(59, $s25)));
+      $h.push(ESC(EV(62, $s30)));
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
@@ -5859,34 +6387,34 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("+");
-      $h.push(ESC(EV(12, $s25)));
+      $h.push(ESC(EV(12, $s30)));
       $h.push("</text>");
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("pd-noble-reqs"));
       $h.push("\"");
       $h.push(">");
-      var $list26 = EV(60, $s25) || [];
-      for (var $i26 = 0; $i26 < $list26.length; $i26++) {
-        var $s26 = Object.create($s25);
-        $s26.item = $list26[$i26];
-        $s26.index = $i26;
-        $s26.req = $list26[$i26];
+      var $list31 = EV(63, $s30) || [];
+      for (var $i31 = 0; $i31 < $list31.length; $i31++) {
+        var $s31 = Object.create($s30);
+        $s31.item = $list31[$i31];
+        $s31.index = $i31;
+        $s31.req = $list31[$i31];
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("noble-req gem-icon " + String(EV(61, $s26)))));
+        $h.push(ESC(("noble-req gem-icon " + String(EV(64, $s31)))));
         $h.push("\"");
         $h.push(">");
         $h.push("<text");
         $h.push(">");
-        $h.push(ESC(EV(62, $s26)));
+        $h.push(ESC(EV(65, $s31)));
         $h.push("</text>");
         $h.push("</div>");
       }
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(167, $s)) {
+    if (EV(189, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -5915,7 +6443,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(168, $s)) {
+  if (EV(190, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -5958,7 +6486,7 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-current"));
     $h.push("\"");
     $h.push(">");
-    if (EV(169, $s)) {
+    if (EV(191, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("profile-avatar"));
@@ -5969,7 +6497,7 @@ window.renderStage = function (data) {
       $h.push(ESC("profile-avatar-img"));
       $h.push("\"");
       $h.push(" src=\"");
-      $h.push(ESC(String(EV(169, $s))));
+      $h.push(ESC(String(EV(191, $s))));
       $h.push("\"");
       $h.push(" mode=\"");
       $h.push(ESC("aspectFill"));
@@ -5995,7 +6523,7 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-nickname"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(170, $s)));
+    $h.push(ESC(EV(192, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -6003,7 +6531,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("当前头像：");
-    $h.push(ESC(EV(171, $s)));
+    $h.push(ESC(EV(193, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("</div>");
@@ -6030,7 +6558,7 @@ window.renderStage = function (data) {
     $h.push(ESC("12"));
     $h.push("\"");
     $h.push(" value=\"");
-    $h.push(ESC(String(EV(170, $s))));
+    $h.push(ESC(String(EV(192, $s))));
     $h.push("\"");
     $h.push(" placeholder=\"");
     $h.push(ESC("输入或选择微信昵称"));
@@ -6038,7 +6566,7 @@ window.renderStage = function (data) {
     $h.push(" data-input=\"onNicknameInput\"");
     $h.push(">");
     $h.push("</input>");
-    if (EV(172, $s)) {
+    if (EV(194, $s)) {
       $h.push("<button");
       $h.push(" class=\"");
       $h.push(ESC("native-avatar-btn"));
@@ -6057,21 +6585,21 @@ window.renderStage = function (data) {
     $h.push(ESC("preset-nicknames"));
     $h.push("\"");
     $h.push(">");
-    var $list27 = EV(173, $s) || [];
-    for (var $i27 = 0; $i27 < $list27.length; $i27++) {
-      var $s27 = Object.create($s);
-      $s27.item = $list27[$i27];
-      $s27.index = $i27;
+    var $list32 = EV(195, $s) || [];
+    for (var $i32 = 0; $i32 < $list32.length; $i32++) {
+      var $s32 = Object.create($s);
+      $s32.item = $list32[$i32];
+      $s32.index = $i32;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("preset-nick"));
       $h.push("\"");
       $h.push(" data-tap=\"onPickNickname\"");
       $h.push(" data-name=\"");
-      $h.push(ESC(String(EV(174, $s27))));
+      $h.push(ESC(String(EV(196, $s32))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(174, $s27)));
+      $h.push(ESC(EV(196, $s32)));
       $h.push("</div>");
     }
     $h.push("</div>");
@@ -6087,37 +6615,37 @@ window.renderStage = function (data) {
     $h.push(ESC("preset-avatars"));
     $h.push("\"");
     $h.push(">");
-    var $list28 = EV(175, $s) || [];
-    for (var $i28 = 0; $i28 < $list28.length; $i28++) {
-      var $s28 = Object.create($s);
-      $s28.item = $list28[$i28];
-      $s28.index = $i28;
+    var $list33 = EV(197, $s) || [];
+    for (var $i33 = 0; $i33 < $list33.length; $i33++) {
+      var $s33 = Object.create($s);
+      $s33.item = $list33[$i33];
+      $s33.index = $i33;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("preset-avatar " + String(EV(82, $s28)))));
+      $h.push(ESC(("preset-avatar " + String(EV(104, $s33)))));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(176, $s28)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(198, $s33)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(" data-tap=\"onPickAvatar\"");
       $h.push(" data-key=\"");
-      $h.push(ESC(String(EV(53, $s28))));
+      $h.push(ESC(String(EV(53, $s33))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(11, $s28)));
+      $h.push(ESC(EV(11, $s33)));
       $h.push("</text>");
       $h.push("</div>");
     }
     $h.push("</div>");
-    if (EV(177, $s)) {
+    if (EV(199, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(177, $s)));
+      $h.push(ESC(EV(199, $s)));
       $h.push("</text>");
     }
     $h.push("<text");
@@ -6238,9 +6766,9 @@ function cardVM(state, card, seat) {
     photoClass: 'photo-' + (GEMS.indexOf(card.gem) * 18 + (card.art % 18)),
     // 程序化矢量插画作为无照片素材时的兜底
     artClass: 'art-' + (GEMS.indexOf(card.gem) * 3 + (card.art % 3)),
-    // 统一俯视透视 + 极轻微歪斜；抬升/选中由外层卡槽承担，避免 transform 互相覆盖
-    tiltStyle: 'transform:perspective(900px) rotateX(6deg) rotate(' +
-      (((card.art % 5) - 2) * 0.2).toFixed(2) + 'deg);',
+    // 2.5D 桌面斜铺透视：配合 .board 的整体桌面透视平面，单卡带立体仰角与轻微散落感
+    tiltStyle: 'transform:perspective(460px) rotateX(14deg) rotateZ(' +
+      (((card.art % 5) - 2) * 0.45).toFixed(2) + 'deg);',
     costs: costs,
     affordable: E.canBuy(state, s, card)
   };
@@ -6251,16 +6779,29 @@ function emptyCardVM(lv, i) {
 }
 
 function tokensVM(player, keys) {
-  return keys.map(function (g) {
+  return keys.map(function (g, idx) {
+    const count = player.tokens[g];
+    const layers = count <= 0 ? 1 : Math.min(count, 4);
+    const stack = [];
+    for (let k = 0; k < layers; k++) {
+      const dy = -k * 3;
+      const dx = k > 0 ? (((k + idx) % 3 - 1) * 0.6) : 0;
+      stack.push({
+        idx: k,
+        coinClass: 'coin-' + g,
+        style: 'transform:translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) rotateX(22deg);'
+      });
+    }
     return {
       key: g,
       label: META[g].label,
-      count: player.tokens[g],
-      zero: player.tokens[g] === 0,
+      count: count,
+      zero: count === 0,
       ink: META[g].ink,
       gemClass: 'gem-' + g,
       coinClass: 'coin-' + g,
-      style: gemStyle(g)
+      style: gemStyle(g),
+      stack: stack
     };
   });
 }
@@ -6590,6 +7131,136 @@ function detailVM(state, ui, seat) {
   };
 }
 
+/**
+ * 购买/预留卡牌、确认拿取筹码时的 3 段式桌面动作展演：
+ *   1) 从桌面对应卡槽 / 牌库 / 筹码堆位置翻起升空；
+ *   2) 在桌面中央向所有玩家悬停展示 ~1.2s；
+ *   3) 飞入当前行动玩家的工作台（本机玩家飞入底部工作台，对手飞入左上席位铭牌）。
+ */
+function buildActionShowcase(state, action, actorSeat, mySeat, seq) {
+  if (!state || !action || !action.type) return null;
+  const p = state.players[actorSeat];
+  if (!p) return null;
+  const self = mySeat || 0;
+  const isSelf = actorSeat === self;
+  const actorName = p.nickname || p.name || ('玩家 ' + (actorSeat + 1));
+
+  let rivalIdx = 0;
+  for (let si = 0; si < state.players.length; si++) {
+    if (si === self) continue;
+    if (si === actorSeat) break;
+    rivalIdx += 1;
+  }
+  const rivalX = -408 + rivalIdx * 118;
+  const rivalY = -222;
+
+  if (action.type === 'buyBoard' || action.type === 'buyReserved') {
+    const isBoard = action.type === 'buyBoard';
+    const card = isBoard
+      ? (state.board[action.lv] && state.board[action.lv][action.index])
+      : (p.reserved && p.reserved[action.index]);
+    if (!card) return null;
+    const r = isBoard ? (2 - action.lv) : 0;
+    const c = isBoard ? action.index : 0;
+    const fromX = isBoard ? (-246 + c * 148) : (isSelf ? -295 : rivalX);
+    const fromY = isBoard ? (-114 + r * 117) : (isSelf ? 222 : rivalY);
+    const toX = isSelf ? -42 : rivalX;
+    const toY = isSelf ? 214 : rivalY;
+    const lvIdx = Math.max(0, Math.min(2, (card.level || 1) - 1));
+    return {
+      seq: seq,
+      kind: 'card',
+      mode: 'buy',
+      isSelf: isSelf,
+      actorName: actorName,
+      badgeText: isBoard ? '✦ 购买发展卡 · 展示入库 ✦' : '✦ 购入预留卡 · 展示入库 ✦',
+      title: actorName + ' 购入了「' + card.name + '」',
+      subtitle: '永久红利 +' + META[card.gem].label + (card.points > 0 ? ' · 声望 +' + card.points : '') + ' · 展示后收入工作台',
+      card: cardVM(state, card, actorSeat),
+      gotGold: false,
+      blindBack: false,
+      deckArtClass: 'deck-art-' + lvIdx,
+      deckLabel: ['I', 'II', 'III'][lvIdx],
+      coins: [],
+      motionStyle: '--from-x:' + fromX + 'px;--from-y:' + fromY + 'px;--to-x:' + toX + 'px;--to-y:' + toY + 'px;--flip-from:0deg;'
+    };
+  }
+
+  if (action.type === 'reserveBoard' || action.type === 'reserveDeck') {
+    const fromDeck = action.type === 'reserveDeck';
+    const lv = action.lv;
+    const deck = state.decks[lv];
+    const card = fromDeck
+      ? (deck && deck.length ? deck[deck.length - 1] : null)
+      : (state.board[lv] && state.board[lv][action.index]);
+    if (!card) return null;
+    const r = 2 - lv;
+    const fromX = fromDeck ? -378 : (-246 + action.index * 148);
+    const fromY = -114 + r * 117;
+    const toX = isSelf ? -295 : rivalX;
+    const toY = isSelf ? 224 : rivalY;
+    const gotGold = state.bank.gold > 0;
+    const blindBack = fromDeck && !isSelf;
+    return {
+      seq: seq,
+      kind: 'card',
+      mode: fromDeck ? 'blind' : 'reserve',
+      isSelf: isSelf,
+      actorName: actorName,
+      badgeText: fromDeck ? '✦ 盲抽预留牌库顶 ✦' : '✦ 预留桌面发展卡 ✦',
+      title: blindBack
+        ? (actorName + ' 盲抽预留了第 ' + ['I', 'II', 'III'][lv] + ' 级发展卡')
+        : (actorName + ' 预留了「' + card.name + '」'),
+      subtitle: (gotGold ? '获得 1 枚黄金万能筹码 · ' : '') + '展示后收入预留卡位',
+      card: cardVM(state, card, actorSeat),
+      gotGold: gotGold,
+      blindBack: blindBack,
+      deckArtClass: 'deck-art-' + lv,
+      deckLabel: ['I', 'II', 'III'][lv] || 'I',
+      coins: [],
+      motionStyle: '--from-x:' + fromX + 'px;--from-y:' + fromY + 'px;--to-x:' + toX + 'px;--to-y:' + toY + 'px;--flip-from:' + (fromDeck ? '-165deg' : '0deg') + ';'
+    };
+  }
+
+  if (action.type === 'take' && action.gems && action.gems.length) {
+    const slotYMap = { gold: -126, red: -72, blue: -18, white: 36, green: 90, black: 144 };
+    const toX = isSelf ? 32 : rivalX;
+    const toY = isSelf ? 228 : rivalY;
+    const coins = action.gems.map(function (g, idx) {
+      const fy = slotYMap[g] !== undefined ? slotYMap[g] : 0;
+      const spreadX = (idx - (action.gems.length - 1) / 2) * 74;
+      return {
+        idx: idx,
+        key: g,
+        label: META[g] ? META[g].label : g,
+        gemClass: 'gem-' + g,
+        coinClass: 'coin-' + g,
+        itemStyle: '--coin-from-x:' + (296 - spreadX).toFixed(0) + 'px;--coin-from-y:' + fy + 'px;--coin-to-x:' + (toX - spreadX * 0.6).toFixed(0) + 'px;--coin-to-y:' + toY + 'px;'
+      };
+    });
+    const labels = action.gems.map(function (g) { return META[g] ? META[g].label : g; });
+    return {
+      seq: seq,
+      kind: 'take',
+      mode: 'take',
+      isSelf: isSelf,
+      actorName: actorName,
+      badgeText: '✦ 拿取宝石筹码 · 展示入库 ✦',
+      title: actorName + ' 拿取了 ' + coins.length + ' 枚宝石筹码',
+      subtitle: labels.join(' + ') + ' · 展示后收入工作台筹码槽',
+      card: null,
+      gotGold: false,
+      blindBack: false,
+      deckArtClass: '',
+      deckLabel: '',
+      coins: coins,
+      motionStyle: '--from-x:296px;--from-y:0px;--to-x:' + toX + 'px;--to-y:' + toY + 'px;--flip-from:0deg;'
+    };
+  }
+
+  return null;
+}
+
 function buildViewModel(state, ui, layout, ctx) {
   const context = ctx || {};
   const room = context.room || null;
@@ -6648,6 +7319,7 @@ function buildViewModel(state, ui, layout, ctx) {
       goldStyle: '',
       resultTitle: '',
       resultDetail: '',
+      showcaseList: [],
       me: { name: '', points: 0, totalTokens: 0, reservedCount: 0, tokens: [], discounts: [] },
       rival: { name: '', points: 0, cardCount: 0, reservedCount: 0, tokens: [] }
     };
@@ -6707,6 +7379,19 @@ function buildViewModel(state, ui, layout, ctx) {
 
   const bankPiles = ALL.map(function (g, i) {
     const count = state.bank[g];
+    const layers = count <= 0 ? 1 : Math.min(count, 5);
+    const stack = [];
+    for (let k = 0; k < layers - 1; k++) {
+      const dx = ((k + i) % 3 - 1) * 1.3;
+      const dy = (layers - 1 - k) * 3.8;
+      stack.push({
+        idx: k,
+        coinClass: 'coin-' + g,
+        style: 'transform:translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scaleY(0.84);'
+      });
+    }
+    const topDx = layers > 1 ? (((layers + i) % 3 - 1) * 0.9) : 0;
+    const topStyle = 'transform:translate(' + topDx.toFixed(1) + 'px,0px) scaleY(0.84);';
     return {
       key: g,
       slot: i,
@@ -6716,6 +7401,8 @@ function buildViewModel(state, ui, layout, ctx) {
       gemClass: 'gem-' + g,
       coinClass: 'coin-' + g,
       style: gemStyle(g),
+      stack: stack,
+      topStyle: topStyle,
       selected: countIn(sel, g) > 0,
       isGold: g === 'gold',
       disabled: g === 'gold' || count <= 0 || !isMyTurn || needDiscard
@@ -6847,7 +7534,8 @@ function buildViewModel(state, ui, layout, ctx) {
     showReserved: ui.showReserved,
     gameOver: state.gameOver,
     resultTitle: resultTitle,
-    resultDetail: resultDetail
+    resultDetail: resultDetail,
+    showcaseList: ui.showcase ? [ui.showcase] : []
   };
 }
 
@@ -6887,7 +7575,8 @@ function freshUI(config) {
     profileNotice: '',
     joinCode: '',
     roomNotice: '',
-    netNotice: ''
+    netNotice: '',
+    showcase: null
   };
 }
 
@@ -6965,6 +7654,7 @@ Page({
     this.ui.showPlayerDetail = false;
     this.ui.showLobby = false;
     this.ui.selectedGems = [];
+    this.ui.showcase = null;
     this.refresh('');
     this.maybeRunAi({ ended: true });
   },
@@ -7329,29 +8019,42 @@ Page({
   scheduleAi() {
     this.clearTimer();
     const that = this;
+    const waitMs = this.ui && this.ui.showcase ? 1750 : 820;
     this._aiTimer = setTimeout(function () {
       that._aiTimer = null;
       that.runAi();
-    }, 780);
+    }, waitMs);
   },
 
   runAi() {
     const s = this.state;
     if (s.gameOver || !needsAutoPlay(s, this.aiContext())) return;
-    const actor = s.players[s.current].nickname || s.players[s.current].name;
-    let result = E.performAction(s, AI.chooseAction(s));
-    if (!result.ok) result = E.performAction(s, { type: 'pass' });
+    const actorSeat = s.current;
+    const actor = s.players[actorSeat].nickname || s.players[actorSeat].name;
+    const aiAction = AI.chooseAction(s);
+    const nextSeq = (this._showcaseSeq = (this._showcaseSeq || 0) + 1);
+    const preShowcase = buildActionShowcase(s, aiAction, actorSeat, this.mySeat, nextSeq);
+    let result = E.performAction(s, aiAction);
+    if (!result.ok) {
+      result = E.performAction(s, { type: 'pass' });
+    } else if (preShowcase) {
+      this.ui.showcase = preShowcase;
+    }
     this.refresh(result.ok ? actor + ' · ' + result.message : result.error);
     if (result.ok) this.pushCloudState();
     if (!s.gameOver && needsAutoPlay(s, this.aiContext())) this.scheduleAi();
   },
 
   applyPlayerAction(action, successMessage) {
+    const actorSeat = this.state ? this.state.current : 0;
+    const nextSeq = (this._showcaseSeq = (this._showcaseSeq || 0) + 1);
+    const preShowcase = buildActionShowcase(this.state, action, actorSeat, this.mySeat, nextSeq);
     const result = E.performAction(this.state, action);
     if (!result.ok) {
       this.refresh(result.error);
       return false;
     }
+    if (preShowcase) this.ui.showcase = preShowcase;
     this.ui.selectedGems = [];
     this.ui.detail = null;
     this.ui.showReserved = false;

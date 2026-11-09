@@ -76,9 +76,9 @@ function cardVM(state, card, seat) {
     photoClass: 'photo-' + (GEMS.indexOf(card.gem) * 18 + (card.art % 18)),
     // 程序化矢量插画作为无照片素材时的兜底
     artClass: 'art-' + (GEMS.indexOf(card.gem) * 3 + (card.art % 3)),
-    // 统一俯视透视 + 极轻微歪斜；抬升/选中由外层卡槽承担，避免 transform 互相覆盖
-    tiltStyle: 'transform:perspective(900px) rotateX(6deg) rotate(' +
-      (((card.art % 5) - 2) * 0.2).toFixed(2) + 'deg);',
+    // 2.5D 桌面斜铺透视：配合 .board 的整体桌面透视平面，单卡带立体仰角与轻微散落感
+    tiltStyle: 'transform:perspective(460px) rotateX(14deg) rotateZ(' +
+      (((card.art % 5) - 2) * 0.45).toFixed(2) + 'deg);',
     costs: costs,
     affordable: E.canBuy(state, s, card)
   };
@@ -89,16 +89,29 @@ function emptyCardVM(lv, i) {
 }
 
 function tokensVM(player, keys) {
-  return keys.map(function (g) {
+  return keys.map(function (g, idx) {
+    const count = player.tokens[g];
+    const layers = count <= 0 ? 1 : Math.min(count, 4);
+    const stack = [];
+    for (let k = 0; k < layers; k++) {
+      const dy = -k * 3;
+      const dx = k > 0 ? (((k + idx) % 3 - 1) * 0.6) : 0;
+      stack.push({
+        idx: k,
+        coinClass: 'coin-' + g,
+        style: 'transform:translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) rotateX(22deg);'
+      });
+    }
     return {
       key: g,
       label: META[g].label,
-      count: player.tokens[g],
-      zero: player.tokens[g] === 0,
+      count: count,
+      zero: count === 0,
       ink: META[g].ink,
       gemClass: 'gem-' + g,
       coinClass: 'coin-' + g,
-      style: gemStyle(g)
+      style: gemStyle(g),
+      stack: stack
     };
   });
 }
@@ -428,6 +441,136 @@ function detailVM(state, ui, seat) {
   };
 }
 
+/**
+ * 购买/预留卡牌、确认拿取筹码时的 3 段式桌面动作展演：
+ *   1) 从桌面对应卡槽 / 牌库 / 筹码堆位置翻起升空；
+ *   2) 在桌面中央向所有玩家悬停展示 ~1.2s；
+ *   3) 飞入当前行动玩家的工作台（本机玩家飞入底部工作台，对手飞入左上席位铭牌）。
+ */
+function buildActionShowcase(state, action, actorSeat, mySeat, seq) {
+  if (!state || !action || !action.type) return null;
+  const p = state.players[actorSeat];
+  if (!p) return null;
+  const self = mySeat || 0;
+  const isSelf = actorSeat === self;
+  const actorName = p.nickname || p.name || ('玩家 ' + (actorSeat + 1));
+
+  let rivalIdx = 0;
+  for (let si = 0; si < state.players.length; si++) {
+    if (si === self) continue;
+    if (si === actorSeat) break;
+    rivalIdx += 1;
+  }
+  const rivalX = -408 + rivalIdx * 118;
+  const rivalY = -222;
+
+  if (action.type === 'buyBoard' || action.type === 'buyReserved') {
+    const isBoard = action.type === 'buyBoard';
+    const card = isBoard
+      ? (state.board[action.lv] && state.board[action.lv][action.index])
+      : (p.reserved && p.reserved[action.index]);
+    if (!card) return null;
+    const r = isBoard ? (2 - action.lv) : 0;
+    const c = isBoard ? action.index : 0;
+    const fromX = isBoard ? (-246 + c * 148) : (isSelf ? -295 : rivalX);
+    const fromY = isBoard ? (-114 + r * 117) : (isSelf ? 222 : rivalY);
+    const toX = isSelf ? -42 : rivalX;
+    const toY = isSelf ? 214 : rivalY;
+    const lvIdx = Math.max(0, Math.min(2, (card.level || 1) - 1));
+    return {
+      seq: seq,
+      kind: 'card',
+      mode: 'buy',
+      isSelf: isSelf,
+      actorName: actorName,
+      badgeText: isBoard ? '✦ 购买发展卡 · 展示入库 ✦' : '✦ 购入预留卡 · 展示入库 ✦',
+      title: actorName + ' 购入了「' + card.name + '」',
+      subtitle: '永久红利 +' + META[card.gem].label + (card.points > 0 ? ' · 声望 +' + card.points : '') + ' · 展示后收入工作台',
+      card: cardVM(state, card, actorSeat),
+      gotGold: false,
+      blindBack: false,
+      deckArtClass: 'deck-art-' + lvIdx,
+      deckLabel: ['I', 'II', 'III'][lvIdx],
+      coins: [],
+      motionStyle: '--from-x:' + fromX + 'px;--from-y:' + fromY + 'px;--to-x:' + toX + 'px;--to-y:' + toY + 'px;--flip-from:0deg;'
+    };
+  }
+
+  if (action.type === 'reserveBoard' || action.type === 'reserveDeck') {
+    const fromDeck = action.type === 'reserveDeck';
+    const lv = action.lv;
+    const deck = state.decks[lv];
+    const card = fromDeck
+      ? (deck && deck.length ? deck[deck.length - 1] : null)
+      : (state.board[lv] && state.board[lv][action.index]);
+    if (!card) return null;
+    const r = 2 - lv;
+    const fromX = fromDeck ? -378 : (-246 + action.index * 148);
+    const fromY = -114 + r * 117;
+    const toX = isSelf ? -295 : rivalX;
+    const toY = isSelf ? 224 : rivalY;
+    const gotGold = state.bank.gold > 0;
+    const blindBack = fromDeck && !isSelf;
+    return {
+      seq: seq,
+      kind: 'card',
+      mode: fromDeck ? 'blind' : 'reserve',
+      isSelf: isSelf,
+      actorName: actorName,
+      badgeText: fromDeck ? '✦ 盲抽预留牌库顶 ✦' : '✦ 预留桌面发展卡 ✦',
+      title: blindBack
+        ? (actorName + ' 盲抽预留了第 ' + ['I', 'II', 'III'][lv] + ' 级发展卡')
+        : (actorName + ' 预留了「' + card.name + '」'),
+      subtitle: (gotGold ? '获得 1 枚黄金万能筹码 · ' : '') + '展示后收入预留卡位',
+      card: cardVM(state, card, actorSeat),
+      gotGold: gotGold,
+      blindBack: blindBack,
+      deckArtClass: 'deck-art-' + lv,
+      deckLabel: ['I', 'II', 'III'][lv] || 'I',
+      coins: [],
+      motionStyle: '--from-x:' + fromX + 'px;--from-y:' + fromY + 'px;--to-x:' + toX + 'px;--to-y:' + toY + 'px;--flip-from:' + (fromDeck ? '-165deg' : '0deg') + ';'
+    };
+  }
+
+  if (action.type === 'take' && action.gems && action.gems.length) {
+    const slotYMap = { gold: -126, red: -72, blue: -18, white: 36, green: 90, black: 144 };
+    const toX = isSelf ? 32 : rivalX;
+    const toY = isSelf ? 228 : rivalY;
+    const coins = action.gems.map(function (g, idx) {
+      const fy = slotYMap[g] !== undefined ? slotYMap[g] : 0;
+      const spreadX = (idx - (action.gems.length - 1) / 2) * 74;
+      return {
+        idx: idx,
+        key: g,
+        label: META[g] ? META[g].label : g,
+        gemClass: 'gem-' + g,
+        coinClass: 'coin-' + g,
+        itemStyle: '--coin-from-x:' + (296 - spreadX).toFixed(0) + 'px;--coin-from-y:' + fy + 'px;--coin-to-x:' + (toX - spreadX * 0.6).toFixed(0) + 'px;--coin-to-y:' + toY + 'px;'
+      };
+    });
+    const labels = action.gems.map(function (g) { return META[g] ? META[g].label : g; });
+    return {
+      seq: seq,
+      kind: 'take',
+      mode: 'take',
+      isSelf: isSelf,
+      actorName: actorName,
+      badgeText: '✦ 拿取宝石筹码 · 展示入库 ✦',
+      title: actorName + ' 拿取了 ' + coins.length + ' 枚宝石筹码',
+      subtitle: labels.join(' + ') + ' · 展示后收入工作台筹码槽',
+      card: null,
+      gotGold: false,
+      blindBack: false,
+      deckArtClass: '',
+      deckLabel: '',
+      coins: coins,
+      motionStyle: '--from-x:296px;--from-y:0px;--to-x:' + toX + 'px;--to-y:' + toY + 'px;--flip-from:0deg;'
+    };
+  }
+
+  return null;
+}
+
 function buildViewModel(state, ui, layout, ctx) {
   const context = ctx || {};
   const room = context.room || null;
@@ -486,6 +629,7 @@ function buildViewModel(state, ui, layout, ctx) {
       goldStyle: '',
       resultTitle: '',
       resultDetail: '',
+      showcaseList: [],
       me: { name: '', points: 0, totalTokens: 0, reservedCount: 0, tokens: [], discounts: [] },
       rival: { name: '', points: 0, cardCount: 0, reservedCount: 0, tokens: [] }
     };
@@ -545,6 +689,19 @@ function buildViewModel(state, ui, layout, ctx) {
 
   const bankPiles = ALL.map(function (g, i) {
     const count = state.bank[g];
+    const layers = count <= 0 ? 1 : Math.min(count, 5);
+    const stack = [];
+    for (let k = 0; k < layers - 1; k++) {
+      const dx = ((k + i) % 3 - 1) * 1.3;
+      const dy = (layers - 1 - k) * 3.8;
+      stack.push({
+        idx: k,
+        coinClass: 'coin-' + g,
+        style: 'transform:translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scaleY(0.84);'
+      });
+    }
+    const topDx = layers > 1 ? (((layers + i) % 3 - 1) * 0.9) : 0;
+    const topStyle = 'transform:translate(' + topDx.toFixed(1) + 'px,0px) scaleY(0.84);';
     return {
       key: g,
       slot: i,
@@ -554,6 +711,8 @@ function buildViewModel(state, ui, layout, ctx) {
       gemClass: 'gem-' + g,
       coinClass: 'coin-' + g,
       style: gemStyle(g),
+      stack: stack,
+      topStyle: topStyle,
       selected: countIn(sel, g) > 0,
       isGold: g === 'gold',
       disabled: g === 'gold' || count <= 0 || !isMyTurn || needDiscard
@@ -685,7 +844,8 @@ function buildViewModel(state, ui, layout, ctx) {
     showReserved: ui.showReserved,
     gameOver: state.gameOver,
     resultTitle: resultTitle,
-    resultDetail: resultDetail
+    resultDetail: resultDetail,
+    showcaseList: ui.showcase ? [ui.showcase] : []
   };
 }
 
@@ -725,7 +885,8 @@ function freshUI(config) {
     profileNotice: '',
     joinCode: '',
     roomNotice: '',
-    netNotice: ''
+    netNotice: '',
+    showcase: null
   };
 }
 
@@ -803,6 +964,7 @@ Page({
     this.ui.showPlayerDetail = false;
     this.ui.showLobby = false;
     this.ui.selectedGems = [];
+    this.ui.showcase = null;
     this.refresh('');
     this.maybeRunAi({ ended: true });
   },
@@ -1167,29 +1329,42 @@ Page({
   scheduleAi() {
     this.clearTimer();
     const that = this;
+    const waitMs = this.ui && this.ui.showcase ? 1750 : 820;
     this._aiTimer = setTimeout(function () {
       that._aiTimer = null;
       that.runAi();
-    }, 780);
+    }, waitMs);
   },
 
   runAi() {
     const s = this.state;
     if (s.gameOver || !needsAutoPlay(s, this.aiContext())) return;
-    const actor = s.players[s.current].nickname || s.players[s.current].name;
-    let result = E.performAction(s, AI.chooseAction(s));
-    if (!result.ok) result = E.performAction(s, { type: 'pass' });
+    const actorSeat = s.current;
+    const actor = s.players[actorSeat].nickname || s.players[actorSeat].name;
+    const aiAction = AI.chooseAction(s);
+    const nextSeq = (this._showcaseSeq = (this._showcaseSeq || 0) + 1);
+    const preShowcase = buildActionShowcase(s, aiAction, actorSeat, this.mySeat, nextSeq);
+    let result = E.performAction(s, aiAction);
+    if (!result.ok) {
+      result = E.performAction(s, { type: 'pass' });
+    } else if (preShowcase) {
+      this.ui.showcase = preShowcase;
+    }
     this.refresh(result.ok ? actor + ' · ' + result.message : result.error);
     if (result.ok) this.pushCloudState();
     if (!s.gameOver && needsAutoPlay(s, this.aiContext())) this.scheduleAi();
   },
 
   applyPlayerAction(action, successMessage) {
+    const actorSeat = this.state ? this.state.current : 0;
+    const nextSeq = (this._showcaseSeq = (this._showcaseSeq || 0) + 1);
+    const preShowcase = buildActionShowcase(this.state, action, actorSeat, this.mySeat, nextSeq);
     const result = E.performAction(this.state, action);
     if (!result.ok) {
       this.refresh(result.error);
       return false;
     }
+    if (preShowcase) this.ui.showcase = preShowcase;
     this.ui.selectedGems = [];
     this.ui.detail = null;
     this.ui.showReserved = false;
