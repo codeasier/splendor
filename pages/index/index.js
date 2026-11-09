@@ -43,8 +43,26 @@ function countIn(list, key) {
   return n;
 }
 
+/**
+ * 计算中央市场 3 行 × 4 列卡槽的单灭点 2.5D 桌面透视变换：
+ *   r=0 为远端 III 级行（窄、略小），r=1 为中端 II 级行，r=2 为近端 I 级行（宽、略大）；
+ *   左列向右倾斜（/），右列向左倾斜（\），四列延长线汇聚于屏幕上方中央灭点，还原参考图1的斜铺牌桌。
+ */
+function boardSlotTransform(r, c, jitterDeg) {
+  const rowScaleX = [0.88, 0.96, 1.05][r] || 1;
+  const rowScaleY = [0.78, 0.84, 0.91][r] || 0.85;
+  const colSkew = [-10, -3.4, 3.4, 10][c] || 0;
+  // 远端行向中央收拢、近端行向两侧展开，形成真实梯形透视网格
+  const colOffset = [-1.5, -0.5, 0.5, 1.5][c] || 0;
+  const rowSpread = [-15, 0, 15][r] || 0;
+  const tx = (colOffset * rowSpread).toFixed(1);
+  const rotZ = (jitterDeg || 0).toFixed(2);
+  return 'transform:translateX(' + tx + 'px) perspective(360px) rotateX(22deg) skewX(' +
+    colSkew + 'deg) rotateZ(' + rotZ + 'deg) scale(' + rowScaleX + ',' + rowScaleY + ');';
+}
+
 /** 把一张发展卡转换为视图数据；成本气泡显示扣除红利后的实付数量 */
-function cardVM(state, card, seat) {
+function cardVM(state, card, seat, r, c) {
   const s = seat || 0;
   const disc = E.getDiscounts(state, s);
   const costs = [];
@@ -62,6 +80,10 @@ function cardVM(state, card, seat) {
       style: gemStyle(g)
     });
   }
+  const jitter = ((card.art % 5) - 2) * 0.35;
+  const tiltStyle = (typeof r === 'number' && typeof c === 'number')
+    ? boardSlotTransform(r, c, jitter)
+    : 'transform:perspective(420px) rotateX(18deg) rotateZ(' + jitter.toFixed(2) + 'deg);';
   return {
     id: card.id,
     empty: false,
@@ -76,16 +98,19 @@ function cardVM(state, card, seat) {
     photoClass: 'photo-' + (GEMS.indexOf(card.gem) * 18 + (card.art % 18)),
     // 程序化矢量插画作为无照片素材时的兜底
     artClass: 'art-' + (GEMS.indexOf(card.gem) * 3 + (card.art % 3)),
-    // 2.5D 桌面斜铺透视：配合 .board 的整体桌面透视平面，单卡带立体仰角与轻微散落感
-    tiltStyle: 'transform:perspective(460px) rotateX(14deg) rotateZ(' +
-      (((card.art % 5) - 2) * 0.45).toFixed(2) + 'deg);',
+    tiltStyle: tiltStyle,
     costs: costs,
     affordable: E.canBuy(state, s, card)
   };
 }
 
-function emptyCardVM(lv, i) {
-  return { id: 'empty-' + lv + '-' + i, empty: true };
+function emptyCardVM(lv, i, r) {
+  const rowIdx = typeof r === 'number' ? r : (2 - lv);
+  return {
+    id: 'empty-' + lv + '-' + i,
+    empty: true,
+    tiltStyle: boardSlotTransform(rowIdx, i, 0)
+  };
 }
 
 function tokensVM(player, keys) {
@@ -650,7 +675,7 @@ function buildViewModel(state, ui, layout, ctx) {
     if (si !== seat) rivals.push(vm);
   }
 
-  // 常规牌桌排布：自上而下 III / II / I，即自下而上 I、II、III。
+  // 常规牌桌排布：自上而下 III / II / I（r=0 远端 III，r=1 中端 II，r=2 近端 I）。
   // 左侧牌库与右侧明牌行使用同一组 y 坐标，保证同级一一水平对齐。
   const rows = [];
   for (let r = 0; r < 3; r++) {
@@ -658,7 +683,7 @@ function buildViewModel(state, ui, layout, ctx) {
     const cards = [];
     for (let i = 0; i < 4; i++) {
       const card = state.board[lv][i];
-      const vm = card ? cardVM(state, card, seat) : emptyCardVM(lv, i);
+      const vm = card ? cardVM(state, card, seat, r, i) : emptyCardVM(lv, i, r);
       vm.selected = !!(ui.detail && ui.detail.kind === 'board' &&
         ui.detail.lv === lv && ui.detail.index === i);
       cards.push(vm);
@@ -666,7 +691,7 @@ function buildViewModel(state, ui, layout, ctx) {
     rows.push({
       lv: lv,
       label: ['I', 'II', 'III'][lv],
-      rowClass: ['row-near', 'row-mid', 'row-far'][r],
+      rowClass: ['row-far', 'row-mid', 'row-near'][r],
       cards: cards
     });
   }
@@ -692,16 +717,16 @@ function buildViewModel(state, ui, layout, ctx) {
     const layers = count <= 0 ? 1 : Math.min(count, 5);
     const stack = [];
     for (let k = 0; k < layers - 1; k++) {
-      const dx = ((k + i) % 3 - 1) * 1.3;
-      const dy = (layers - 1 - k) * 3.8;
+      const dx = ((k + i) % 3 - 1) * 1.4;
+      const dy = (layers - 1 - k) * 4.0;
       stack.push({
         idx: k,
         coinClass: 'coin-' + g,
-        style: 'transform:translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scaleY(0.84);'
+        style: 'transform:translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scaleY(0.76) skewX(4deg);'
       });
     }
     const topDx = layers > 1 ? (((layers + i) % 3 - 1) * 0.9) : 0;
-    const topStyle = 'transform:translate(' + topDx.toFixed(1) + 'px,0px) scaleY(0.84);';
+    const topStyle = 'transform:translate(' + topDx.toFixed(1) + 'px,0px) scaleY(0.76) skewX(4deg);';
     return {
       key: g,
       slot: i,
@@ -719,6 +744,7 @@ function buildViewModel(state, ui, layout, ctx) {
     };
   });
 
+  const isCompactNobles = state.nobles.length > 3;
   const nobles = state.nobles.map(function (n, i) {
     const reqs = [];
     for (let k = 0; k < GEMS.length; k++) {
@@ -727,12 +753,16 @@ function buildViewModel(state, ui, layout, ctx) {
         reqs.push({ key: g, num: n.req[g], gemClass: 'gem-' + g, style: gemStyle(g) });
       }
     }
+    const nx = isCompactNobles ? ((i >= 2 ? 1 : 0) * 6) : ((i - 1) * 9);
+    const ns = isCompactNobles ? 0.94 : (0.91 + i * 0.045);
+    const nStyle = 'transform:translateX(' + nx + 'px) perspective(380px) rotateX(20deg) skewX(8.5deg) rotateZ(-1.5deg) scale(' + ns.toFixed(2) + ',0.84);';
     return {
       id: n.id,
       title: n.title,
       points: n.points,
       artClass: 'noble-art-' + (i % 3),
       photoClass: 'noble-photo-' + (i % 10),
+      style: nStyle,
       reqs: reqs
     };
   });

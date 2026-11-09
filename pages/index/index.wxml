@@ -107,7 +107,7 @@
               </view>
             </view>
           </view>
-          <view wx:else class="card-empty"></view>
+          <view wx:else class="card-empty" style="{{card.tiltStyle}}"></view>
         </view>
       </view>
     </view>
@@ -137,7 +137,7 @@
       <view class="noble-area {{noblesCompact ? 'is-compact' : ''}}">
         <text class="rail-title">贵族牌 · 各 3 声望</text>
         <view class="noble-row">
-          <view wx:for="{{nobles}}" wx:key="id" class="noble">
+          <view wx:for="{{nobles}}" wx:key="id" class="noble" style="{{item.style}}">
             <view class="noble-face"><view class="noble-photo {{item.photoClass}} {{item.artClass}}"></view></view>
             <text class="noble-points">{{item.points}}</text>
             <text class="noble-title">{{item.title}}</text>

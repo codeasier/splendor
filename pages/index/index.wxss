@@ -71,11 +71,12 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .table-emblem {
   position: absolute;
-  left: 50%; top: 47%;
-  width: 456px; height: 456px;
-  margin-left: -228px; margin-top: -228px;
+  left: 50%; top: 46%;
+  width: 480px; height: 480px;
+  margin-left: -240px; margin-top: -240px;
   background-size: 100% 100%; background-repeat: no-repeat;
-  opacity: .085;
+  opacity: .08;
+  transform: perspective(460px) rotateX(48deg) scale(1.18);
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .5));
 }
 /* 实体红木镶金边梁：三层高光倒角 + 内嵌金线 */
@@ -229,35 +230,34 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .round-btn:active { transform: translateY(1px); }
 
 /* ---------- 4. 左侧牌库：沿 2.5D 牌桌左缘斜铺的厚牌叠（参考图1） ---------- */
-.left-rail { position: absolute; left: 118px; top: 86px; width: 102px; height: 348px; z-index: 4; }
+.left-rail { position: absolute; left: 138px; top: 82px; width: 102px; height: 348px; z-index: 4; }
 .rail-shadow {
-  position: absolute; left: -12px; top: -8px; width: 124px; height: 362px;
-  border-radius: 12px;
-  border: 1px solid rgba(243, 212, 139, .14);
-  background: linear-gradient(160deg, rgba(38, 15, 26, .42), rgba(16, 6, 12, .56));
-  box-shadow: inset 0 3px 14px rgba(0, 0, 0, .48), 0 6px 18px rgba(0, 0, 0, .38);
-  transform: perspective(520px) rotateX(14deg) rotateZ(4deg);
+  position: absolute; left: -6px; top: -4px; width: 112px; height: 356px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse 60% 56% at 50% 50%, rgba(10, 3, 8, .55), transparent 78%);
+  transform: rotate(10deg);
+  pointer-events: none;
 }
 .deck-slot { position: absolute; left: 0; width: 88px; height: 112px; }
-/* 沿 2.5D 透视左缘自上而下向右下方延伸，与参考图1一致 */
-.deck-lv-2 { top: 0; left: 18px; transform: scale(.93); }
-.deck-lv-1 { top: 116px; left: 9px; transform: scale(.97); }
-.deck-lv-0 { top: 232px; left: 0; transform: scale(1.01); }
+/* 沿 2.5D 透视左缘（/）自上而下向左下方阶梯展开，与参考图1一致 */
+.deck-lv-2 { top: 4px; left: 32px; }
+.deck-lv-1 { top: 114px; left: 16px; }
+.deck-lv-0 { top: 226px; left: 0px; }
 .deck-stack {
   position: absolute; left: 14px; top: 4px;
-  width: 60px; height: 104px;
+  width: 58px; height: 102px;
   border-radius: 4px;
-  transform: perspective(360px) rotateX(22deg) rotateY(22deg) rotateZ(7deg);
+  transform: perspective(340px) rotateX(24deg) skewX(-11.5deg) rotateZ(2.5deg) scale(0.76, 0.88);
   transform-origin: 50% 55%;
   transition: transform 180ms cubic-bezier(.2, .8, .3, 1), box-shadow 180ms;
   box-shadow:
-    -6px 10px 18px rgba(6, 2, 6, .88),
-    0 3px 0 #d8be92,
-    0 6px 0 #917148,
-    inset 0 0 0 1px rgba(255, 236, 184, .75);
+    -8px 12px 18px rgba(6, 2, 6, .88),
+    0 3px 0 #ebd5ad,
+    0 5px 0 #9c7848,
+    inset 0 0 0 1.5px rgba(255, 238, 188, .85);
 }
 .deck-slot.deck-hover .deck-stack {
-  transform: perspective(360px) rotateX(16deg) rotateY(16deg) rotateZ(5deg) translateY(-4px);
+  transform: perspective(340px) rotateX(20deg) skewX(-9deg) rotateZ(2deg) scale(0.80, 0.91) translateY(-4px);
 }
 .deck-face {
   position: absolute; left: 0; top: 0; right: 0; bottom: 0;
@@ -266,18 +266,18 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 /* 左侧可见的厚重象牙白纸叠侧壁（参考图1左侧牌库立面） */
 .deck-edges {
-  position: absolute; left: -9px; top: 3px; width: 9px; height: 99px;
+  position: absolute; left: -12px; top: 2px; width: 12px; height: 99px;
   z-index: 3;
-  transform: skewY(8deg);
-  background: repeating-linear-gradient(180deg, #fff6e2 0px, #fff6e2 2px, #c4a272 2px, #c4a272 3px);
-  border-left: 1px solid #8a683e;
-  box-shadow: -3px 4px 8px rgba(8, 3, 8, .75);
+  transform: skewY(12deg);
+  background: linear-gradient(90deg, #fffdf8 0%, #f7ebd2 55%, #cfb286 100%);
+  border-left: 1px solid #a68456;
+  box-shadow: -4px 6px 10px rgba(6, 2, 6, .8);
 }
 .deck-stack::after {
-  content: ''; position: absolute; left: -7px; right: 2px; bottom: -6px; height: 7px;
-  background: repeating-linear-gradient(90deg, #fae9cc 0px, #fae9cc 3px, #b08c5c 3px, #b08c5c 4px);
-  transform: skewX(26deg);
-  box-shadow: 0 4px 8px rgba(8, 3, 8, .75);
+  content: ''; position: absolute; left: -10px; right: 1px; bottom: -6px; height: 6px;
+  background: linear-gradient(180deg, #fbf0d9, #b89564);
+  transform: skewX(32deg);
+  box-shadow: 0 5px 10px rgba(6, 2, 6, .8);
 }
 .deck-sheen {
   position: absolute; left: 0; top: 0; right: 0; bottom: 0;
@@ -286,7 +286,7 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .deck-crest {
   position: absolute; left: 50%; top: 43%;
-  width: 38px; height: 38px; margin-left: -19px; margin-top: -19px;
+  width: 34px; height: 34px; margin-left: -17px; margin-top: -17px;
   border-radius: 50%;
   border: 1.5px solid #ffe6a8;
   background: radial-gradient(circle at 34% 26%, rgba(44, 22, 34, .82), rgba(12, 5, 12, .94) 82%);
@@ -298,70 +298,47 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   z-index: 4;
 }
 .deck-label {
-  font-family: Georgia, "Songti SC", serif; font-size: 17px; font-weight: 700;
+  font-family: Georgia, "Songti SC", serif; font-size: 16px; font-weight: 700;
   line-height: 1; color: #ffecb8; text-shadow: 0 1px 4px #000;
 }
 .deck-count {
-  position: absolute; right: 0px; bottom: 5px;
-  min-width: 24px; height: 19px; padding: 0 5px; border-radius: 10px;
+  position: absolute; right: 8px; bottom: 8px;
+  min-width: 22px; height: 18px; padding: 0 4px; border-radius: 9px;
   border: 1px solid #ecc478;
   background: linear-gradient(180deg, #3b1e2c, #180b13);
   box-shadow: inset 0 1px 0 rgba(255, 240, 200, .3), 0 3px 6px rgba(0, 0, 0, .72);
   display: flex; align-items: center; justify-content: center;
-  font-family: Georgia, serif; font-size: 11px; font-weight: 700; color: #ffecb8;
+  font-family: Georgia, serif; font-size: 10px; font-weight: 700; color: #ffecb8;
   z-index: 5;
 }
 .deck-stack.is-empty { opacity: .42; }
 .rail-hint {
-  position: absolute; left: -8px; top: 348px; width: 114px;
-  font-size: 9px; color: #e6c69e; text-align: center; letter-spacing: .6px;
+  position: absolute; left: -10px; top: 344px; width: 108px;
+  font-size: 9px; color: #d8b896; text-align: center; letter-spacing: .5px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, .9);
 }
 
-/* ---------- 5. 中央市场：2.5D 透视斜铺发展卡（参考图1全幅插画 + 顶栏声望宝石 + 左下纵列成本） ---------- */
+/* ---------- 5. 中央市场：2.5D 单灭点扇形斜铺牌阵（参考图1：上窄下宽、四列汇聚于上方灭点） ---------- */
 .board {
-  position: absolute; left: 248px; top: 82px;
-  width: 540px; height: 350px;
+  position: absolute; left: 252px; top: 78px;
+  width: 532px; height: 348px;
   display: flex; flex-direction: column; justify-content: space-between;
-  transform: perspective(760px) rotateX(15deg);
-  transform-origin: 50% 68%;
   z-index: 5;
 }
-.board::before {
-  content: ''; position: absolute; left: -14px; top: -8px; right: -14px; bottom: -10px;
-  border: 1px solid rgba(243, 212, 139, .22); border-radius: 14px;
-  background:
-    radial-gradient(ellipse 80% 70% at 50% 45%, rgba(255, 224, 172, .05), rgba(16, 6, 12, .38));
-  box-shadow:
-    inset 0 0 0 1px rgba(20, 8, 15, .65),
-    inset 0 4px 18px rgba(10, 3, 8, .52),
-    0 12px 28px rgba(0, 0, 0, .45);
-}
+.board::before { display: none; }
 .card-row { position: relative; height: 112px; display: flex; justify-content: space-between; }
-.row-label {
-  position: absolute; left: -32px; top: 50%; margin-top: -13px;
-  width: 26px; height: 26px; border-radius: 50%;
-  border: 1px solid rgba(243, 212, 139, .68);
-  background: radial-gradient(circle at 35% 28%, #4d2638, #1b0c15 82%);
-  font-family: Georgia, serif; font-size: 11px; font-weight: 700;
-  line-height: 24px; text-align: center; color: #ffe6ae;
-  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .32), 0 3px 7px rgba(0, 0, 0, .62);
-}
-/* 2.5D 远近透视阶梯：远端行略小、近端行略大，配合卡片自身的 rotateX(21deg) 呈现真实斜铺牌面 */
+.row-label { display: none; }
 .card-slot {
-  position: relative; width: 90px; height: 112px;
+  position: relative; width: 92px; height: 112px;
   transition: transform 180ms cubic-bezier(.2, .8, .3, 1);
   animation: cardDeal 340ms cubic-bezier(.2, .8, .3, 1) both;
 }
-.row-far .card-slot { transform: scale(.93) translateY(2px); }
-.row-mid .card-slot { transform: scale(.97); }
-.row-near .card-slot { transform: scale(1.015) translateY(-1px); }
 .card-slot.is-selected { transform: translateY(-8px) scale(1.05); z-index: 7; }
 .card-slot.slot-hover { transform: translateY(2px) scale(.99); }
 
 /* 典藏发展卡：参考图1的全幅油画 + 顶部半透明羊皮高光带 + 左下纵列成本圆章 + 底部立体纸厚 */
 .card {
-  position: relative; width: 90px; height: 112px;
+  position: relative; width: 92px; height: 112px;
   border-radius: 7px;
   border-top: 1px solid rgba(255, 252, 236, .96);
   border-left: 1px solid rgba(248, 232, 192, .88);
@@ -369,13 +346,13 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   border-bottom: 1px solid #5e4224;
   background: #2b1822;
   overflow: hidden;
-  transform-origin: 50% 60%;
+  transform-origin: 50% 50%;
   box-shadow:
-    0 1.5px 0 #ebd4a8,
-    0 3px 0 #b8925a,
-    0 4.5px 0 #6e502a,
-    0 10px 16px rgba(8, 2, 7, .85),
-    4px 14px 22px rgba(0, 0, 0, .62),
+    0 2px 0 #ebd4a8,
+    0 4px 0 #a8824e,
+    0 6px 0 #593e1e,
+    0 12px 18px rgba(6, 2, 6, .88),
+    5px 16px 22px rgba(0, 0, 0, .65),
     inset 0 0 0 1px rgba(255, 248, 225, .48);
   transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
@@ -486,79 +463,74 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .cost-bubble.is-covered { opacity: .48; filter: saturate(.75); }
 .card-empty {
-  width: 90px; height: 112px; border-radius: 7px;
+  width: 92px; height: 112px; border-radius: 7px;
   border: 1px dashed rgba(243, 212, 139, .28);
   background: rgba(18, 7, 14, .32);
   box-shadow: inset 0 3px 12px rgba(0, 0, 0, .48);
-  transform: perspective(420px) rotateX(21deg);
 }
 
 /* ---------- 6. 右侧栏：2.5D 立体堆叠筹码柱 & 斜铺贵族画廊（参考图1） ---------- */
-.right-rail { position: absolute; left: 800px; top: 86px; width: 264px; height: 348px; z-index: 5; }
+.right-rail { position: absolute; left: 802px; top: 82px; width: 262px; height: 350px; z-index: 5; }
 .rail-title {
-  display: block; height: 16px; line-height: 16px; white-space: nowrap;
-  font-size: 9px; font-weight: 600; letter-spacing: .6px; color: #f3d48b;
+  display: block; height: 15px; line-height: 15px; white-space: nowrap;
+  font-size: 9px; font-weight: 600; letter-spacing: .6px; color: rgba(243, 212, 139, .82);
   text-shadow: 0 1px 3px rgba(0, 0, 0, .9);
 }
-.pile-area { position: absolute; left: 0; top: 0; width: 94px; height: 348px; }
-.pile-area::before {
-  content: ''; position: absolute; left: -8px; top: -8px; width: 102px; bottom: -10px;
-  border-radius: 12px;
-  border: 1px solid rgba(243, 212, 139, .16);
-  background: linear-gradient(160deg, rgba(38, 15, 26, .38), rgba(14, 5, 11, .54));
-  box-shadow: inset 0 3px 12px rgba(0, 0, 0, .45);
-  pointer-events: none;
-}
-.pile-list { position: absolute; left: 0; top: 20px; width: 92px; height: 324px; }
+.pile-area { position: absolute; left: 0; top: 0; width: 102px; height: 350px; }
+.pile-area::before { display: none; }
+.pile-list { position: absolute; left: 0; top: 18px; width: 102px; height: 328px; }
 .pile-item {
   position: absolute; width: 82px; height: 52px;
   display: flex; align-items: center;
   transition: transform 220ms cubic-bezier(.2, .8, .3, 1);
 }
-.pile-slot-5 { left: 2px;  top: 0px; }
-.pile-slot-3 { left: 4px;  top: 54px; }
-.pile-slot-1 { left: 6px;  top: 108px; }
-.pile-slot-0 { left: 8px;  top: 162px; }
-.pile-slot-2 { left: 10px; top: 216px; }
-.pile-slot-4 { left: 12px; top: 270px; }
+/* 沿右侧 2.5D 透视斜线（\）自上而下向右下方延伸，远小近大（参考图1） */
+.pile-slot-5 { left: -4px; top: 0px;   transform: scale(.91); }
+.pile-slot-3 { left: 3px;  top: 54px;  transform: scale(.94); }
+.pile-slot-1 { left: 10px; top: 108px; transform: scale(.97); }
+.pile-slot-0 { left: 17px; top: 162px; transform: scale(1.00); }
+.pile-slot-2 { left: 24px; top: 216px; transform: scale(1.03); }
+.pile-slot-4 { left: 31px; top: 270px; transform: scale(1.06); }
 /* 3D 筹码堆叠容器：顶层在 y=0，底层向下层叠出清晰的筹码柱侧面，参考图1 */
 .pile-stack {
-  position: relative; left: 16px; top: -4px;
-  width: 46px; height: 48px;
+  position: relative; left: 14px; top: -4px;
+  width: 48px; height: 48px;
   transition: transform 220ms cubic-bezier(.2, .8, .3, 1);
-  filter: drop-shadow(3px 8px 8px rgba(6, 2, 6, .75));
+  filter: drop-shadow(3px 9px 9px rgba(6, 2, 6, .82));
 }
 .pile-disc {
   position: absolute; left: 0; top: 0;
-  width: 44px; height: 44px; border-radius: 50%;
+  width: 46px; height: 46px; border-radius: 50%;
   box-shadow:
-    0 2px 0 #e6c27a,
-    0 3.2px 0 #4a2c10,
+    0 2.2px 0 #ebd08e,
+    0 3.6px 0 #4a2c10,
     inset 0 -2px 3px rgba(0, 0, 0, .35);
 }
 .pile-coin {
   position: absolute; left: 0; top: 0;
-  width: 44px; height: 44px; border-radius: 50%;
+  width: 46px; height: 46px; border-radius: 50%;
   box-shadow:
-    0 2px 0 #f0cf88,
-    0 3.4px 0 #593614,
-    inset 0 1px 0 rgba(255, 252, 232, .68);
+    0 2.2px 0 #f4d896,
+    0 3.8px 0 #593614,
+    inset 0 1px 0 rgba(255, 252, 232, .72);
   transition: transform 220ms cubic-bezier(.2, .8, .3, 1), box-shadow 220ms;
 }
-.pile-gem { width: 23px; height: 23px; margin-left: -11.5px; margin-top: -11.5px; }
-/* 筹码库存数字：参考图1置于筹码堆左下角，斜体衬线大字 */
+.pile-gem { width: 24px; height: 24px; margin-left: -12px; margin-top: -12px; }
+/* 筹码库存数字：参考图1直接落在筹码柱左下方的绒布上，醒目白金斜体衬线字 */
 .pile-count {
-  position: absolute; left: -2px; bottom: 1px; z-index: 6;
-  min-width: 19px; height: 18px; padding: 0 4px; border-radius: 9px;
-  border: 1px solid rgba(243, 212, 139, .82);
-  background: linear-gradient(180deg, #3b1e2c, #160a12);
-  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .3), 0 2px 6px rgba(0, 0, 0, .78);
+  position: absolute; left: -2px; bottom: -2px; z-index: 6;
+  min-width: 18px; height: 18px; padding: 0 2px;
   display: flex; align-items: center; justify-content: center;
-  font-family: Georgia, serif; font-style: italic; font-size: 12px; font-weight: 700; color: #fff2c6;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic; font-size: 16px; font-weight: 700; color: #fff6db;
+  text-shadow:
+    0 2px 4px #000,
+    0 0 6px #000,
+    1px 1px 0 #12080e, -1px -1px 0 #12080e;
 }
 .pile-name { display: none; }
 .pile-tip { display: none; }
-.pile-item.is-selected .pile-stack { transform: translateY(-5px) scale(1.05); }
+.pile-item.is-selected .pile-stack { transform: translateY(-6px) scale(1.06); }
 .pile-item.is-selected .pile-coin {
   box-shadow:
     0 0 0 2px #7ce2f7,
@@ -569,28 +541,22 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .pile-item.pile-hover .pile-stack { transform: translateY(2px); }
 .pile-item.is-disabled { opacity: .38; }
-.pile-item.is-gold.is-disabled { opacity: .88; }
+.pile-item.is-gold.is-disabled { opacity: .9; }
 
 /* ---------- 7. 贵族肖像画廊：2.5D 斜铺 + 左侧纵列红利需求（参考图1） ---------- */
-.noble-area { position: absolute; left: 116px; top: 0; width: 106px; height: 348px; }
-.noble-area::before {
-  content: ''; position: absolute; left: -8px; top: -8px; right: -6px; bottom: -10px;
-  border-radius: 12px;
-  border: 1px solid rgba(243, 212, 139, .16);
-  background: linear-gradient(160deg, rgba(38, 15, 26, .38), rgba(14, 5, 11, .54));
-  box-shadow: inset 0 3px 12px rgba(0, 0, 0, .45);
-  pointer-events: none;
-}
-.noble-row { position: absolute; left: 2px; top: 20px; display: flex; flex-direction: column; gap: 8px; }
+.noble-area { position: absolute; left: 122px; top: 0; width: 112px; height: 350px; }
+.noble-area::before { display: none; }
+.noble-row { position: absolute; left: 4px; top: 18px; display: flex; flex-direction: column; gap: 6px; }
 .noble {
-  position: relative; width: 92px; height: 98px;
+  position: relative; width: 92px; height: 100px;
   border-radius: 6px;
   border: 1.5px solid #e2b668;
   background: linear-gradient(165deg, #472435 0%, #24111c 68%, #160911 100%);
-  transform: perspective(420px) rotateX(18deg) rotateY(-9deg) rotateZ(-2.5deg);
+  transform-origin: 50% 50%;
   box-shadow:
-    0 2px 0 #b88c46, 0 4px 0 #5e3d16,
-    5px 10px 16px rgba(8, 3, 8, .8),
+    0 2.5px 0 #c99c52,
+    0 5px 0 #5e3d16,
+    6px 12px 18px rgba(6, 2, 6, .85),
     inset 0 0 0 1px rgba(255, 240, 200, .28);
   overflow: hidden;
   animation: nobleIn 420ms ease-out both;
@@ -1128,8 +1094,8 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   100% { transform: translateY(-4px); }
 }
 @keyframes nobleIn {
-  0% { opacity: 0; transform: perspective(420px) rotateX(18deg) rotateY(-9deg) rotateZ(-2.5deg) translateY(-8px); }
-  100% { opacity: 1; transform: perspective(420px) rotateX(18deg) rotateY(-9deg) rotateZ(-2.5deg) translateY(0); }
+  0% { opacity: 0; }
+  100% { opacity: 1; }
 }
 @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes dialogIn {
