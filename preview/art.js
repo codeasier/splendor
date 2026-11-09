@@ -487,14 +487,44 @@ function rivalPlaqueSVG() {
  * 数字与文字一律由 WXML 实时渲染，不烘焙进任何图片。
  * ================================================================== */
 
-/* ---------- 宝石：每种宝石有自己的轮廓与切面（外冠高亮 + 内台深邃折射，兼顾立体感与叠字可读性） ---------- */
+/* ---------- 宝石：高饱和度五色 + 黄金体系（白钻纯白、蓝宝亮蓝、祖母翠绿、红宝绯红、黑曜深褐黑，一眼可辨） ---------- */
 const GEM_META = {
-  white: { hi: '#ffffff', mid: '#bfe0f5', dark: '#3d5a73', table0: '#6488a6', table1: '#2c4459', rim: '#1d2f40', shape: 'diamond' },
-  blue:  { hi: '#d6ecff', mid: '#3878d6', dark: '#0e2856', table0: '#275ead', table1: '#0c224a', rim: '#091936', shape: 'oval' },
-  green: { hi: '#d4ffe4', mid: '#28a866', dark: '#093d22', table0: '#1d824d', table1: '#08331c', rim: '#052413', shape: 'rect' },
-  red:   { hi: '#ffd8cc', mid: '#dc4244', dark: '#5e111b', table0: '#b3242b', table1: '#4d0d16', rim: '#380810', shape: 'cushion' },
-  black: { hi: '#dfd6eb', mid: '#564866', dark: '#140f1d', table0: '#3d314c', table1: '#120d1a', rim: '#09060e', shape: 'octagon' },
-  gold:  { hi: '#fff8d6', mid: '#e2a836', dark: '#6b4008', table0: '#b87d18', table1: '#593306', rim: '#3d2204', shape: 'coin' }
+  white: {
+    hi: '#ffffff', mid: '#edf3fa', dark: '#9fb2c7',
+    table0: '#ffffff', table1: '#d4e0ed', rim: '#4a5d70',
+    badge0: '#ffffff', badge1: '#e6eff8', badge2: '#b2c4d8', badgeRim: '#ffffff',
+    shape: 'diamond'
+  },
+  blue: {
+    hi: '#a8e6ff', mid: '#1882f5', dark: '#06398a',
+    table0: '#3399ff', table1: '#0b4eb8', rim: '#052254',
+    badge0: '#6bc8ff', badge1: '#1478eb', badge2: '#073b8a', badgeRim: '#bfeaff',
+    shape: 'oval'
+  },
+  green: {
+    hi: '#a8ffc4', mid: '#15bd52', dark: '#055422',
+    table0: '#24d464', table1: '#097530', rim: '#043816',
+    badge0: '#68f296', badge1: '#12ad4a', badge2: '#065723', badgeRim: '#c4ffd8',
+    shape: 'rect'
+  },
+  red: {
+    hi: '#ffb8b3', mid: '#eb2128', dark: '#75060c',
+    table0: '#ff3b38', table1: '#a80b12', rim: '#4d0408',
+    badge0: '#ff7873', badge1: '#e01b22', badge2: '#7d070d', badgeRim: '#ffd0cc',
+    shape: 'cushion'
+  },
+  black: {
+    hi: '#c4aea2', mid: '#42332e', dark: '#120c0a',
+    table0: '#52403a', table1: '#1c1412', rim: '#080504',
+    badge0: '#735d54', badge1: '#2e2320', badge2: '#110c0a', badgeRim: '#d8be98',
+    shape: 'octagon'
+  },
+  gold: {
+    hi: '#fff9db', mid: '#f2b830', dark: '#784806',
+    table0: '#ffcc44', table1: '#9c620c', rim: '#3d2204',
+    badge0: '#fff0a8', badge1: '#e0a224', badge2: '#7a4b06', badgeRim: '#fff8d6',
+    shape: 'coin'
+  }
 };
 
 function gemSVG(key) {
@@ -527,51 +557,75 @@ function gemSVG(key) {
     table = 'M32 14a18 18 0 1 0 0 36a18 18 0 1 0 0-36Z';
     facets = 'M32 5v54M5 32h54M13 13l38 38M51 13L13 51';
   }
+  const strokeCol = key === 'white' ? '#6e849c' : '#ffffff';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet">' +
     '<defs>' +
       '<linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
-        '<stop offset="0" stop-color="' + m.hi + '"/><stop offset=".38" stop-color="' + m.mid + '"/>' +
+        '<stop offset="0" stop-color="' + m.hi + '"/><stop offset=".42" stop-color="' + m.mid + '"/>' +
         '<stop offset="1" stop-color="' + m.dark + '"/></linearGradient>' +
-      '<radialGradient id="tb" cx="38%" cy="32%" r="72%">' +
+      '<radialGradient id="tb" cx="36%" cy="30%" r="72%">' +
         '<stop offset="0" stop-color="' + m.table0 + '"/><stop offset="1" stop-color="' + m.table1 + '"/></radialGradient>' +
     '</defs>' +
-    '<path d="' + outline + '" fill="url(#g)" stroke="' + m.rim + '" stroke-width="2"/>' +
-    '<path d="' + facets + '" fill="none" stroke="#fff" stroke-opacity=".42" stroke-width="1.1"/>' +
-    '<path d="' + table + '" fill="url(#tb)" stroke="#fff" stroke-opacity=".55" stroke-width="1.1"/>' +
-    '<path d="M32 5L9 25l23 10z" fill="#fff" opacity=".18"/>' +
-    '<ellipse cx="22" cy="16" rx="7.5" ry="3.5" transform="rotate(-28 22 16)" fill="#fff" opacity=".68"/>' +
-    '<circle cx="42" cy="44" r="2.2" fill="' + m.hi + '" opacity=".55"/>' +
+    '<path d="' + outline + '" fill="url(#g)" stroke="' + m.rim + '" stroke-width="2.2"/>' +
+    '<path d="' + facets + '" fill="none" stroke="' + strokeCol + '" stroke-opacity=".5" stroke-width="1.2"/>' +
+    '<path d="' + table + '" fill="url(#tb)" stroke="' + strokeCol + '" stroke-opacity=".65" stroke-width="1.2"/>' +
+    '<path d="M32 5L9 25l23 10z" fill="#fff" opacity=".24"/>' +
+    '<ellipse cx="22" cy="16" rx="7.5" ry="3.5" transform="rotate(-28 22 16)" fill="#fff" opacity=".75"/>' +
+    '<circle cx="42" cy="44" r="2.2" fill="' + m.hi + '" opacity=".6"/>' +
     '</svg>';
 }
 
-/* ---------- 筹码顶面：象牙羊皮内盘 + 珐琅宝石外圈 + 皇家珠边金环 ---------- */
+/**
+ * 专用于卡牌左下角费用气泡（.cost-bubble）、贵族需求（.noble-req）与永久红利（.disc-chip）的满铺高饱和度珐琅底章：
+ * 100% 填满整个徽章（不露出黑底死角），白钻纯白、蓝宝亮蓝、祖母翠绿、红宝绯红、黑曜深褐黑一眼可辨。
+ */
+function costBadgeSVG(key) {
+  const m = GEM_META[key];
+  const facetCol = key === 'white' ? '#7b92ab' : '#ffffff';
+  const facetOp = key === 'white' ? '.32' : '.26';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="none">' +
+    '<defs>' +
+      '<radialGradient id="cb" cx="32%" cy="26%" r="78%">' +
+        '<stop offset="0" stop-color="' + m.badge0 + '"/>' +
+        '<stop offset=".48" stop-color="' + m.badge1 + '"/>' +
+        '<stop offset="1" stop-color="' + m.badge2 + '"/>' +
+      '</radialGradient>' +
+    '</defs>' +
+    '<rect width="64" height="64" fill="url(#cb)"/>' +
+    '<path d="M32 4L58 32 32 60 6 32Z" fill="none" stroke="' + facetCol + '" stroke-opacity="' + facetOp + '" stroke-width="1.5"/>' +
+    '<circle cx="32" cy="32" r="24" fill="none" stroke="' + m.badgeRim + '" stroke-opacity=".42" stroke-width="1.4"/>' +
+    '<ellipse cx="22" cy="15" rx="14" ry="7" transform="rotate(-22 22 15)" fill="#ffffff" opacity="' + (key === 'white' ? '.72' : '.38') + '"/>' +
+    '</svg>';
+}
+
+/* ---------- 筹码顶面：加宽的高饱和宝石外环 + 象牙羊皮内盘 + 珠边金圈 ---------- */
 function coinFaceSVG(key) {
   const m = GEM_META[key];
   let lugs = '';
   for (let i = 0; i < 8; i++) {
     const a = (i * 45 * Math.PI) / 180;
-    const x1 = (60 + Math.cos(a) * 47).toFixed(1);
-    const y1 = (60 + Math.sin(a) * 47).toFixed(1);
+    const x1 = (60 + Math.cos(a) * 42).toFixed(1);
+    const y1 = (60 + Math.sin(a) * 42).toFixed(1);
     const x2 = (60 + Math.cos(a) * 57).toFixed(1);
     const y2 = (60 + Math.sin(a) * 57).toFixed(1);
-    lugs += '<path d="M' + x1 + ' ' + y1 + 'L' + x2 + ' ' + y2 + '" stroke="#fff3cf" stroke-opacity=".65" stroke-width="2.4" stroke-linecap="round"/>';
+    lugs += '<path d="M' + x1 + ' ' + y1 + 'L' + x2 + ' ' + y2 + '" stroke="' + (key === 'white' ? '#6a8099' : '#fff5d6') + '" stroke-opacity=".68" stroke-width="2.8" stroke-linecap="round"/>';
   }
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">' +
     '<defs>' +
-      '<linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + m.hi + '"/>' +
-        '<stop offset=".4" stop-color="' + m.mid + '"/><stop offset="1" stop-color="' + m.dark + '"/></linearGradient>' +
+      '<linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + m.badge0 + '"/>' +
+        '<stop offset=".45" stop-color="' + m.badge1 + '"/><stop offset="1" stop-color="' + m.badge2 + '"/></linearGradient>' +
       '<radialGradient id="face" cx="35%" cy="28%" r="76%"><stop offset="0" stop-color="#fffaf0"/>' +
         '<stop offset=".58" stop-color="#f3e4c6"/><stop offset="1" stop-color="#c4a678"/></radialGradient>' +
       '<linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff4cc"/>' +
         '<stop offset=".5" stop-color="#d8a44c"/><stop offset="1" stop-color="#694210"/></linearGradient>' +
     '</defs>' +
     '<circle cx="60" cy="60" r="58" fill="url(#ring)" stroke="url(#gold)" stroke-width="2.2"/>' +
-    '<circle cx="60" cy="60" r="55" fill="none" stroke="#fff5d6" stroke-opacity=".55" stroke-width="1.2" stroke-dasharray="4 3"/>' +
+    '<circle cx="60" cy="60" r="54" fill="none" stroke="' + (key === 'white' ? '#7b92ab' : '#fff5d6') + '" stroke-opacity=".55" stroke-width="1.4" stroke-dasharray="4 3"/>' +
     '<g>' + lugs + '</g>' +
-    '<circle cx="60" cy="60" r="46" fill="url(#face)" stroke="url(#gold)" stroke-width="2.4"/>' +
-    '<circle cx="60" cy="60" r="41" fill="none" stroke="#8c6430" stroke-opacity=".42" stroke-width="1" stroke-dasharray="2.5 2"/>' +
-    '<circle cx="60" cy="60" r="31" fill="#2b1d24" opacity=".16"/>' +
-    '<circle cx="60" cy="60" r="31" fill="none" stroke="url(#gold)" stroke-width="1.6"/>' +
+    '<circle cx="60" cy="60" r="41" fill="url(#face)" stroke="url(#gold)" stroke-width="2.4"/>' +
+    '<circle cx="60" cy="60" r="36" fill="none" stroke="#8c6430" stroke-opacity=".42" stroke-width="1" stroke-dasharray="2.5 2"/>' +
+    '<circle cx="60" cy="60" r="29" fill="#2b1d24" opacity=".14"/>' +
+    '<circle cx="60" cy="60" r="29" fill="none" stroke="url(#gold)" stroke-width="1.6"/>' +
     '<path d="M22 42a43 43 0 0 1 76 0" fill="none" stroke="#fff" stroke-opacity=".62" stroke-width="2.6"/>' +
     '<path d="M24 88a43 43 0 0 0 72 0" fill="none" stroke="#3a2214" stroke-opacity=".28" stroke-width="2.6"/>' +
     '</svg>';
@@ -657,9 +711,15 @@ if (!fs.existsSync(path.join(__dirname, 'thumbs', 'portrait.jpg'))) {
 lines.push('.rival-badge.rival-plaque { background-image: ' + bg(rivalPlaqueSVG()) + '; }');
 lines.push('');
 
-lines.push('/* --- 宝石切面图标：卡面右上 / 费用徽章 / 筹码中央 / 玩家资源栏同源 --- */');
+lines.push('/* --- 宝石切面图标：卡面右上 / 筹码中央 --- */');
 Object.keys(GEM_META).forEach(function (k) {
   lines.push('.gem-icon.gem-' + k + ' { background-image: ' + bg(gemSVG(k)) + '; }');
+});
+lines.push('');
+lines.push('/* --- 费用气泡 / 贵族需求 / 永久红利：100% 满铺高饱和度珐琅底章，五色立辨 --- */');
+Object.keys(GEM_META).forEach(function (k) {
+  const badgeUri = bg(costBadgeSVG(k));
+  lines.push('.cost-bubble.gem-icon.gem-' + k + ', .noble-req.gem-icon.gem-' + k + ', .disc-chip.gem-icon.gem-' + k + ', .cost-line-dot.gem-icon.gem-' + k + ' { background-image: ' + badgeUri + '; }');
 });
 lines.push('');
 lines.push('/* --- 筹码顶面：象牙白内盘 + 资源色外圈，侧壁厚度由 CSS 叠加 --- */');

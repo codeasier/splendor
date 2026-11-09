@@ -75,7 +75,7 @@ function cardVM(state, card, seat, r, c) {
       key: g,
       display: need === 0 ? '✓' : String(need),
       covered: need === 0,
-      ink: '#FFF1D5',
+      ink: g === 'white' ? '#142030' : '#FFFFFF',
       gemClass: 'gem-' + g,
       style: gemStyle(g)
     });
@@ -210,7 +210,7 @@ function printedCosts(card) {
     costs.push({
       key: g,
       display: String(n),
-      ink: '#FFF1D5',
+      ink: g === 'white' ? '#142030' : '#FFFFFF',
       gemClass: 'gem-' + g,
       style: gemStyle(g)
     });

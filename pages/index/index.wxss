@@ -441,25 +441,42 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   box-shadow: none;
 }
 .cost-bubble {
-  position: relative; width: 20px; height: 20px; border-radius: 50%;
+  position: relative; width: 21px; height: 21px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background-color: #1f1119;
-  border: 1.2px solid rgba(255, 238, 192, .92);
+  border: 1.5px solid rgba(255, 244, 210, .95);
   box-shadow:
-    0 0 0 1px rgba(20, 8, 14, .88),
-    0 2px 0 rgba(20, 8, 14, .85),
-    inset 0 1px 2px rgba(255, 255, 255, .45),
-    0 3px 5px rgba(0, 0, 0, .72);
+    0 0 0 1px rgba(14, 5, 10, .92),
+    0 2px 0 rgba(14, 5, 10, .88),
+    inset 0 1px 2px rgba(255, 255, 255, .55),
+    0 3px 6px rgba(0, 0, 0, .78);
   overflow: hidden;
 }
+/* 五色成本圆章专属边框高光，强化白/蓝/绿/红/黑的边缘辨识度 */
+.cost-bubble.gem-white { border-color: #556b82; box-shadow: 0 0 0 1px #ffffff, 0 2px 4px rgba(0, 0, 0, .8); }
+.cost-bubble.gem-blue  { border-color: #a8e6ff; }
+.cost-bubble.gem-green { border-color: #a8ffc4; }
+.cost-bubble.gem-red   { border-color: #ffc2be; }
+.cost-bubble.gem-black { border-color: #e6c48e; }
 .cost-bubble text {
   position: relative; z-index: 2;
-  font-family: Georgia, serif; font-size: 12px; font-weight: 700; line-height: 1;
+  font-family: Georgia, serif; font-size: 13px; font-weight: 700; line-height: 1;
   text-shadow:
     0 1px 2px #000,
     0 0 4px #000,
     1px 1px 0 #12080e, -1px -1px 0 #12080e,
     1px -1px 0 #12080e, -1px 1px 0 #12080e;
+}
+/* 白钻成本圆章为纯白底盘，配深海蓝黑字 + 白光描边，一眼与蓝/黑区分 */
+.cost-bubble.gem-white text,
+.noble-req.gem-white text,
+.disc-chip.gem-white text {
+  color: #142030 !important;
+  text-shadow:
+    0 1px 0 #ffffff,
+    0 0 3px #ffffff,
+    1px 1px 0 rgba(255, 255, 255, .9),
+    -1px -1px 0 rgba(255, 255, 255, .9);
 }
 .cost-bubble.is-covered { opacity: .48; filter: saturate(.75); }
 .card-empty {
@@ -515,6 +532,13 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     inset 0 1px 0 rgba(255, 252, 232, .72);
   transition: transform 220ms cubic-bezier(.2, .8, .3, 1), box-shadow 220ms;
 }
+/* 筹码柱侧壁按宝石本色染色（参考图1：白/蓝/绿/红/黑/金六色筹码柱侧边一目了然） */
+.pile-disc.coin-white, .pile-coin.coin-white { box-shadow: 0 2.4px 0 #e6eff8, 0 3.8px 0 #5c7085; }
+.pile-disc.coin-blue,  .pile-coin.coin-blue  { box-shadow: 0 2.4px 0 #268cff, 0 3.8px 0 #073578; }
+.pile-disc.coin-green, .pile-coin.coin-green { box-shadow: 0 2.4px 0 #1cd45e, 0 3.8px 0 #064d20; }
+.pile-disc.coin-red,   .pile-coin.coin-red   { box-shadow: 0 2.4px 0 #f52c34, 0 3.8px 0 #69070c; }
+.pile-disc.coin-black, .pile-coin.coin-black { box-shadow: 0 2.4px 0 #57443d, 0 3.8px 0 #140d0b; }
+.pile-disc.coin-gold,  .pile-coin.coin-gold  { box-shadow: 0 2.4px 0 #ffd24c, 0 3.8px 0 #6e4406; }
 .pile-gem { width: 24px; height: 24px; margin-left: -12px; margin-top: -12px; }
 /* 筹码库存数字：参考图1直接落在筹码柱左下方的绒布上，醒目白金斜体衬线字 */
 .pile-count {
