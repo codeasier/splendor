@@ -160,6 +160,18 @@ function emitTag(node, A, scope, depth, lines) {
       lines.push(pad + '$h.push(' + JSON.stringify(' ' + key + '="' + val + '"') + ');');
       return;
     }
+    // 表单与原生头像选择：H5 预览里用等价的 DOM 事件委托模拟，
+    // 小程序端仍使用原来的 bindinput / bindblur / bindchooseavatar。
+    if (name === 'bindinput' || name === 'bindblur' || name === 'bindchange') {
+      const key = name === 'bindinput' ? 'data-input'
+        : (name === 'bindblur' ? 'data-blur' : 'data-change');
+      lines.push(pad + '$h.push(' + JSON.stringify(' ' + key + '="' + val + '"') + ');');
+      return;
+    }
+    if (name === 'bindchooseavatar') {
+      lines.push(pad + '$h.push(' + JSON.stringify(' data-avatar="' + val + '"') + ');');
+      return;
+    }
     lines.push(pad + '$h.push(' + JSON.stringify(' ' + name + '="') + ');');
     lines.push(pad + '$h.push(ESC(' + valueExpr(val, scope) + '));');
     lines.push(pad + '$h.push(' + JSON.stringify('"') + ');');
@@ -242,7 +254,8 @@ const compiled = compileWxml(wxml);
 const moduleFiles = [
   ['game-data', 'utils/game-data.js'],
   ['game-engine', 'utils/game-engine.js'],
-  ['ai', 'utils/ai.js']
+  ['ai', 'utils/ai.js'],
+  ['room', 'utils/room.js']
 ];
 
 const moduleDefs = moduleFiles.map(([name, file]) => (
@@ -354,6 +367,41 @@ const boot = `
         }
         page[fn]({ type: 'tap', currentTarget: { dataset: ds }, target: { dataset: ds } });
         if (isCatch) break;
+      }
+      el = el.parentNode;
+    }
+  });
+
+  // 表单事件委托：模拟 bindinput / bindchange（小程序端仍用原生绑定）
+  function formEvent(type, attr) {
+    host.addEventListener(type, function (e) {
+      var el = e.target;
+      while (el && el !== host) {
+        var fn = el.getAttribute && el.getAttribute(attr);
+        if (fn && typeof page[fn] === 'function') {
+          page[fn]({
+            type: type,
+            detail: { value: el.value },
+            currentTarget: { dataset: {} },
+            target: { dataset: {} }
+          });
+          break;
+        }
+        el = el.parentNode;
+      }
+    });
+  }
+  formEvent('input', 'data-input');
+  formEvent('change', 'data-change');
+
+  // chooseAvatar 是微信原生能力；预览回传空 detail，由页面提示改用预设头像
+  host.addEventListener('click', function (e) {
+    var el = e.target;
+    while (el && el !== host) {
+      var fn = el.getAttribute && el.getAttribute('data-avatar');
+      if (fn && typeof page[fn] === 'function') {
+        page[fn]({ type: 'chooseavatar', detail: {}, currentTarget: { dataset: {} } });
+        break;
       }
       el = el.parentNode;
     }

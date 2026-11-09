@@ -15,10 +15,18 @@ function zeroTokens() {
   return { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 };
 }
 
-function newPlayer(name, isAI) {
+function newPlayer(name, isAI, seat) {
+  const s = seat || {};
   return {
     name: name,
     isAI: !!isAI,
+    // 席位身份：self=本机玩家 / bot=机器人托管 / remote=真人远程席位
+    uid: s.uid || '',
+    nickname: s.nickname || name,
+    avatar: s.avatar || '',
+    avatarUrl: s.avatarUrl || '',
+    type: s.type || (isAI ? 'bot' : 'human'),
+    joined: s.joined !== false,
     tokens: zeroTokens(),
     cards: [],
     reserved: [],
@@ -37,8 +45,12 @@ function pushLog(state, text) {
  * rand 可选：传入自定义随机源可复现牌序，便于调试与复盘
  */
 function createGame(playerCount, rand) {
-  const n = playerCount || 2;
-  const shuffleRand = rand || Math.random;
+  // 两种调用方式都支持：createGame(3, rand) 或
+  // createGame({ playerCount: 3, seats: [...], rand })（多人房间用后者注入席位身份）
+  const opt = (playerCount && typeof playerCount === 'object')
+    ? playerCount : { playerCount: playerCount };
+  const n = opt.playerCount || 2;
+  const shuffleRand = rand || opt.rand || Math.random;
   const perGem = n === 2 ? 4 : n === 3 ? 5 : 7;
   const state = {
     players: [],
@@ -62,7 +74,10 @@ function createGame(playerCount, rand) {
   };
 
   for (let i = 0; i < n; i++) {
-    state.players.push(newPlayer(i === 0 ? '你' : '对手', i !== 0));
+    const seat = (opt.seats && opt.seats[i]) || {};
+    const isAI = seat.isAI !== undefined ? !!seat.isAI : i !== 0;
+    const fallback = i === 0 ? '你' : (isAI ? '机器人 ' + i : '玩家 ' + (i + 1));
+    state.players.push(newPlayer(seat.name || fallback, isAI, seat));
   }
   state.nobles = D.buildNobles(n === 2 ? 3 : n === 3 ? 4 : 5, shuffleRand);
 

@@ -19,25 +19,27 @@
     <view class="corner corner-bl"></view>
     <view class="corner corner-br"></view>
 
-    <!-- ========== 组件：对手状态 / 回合提示 / 右上入口 ========== -->
+    <!-- ========== 组件：多席位状态条 / 回合提示 / 右上入口 ========== -->
     <view class="top-bar">
-      <view class="rival-badge rival-plaque">
-        <view class="rival-avatar portrait-small"></view>
-        <view class="rival-info">
-          <view class="rival-head">
-            <text class="rival-name">{{rival.name}}</text>
-            <text class="rival-score">{{rival.points}} 声望</text>
+      <view class="seat-strip">
+        <view wx:for="{{rivals}}" wx:key="index"
+              class="seat-badge {{item.isCurrent ? 'is-current' : ''}} {{item.isBot ? 'is-bot' : ''}} {{item.empty ? 'is-empty' : ''}}"
+              bindtap="onTapPlayer" data-index="{{item.index}}" hover-class="seat-hover">
+          <view wx:if="{{item.avatarUrl}}" class="seat-avatar">
+            <image class="seat-avatar-img" src="{{item.avatarUrl}}" mode="aspectFill"></image>
           </view>
-          <view class="mini-tokens">
-            <view wx:for="{{rival.tokens}}" wx:key="key"
-                  class="mini-token gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}}">
-              <text>{{item.count}}</text>
-            </view>
+          <view wx:else class="seat-avatar"
+                style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);">
+            <text class="seat-avatar-initial">{{item.index + 1}}</text>
           </view>
-        </view>
-        <view class="rival-extra">
-          <text>卡 {{rival.cardCount}}</text>
-          <text>预留 {{rival.reservedCount}}</text>
+          <view class="seat-meta">
+            <text class="seat-name">{{item.name}}</text>
+            <text class="seat-sub">{{item.subtitle}} · {{item.points}} 声望</text>
+          </view>
+          <view class="seat-stats">
+            <text>卡 {{item.cardCount}}</text>
+            <text>预留 {{item.reservedCount}}</text>
+          </view>
         </view>
       </view>
 
@@ -51,6 +53,8 @@
           <view class="gold-coin coin-face coin-gold"><view class="pile-gem gem-icon gem-gold"></view></view>
           <text class="gold-label">黄金 {{goldCount}}</text>
         </view>
+        <view class="round-btn room-btn" bindtap="onOpenLobby"><text>⚙</text></view>
+        <view class="round-btn" bindtap="onOpenProfile"><text>☻</text></view>
         <view class="round-btn" bindtap="onShowRules"><text>?</text></view>
         <view class="round-btn" bindtap="onRestart"><text>↺</text></view>
       </view>
@@ -143,7 +147,7 @@
       <view class="tray-rim"></view>
 
       <view class="tray-left">
-        <view class="portrait-frame">
+        <view class="portrait-frame" bindtap="onTapMyPortrait" hover-class="portrait-hover">
           <view class="portrait"></view>
           <view class="portrait-gem"></view>
         </view>
@@ -278,15 +282,15 @@
       <view class="dialog rules-dialog" catchtap="noop">
         <view class="dialog-head">
           <text class="dialog-title">璀璨宝石 · 玩法速览</text>
-          <text class="dialog-sub">2 人单机对局 · 先达到 15 声望者胜</text>
+          <text class="dialog-sub">{{playerCount}} 人对局 · 先达到 15 声望者胜 · 点击任意头像可查看详情</text>
         </view>
         <view class="rules-body">
-          <text class="rule-item">1. 每回合四选一：拿 3 枚不同色筹码（或同色 2 枚，该色需剩 ≥4）、预留 1 张卡并拿 1 枚黄金、购买 1 张桌面卡或预留卡。</text>
-          <text class="rule-item">2. 卡牌左下角气泡是购买成本；每持有 1 张同色发展卡，该色成本自动减 1（宝石红利）。不足部分可用黄金补齐。</text>
-          <text class="rule-item">3. 发展卡提供声望与永久红利；贵族牌在回合末自动判定，满足红利要求即 +3 声望。</text>
-          <text class="rule-item">4. 每人筹码上限 10 枚，超出时点击底部自己的筹码逐枚退还；预留卡上限 3 张。</text>
+          <text class="rule-item">1. 支持 2 / 3 / 4 人：点右上「⚙」调整人数，未加入的席位可切换为机器人托管。</text>
+          <text class="rule-item">2. 每回合四选一：拿 3 枚不同色筹码（或同色 2 枚，该色需剩 ≥4）、预留 1 张卡并拿 1 枚黄金、购买 1 张桌面卡或预留卡。</text>
+          <text class="rule-item">3. 卡牌左下角气泡是购买成本；每持有 1 张同色发展卡，该色成本自动减 1（宝石红利）。不足部分可用黄金补齐。</text>
+          <text class="rule-item">4. 发展卡提供声望与永久红利；贵族牌在回合末自动判定，满足红利要求即 +3 声望。每人筹码上限 10 枚，预留卡上限 3 张。</text>
           <text class="rule-item">5. 有人达到 15 声望后，其余玩家各再行动一回合即结算；同分时发展卡少者胜。</text>
-          <text class="rule-note">本版为规则化生成的单机牌组（40/30/20 张），非官方逐张卡面复刻；卡面插画取自 Cleveland Museum of Art 开放获取（CC0）绘画，牌序每局随机。</text>
+          <text class="rule-note">本版为规则化生成的牌组（40/30/20 张），非官方逐张卡面复刻；卡面插画取自 Cleveland Museum of Art 开放获取（CC0）绘画，牌序每局随机。</text>
         </view>
         <view class="dialog-btns">
           <view class="btn btn-primary" bindtap="onCloseRules">开始游戏</view>
@@ -302,7 +306,166 @@
         <text class="result-detail">{{resultDetail}}</text>
         <view class="dialog-btns">
           <view class="btn btn-primary" bindtap="onRestart">再来一局</view>
+          <view class="btn" bindtap="onOpenLobby">房间大厅</view>
           <view class="btn" bindtap="onShowRules">查看规则</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ========== 组件：房间大厅（人数 / 机器人席位 / 微信邀请） ========== -->
+    <view wx:if="{{showLobby}}" class="overlay overlay-top" bindtap="onCloseLobby">
+      <view class="dialog lobby-dialog" catchtap="noop">
+        <view class="dialog-head">
+          <text class="dialog-title">房间大厅 · {{roomCode}}</text>
+          <text class="dialog-sub">{{lobby.backend}} · {{playerCount}} 人牌局 · 未加入的席位可添加机器人</text>
+        </view>
+        <view class="lobby-body">
+          <view class="lobby-section">
+            <text class="lobby-label">对局人数</text>
+            <view class="count-row">
+              <view wx:for="{{lobby.counts}}" wx:key="n"
+                    class="count-btn {{item.active ? 'is-active' : ''}}"
+                    bindtap="onSelectPlayerCount" data-n="{{item.n}}">{{item.label}}</view>
+            </view>
+          </view>
+          <view class="lobby-section">
+            <text class="lobby-label">席位安排</text>
+            <view class="seat-setup">
+              <view wx:for="{{lobby.seats}}" wx:key="index" class="setup-seat">
+                <view class="setup-avatar" style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);"></view>
+                <text class="setup-label">{{item.label}}</text>
+                <text class="setup-name">{{item.name}}</text>
+                <view wx:if="{{item.canToggle}}" class="setup-toggle {{item.isBot ? 'is-bot' : ''}}"
+                      bindtap="onToggleBot" data-index="{{item.index}}">{{item.isBot ? '机器人 · 点击改为好友席' : '好友席 · 点击添加机器人'}}</view>
+                <text wx:else class="setup-host">房主</text>
+              </view>
+            </view>
+          </view>
+          <view class="lobby-section">
+            <text class="lobby-label">邀请好友</text>
+            <view class="invite-row">
+              <text class="room-code">{{roomCode}}</text>
+              <view class="btn" bindtap="onCopyRoomCode">复制房间号</view>
+              <text class="invite-tip">或点小程序右上角「···」→ 转发给好友</text>
+            </view>
+            <view class="join-row">
+              <input class="room-input" type="text" maxlength="6" value="{{lobby.joinCode}}"
+                     placeholder="输入 6 位房间号" bindinput="onJoinCodeInput"></input>
+              <view class="btn" bindtap="onJoinRoom">加入房间</view>
+            </view>
+            <text class="room-hint">{{lobby.backendHint}}</text>
+          </view>
+          <text wx:if="{{lobby.notice}}" class="room-notice">{{lobby.notice}}</text>
+        </view>
+        <view class="dialog-btns">
+          <view class="btn btn-primary" bindtap="onStartRoom">开始牌局（{{lobby.playerCount}} 人）</view>
+          <view class="btn" bindtap="onCloseLobby">返回牌桌</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ========== 组件：玩家详情（预留 / 贵族到访 / 红利 / 筹码 / 声望） ========== -->
+    <view wx:if="{{playerDetail}}" class="overlay" bindtap="onClosePlayerDetail">
+      <view class="dialog player-dialog" catchtap="noop">
+        <view class="dialog-head">
+          <text class="dialog-title">{{playerDetail.title}}</text>
+          <text class="dialog-sub">{{playerDetail.subtitle}}</text>
+        </view>
+        <view class="player-body">
+          <view class="player-left">
+            <view wx:if="{{playerDetail.avatarUrl}}" class="player-avatar">
+              <image class="player-avatar-img" src="{{playerDetail.avatarUrl}}" mode="aspectFill"></image>
+            </view>
+            <view wx:else class="player-avatar"
+                  style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{playerDetail.avatarHue}} 52%, rgba(20,10,16,.92) 100%);"></view>
+            <text class="player-score">{{playerDetail.points}} / 15 声望</text>
+            <text class="player-mini">发展卡 {{playerDetail.cardCount}} · 预留 {{playerDetail.reservedCount}} · 筹码 {{playerDetail.totalTokens}}/10</text>
+            <text class="detail-section">声望构成</text>
+            <view wx:for="{{playerDetail.scoreLines}}" wx:key="label" class="score-line">
+              <text>{{item.label}}</text><text>{{item.value}}</text>
+            </view>
+            <text class="detail-section">永久红利</text>
+            <view class="player-chips">
+              <view wx:for="{{playerDetail.discounts}}" wx:key="key" class="disc-chip gem-icon {{item.gemClass}}"><text>{{item.num}}</text></view>
+              <text wx:if="{{playerDetail.discounts.length === 0}}" class="disc-empty">尚无永久红利</text>
+            </view>
+            <text class="detail-section">持有筹码</text>
+            <view class="player-chips">
+              <view wx:for="{{playerDetail.tokens}}" wx:key="key" class="disc-chip gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}}"><text>{{item.count}}</text></view>
+            </view>
+          </view>
+          <view class="player-right">
+            <text class="detail-section">预留卡（{{playerDetail.reservedCards.length}}/3）</text>
+            <view class="pd-list">
+              <view wx:for="{{playerDetail.reservedCards}}" wx:key="id" class="pd-card">
+                <view class="pd-card-art"><view class="card-photo {{item.photoClass}} {{item.artClass}}"></view></view>
+                <view class="pd-card-info">
+                  <text class="pd-card-name">{{item.name}}</text>
+                  <text class="pd-card-sub">第 {{item.level}} 级 · {{item.pointsText}} 声望 · {{item.gemLabel}}红利</text>
+                </view>
+                <view class="pd-card-gem gem-icon {{item.gemClass}}"></view>
+              </view>
+              <text wx:if="{{playerDetail.emptyReserved}}" class="empty-tip">该玩家目前没有预留卡。</text>
+            </view>
+            <text class="detail-section">贵族到访（{{playerDetail.nobles.length}}）</text>
+            <view class="pd-list">
+              <view wx:for="{{playerDetail.nobles}}" wx:key="id" class="pd-noble">
+                <text class="pd-noble-title">{{item.title}}</text>
+                <text class="pd-noble-points">+{{item.points}}</text>
+                <view class="pd-noble-reqs">
+                  <view wx:for="{{item.reqs}}" wx:for-item="req" wx:key="key" class="noble-req gem-icon {{req.gemClass}}"><text>{{req.num}}</text></view>
+                </view>
+              </view>
+              <text wx:if="{{playerDetail.emptyNobles}}" class="empty-tip">尚无贵族到访。</text>
+            </view>
+          </view>
+        </view>
+        <view class="dialog-btns">
+          <view class="btn" bindtap="onClosePlayerDetail">关闭</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ========== 组件：玩家资料（合规的头像昵称填写） ========== -->
+    <view wx:if="{{showProfile}}" class="overlay" bindtap="onCloseProfile">
+      <view class="dialog profile-dialog" catchtap="noop">
+        <view class="dialog-head">
+          <text class="dialog-title">玩家资料</text>
+          <text class="dialog-sub">登录仅确认身份；头像与昵称由你主动选择、填写，一次保存后全局复用</text>
+        </view>
+        <view class="profile-body">
+          <view class="profile-current">
+            <view wx:if="{{profileDialog.avatarUrl}}" class="profile-avatar"><image class="profile-avatar-img" src="{{profileDialog.avatarUrl}}" mode="aspectFill"></image></view>
+            <view wx:else class="profile-avatar profile-avatar-preset"></view>
+            <view class="profile-current-text">
+              <text class="profile-nickname">{{profileDialog.nickname}}</text>
+              <text class="profile-avatar-name">当前头像：{{profileDialog.avatarName}}</text>
+            </view>
+          </view>
+          <text class="detail-section">昵称</text>
+          <view class="profile-input-row">
+            <input class="profile-input" type="nickname" maxlength="12" value="{{profileDialog.nickname}}"
+                   placeholder="输入或选择微信昵称" bindinput="onNicknameInput"></input>
+            <button wx:if="{{canUseNativeAvatar}}" class="native-avatar-btn" open-type="chooseAvatar"
+                    bindchooseavatar="onChooseAvatar">使用微信头像</button>
+          </view>
+          <view class="preset-nicknames">
+            <view wx:for="{{profileDialog.nicknames}}" wx:key="*this" class="preset-nick"
+                  bindtap="onPickNickname" data-name="{{item}}">{{item}}</view>
+          </view>
+          <text class="detail-section">预设头像</text>
+          <view class="preset-avatars">
+            <view wx:for="{{profileDialog.avatars}}" wx:key="key"
+                  class="preset-avatar {{item.active ? 'is-active' : ''}}"
+                  style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.hue}} 52%, rgba(20,10,16,.92) 100%);"
+                  bindtap="onPickAvatar" data-key="{{item.key}}"><text>{{item.name}}</text></view>
+          </view>
+          <text wx:if="{{profileDialog.notice}}" class="room-notice">{{profileDialog.notice}}</text>
+          <text class="profile-note">小程序无法自动读取微信头像昵称，需由你主动填写；正式发布前请在小程序后台配置《用户隐私保护指引》。</text>
+        </view>
+        <view class="dialog-btns">
+          <view class="btn btn-primary" bindtap="onSaveProfile">保存资料</view>
+          <view class="btn" bindtap="onCloseProfile">取消</view>
         </view>
       </view>
     </view>

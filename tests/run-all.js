@@ -28,6 +28,7 @@ const steps = [
   ['构建浏览器预览', 'preview/build.js'],
   ['静态校验', 'tests/static.js'],
   ['规则引擎 120 局对战', 'tests/engine.js'],
+  ['多人模式与房间适配层', 'tests/multiplayer.js'],
   ['页面运行时模拟', 'tests/page-runtime.js'],
   ['H5 预览页渲染与交互', 'tests/preview.js']
 ];
