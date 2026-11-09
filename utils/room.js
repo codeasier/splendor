@@ -128,7 +128,10 @@ function avatarName(avatar) {
   return '微信头像';
 }
 
-/** 生成席位：0 号恒为本机玩家，其余按 bots 数组决定真人空席或机器人 */
+/**
+ * 生成席位：0 号恒为房主，其余按 bots 数组决定真人空席或机器人。
+ * ready 语义：房主创建房间即视为已就绪；机器人恒定就绪；真人入席后需自己点准备。
+ */
 function makeSeats(playerCount, bots, profile) {
   const seats = [];
   for (let i = 0; i < playerCount; i++) {
@@ -142,7 +145,8 @@ function makeSeats(playerCount, bots, profile) {
       avatarUrl: i === 0 ? (profile.avatarUrl || '') : '',
       isAI: isAI,
       type: i === 0 ? 'self' : (isAI ? 'bot' : 'remote'),
-      joined: i === 0 || isAI
+      joined: i === 0 || isAI,
+      ready: i === 0 || isAI
     });
   }
   return seats;
@@ -158,7 +162,8 @@ function createRoom(config) {
     playerCount: playerCount,
     hostUid: profile.uid,
     createdAt: Date.now(),
-    status: 'playing',
+    // 大厅态：等人入席 / 等准备；开局后由页面写入 playing
+    status: cfg.status || 'lobby',
     backend: hasCloud() ? 'cloud' : 'local',
     seats: cfg.seats || makeSeats(playerCount, cfg.bots || {}, profile)
   };
@@ -259,7 +264,7 @@ function errMsg(error) {
 }
 function nowIso() { return new Date().toISOString(); }
 
-/** 建房：先写房间，再写初始牌局快照，版本从 1 起 */
+/** 建房：先写房间，再写初始牌局快照（大厅阶段允许 state 为空），版本从 1 起 */
 async function cloudCreateRoom(room, state) {
   if (!hasCloud()) return offline();
   try {
@@ -269,15 +274,17 @@ async function cloudCreateRoom(room, state) {
       host_uid: room.hostUid,
       player_count: room.playerCount,
       seats: room.seats,
-      status: room.status || 'playing',
+      status: room.status || 'lobby',
       version: 1,
       updated_at: nowIso()
     });
     if (a.error) return { ok: false, error: errMsg(a.error) };
-    const b = await db.from(GAME_TABLE).upsert({
-      code: room.code, state: state, version: 1, updated_at: nowIso()
-    });
-    if (b.error) return { ok: false, error: errMsg(b.error) };
+    if (state) {
+      const b = await db.from(GAME_TABLE).upsert({
+        code: room.code, state: state, version: 1, updated_at: nowIso()
+      });
+      if (b.error) return { ok: false, error: errMsg(b.error) };
+    }
     return { ok: true, version: 1 };
   } catch (e) {
     return { ok: false, error: (e && e.message) || '网络异常，请重试' };
@@ -361,6 +368,84 @@ async function cloudUpdateSeats(code, seats, expectedVersion) {
   }
 }
 
+/** CAS 更新任意房间字段（人数 / 席位 / 状态），用于大厅准备与开局 */
+async function cloudUpdateRoom(code, patch, expectedVersion) {
+  if (!hasCloud()) return offline();
+  const next = (expectedVersion || 0) + 1;
+  const row = Object.assign({}, patch || {}, { version: next, updated_at: nowIso() });
+  try {
+    const res = await cloudClient.database.from(ROOM_TABLE)
+      .update(row)
+      .eq('code', code).eq('version', expectedVersion).select('version');
+    if (res.error) return { ok: false, error: errMsg(res.error) };
+    if (!res.data || !res.data.length) {
+      return { ok: false, conflict: true, error: '房间刚被其他玩家更新，请重试' };
+    }
+    return { ok: true, version: next };
+  } catch (e) {
+    return { ok: false, error: (e && e.message) || '网络异常，请重试' };
+  }
+}
+
+/**
+ * 更新单个席位（准备 / 机器人开关）。内部先拉最新版本再 CAS，
+ * 冲突时重试一次——准备状态是高频小写入，不能因为别人刚好也在点就失败。
+ */
+async function cloudSetSeat(code, index, patch, attempt) {
+  if (!hasCloud()) return offline();
+  const tryNo = attempt || 0;
+  const pulled = await cloudPullRoom(code);
+  if (!pulled.ok) return pulled;
+  const seats = (pulled.room.seats || []).slice();
+  if (!seats[index]) return { ok: false, error: '席位不存在' };
+  seats[index] = Object.assign({}, seats[index], patch || {}, { index: index });
+  const saved = await cloudUpdateSeats(code, seats, pulled.version);
+  if (saved.conflict && tryNo < 2) return cloudSetSeat(code, index, patch, tryNo + 1);
+  if (!saved.ok) return saved;
+  return { ok: true, version: saved.version, seats: seats };
+}
+
+/**
+ * 房主开局：同一个 CAS 里把房间置为 playing 并落席位，
+ * 再把牌局快照写成 version=1（重开一局时版本归零，避免旧版本号干扰乐观锁）。
+ */
+async function cloudStartGame(code, state, expectedRoomVersion, seats) {
+  if (!hasCloud()) return offline();
+  const next = (expectedRoomVersion || 0) + 1;
+  try {
+    const upd = await cloudClient.database.from(ROOM_TABLE)
+      .update({ status: 'playing', seats: seats, version: next, updated_at: nowIso() })
+      .eq('code', code).eq('version', expectedRoomVersion).select('version');
+    if (upd.error) return { ok: false, error: errMsg(upd.error) };
+    if (!upd.data || !upd.data.length) {
+      return { ok: false, conflict: true, error: '房间状态刚被更新，请重试' };
+    }
+    const g = await cloudClient.database.from(GAME_TABLE).upsert({
+      code: code, state: state, version: 1, updated_at: nowIso()
+    });
+    if (g.error) return { ok: false, error: errMsg(g.error) };
+    return { ok: true, version: next, gameVersion: 1 };
+  } catch (e) {
+    return { ok: false, error: (e && e.message) || '网络异常，请重试' };
+  }
+}
+
+/**
+ * 一局结束后回到大厅：清空准备状态，等房主再次开始。
+ * 同时把牌局快照写成 { lobby: true }，其他设备轮询到该标记就切回大厅，
+ * 否则它们会一直停在已结束的牌桌上等不到重开。
+ */
+async function cloudResetRoom(code, seats, expectedVersion) {
+  const res = await cloudUpdateRoom(code, { status: 'lobby', seats: seats }, expectedVersion);
+  if (!res.ok || !hasCloud()) return res;
+  try {
+    await cloudClient.database.from(GAME_TABLE).upsert({
+      code: code, state: { lobby: true }, version: 0, updated_at: nowIso()
+    });
+  } catch (e) { /* 标记失败不影响回大厅，下一轮开始会覆盖快照 */ }
+  return res;
+}
+
 /** 好友通过分享卡片带房间号入席，返回本机的席位号与最新牌局快照 */
 async function cloudJoinRoom(code, profile) {
   if (!hasCloud()) return offline('跨设备加入需要云端房间；当前为浏览器预览 / 本机房间');
@@ -375,38 +460,58 @@ async function cloudJoinRoom(code, profile) {
       ? '云端未找到该房间，请确认房间号' : pulled.error };
 
     const seats = (pulled.room.seats || []).slice();
+    const status = pulled.room.status || 'lobby';
     let slot = -1;
     // 同一设备重复进入时复用原席位，不占用新位置
     for (let i = 1; i < seats.length; i += 1) {
       if (seats[i] && seats[i].uid === p.uid && !seats[i].isAI) { slot = i; break; }
     }
+    const mine = slot >= 0;
     if (slot < 0) {
+      // 开局后不再接受新玩家入席，避免牌局快照里的席位与实际人数不一致
+      if (status === 'playing') {
+        return { ok: false, error: '牌局已经开始，等房主结束后再加入' };
+      }
       for (let i = 1; i < seats.length; i += 1) {
         if (seats[i] && !seats[i].joined && !seats[i].isAI) { slot = i; break; }
       }
     }
     if (slot < 0) return { ok: false, error: '房间没有空余真人席位' };
 
-    seats[slot] = Object.assign({}, seats[slot], {
-      uid: p.uid,
-      name: p.nickname,
-      nickname: p.nickname,
-      avatar: p.avatar,
-      avatarUrl: p.avatarUrl || '',
-      type: 'remote',
-      joined: true
-    });
-    const saved = await cloudUpdateSeats(normalized, seats, pulled.version);
-    if (!saved.ok) return saved;
-    const game = await cloudPullGame(normalized);
-    if (!game.ok) return { ok: false, error: game.error };
+    let roomVersion = pulled.version;
+    if (!mine) {
+      seats[slot] = Object.assign({}, seats[slot], {
+        index: slot,
+        uid: p.uid,
+        name: p.nickname,
+        nickname: p.nickname,
+        avatar: p.avatar,
+        avatarUrl: p.avatarUrl || '',
+        type: 'remote',
+        joined: true,
+        ready: false
+      });
+      const saved = await cloudUpdateSeats(normalized, seats, pulled.version);
+      if (!saved.ok) return saved;
+      roomVersion = saved.version;
+    }
+
+    let state = null;
+    let gameVersion = 0;
+    if (status === 'playing') {
+      const game = await cloudPullGame(normalized);
+      if (!game.ok) return { ok: false, error: game.error };
+      state = game.state;
+      gameVersion = game.version;
+    }
 
     return {
       ok: true,
       seat: slot,
-      room: Object.assign({}, pulled.room, { seats: seats, version: saved.version }),
-      state: game.state,
-      version: game.version
+      status: status,
+      room: Object.assign({}, pulled.room, { seats: seats, status: status, version: roomVersion }),
+      state: state,
+      version: gameVersion
     };
   } catch (e) {
     return { ok: false, error: (e && e.message) || '网络异常，请重试' };
@@ -438,5 +543,9 @@ module.exports = {
   cloudPullGame: cloudPullGame,
   cloudPushState: cloudPushState,
   cloudUpdateSeats: cloudUpdateSeats,
+  cloudUpdateRoom: cloudUpdateRoom,
+  cloudSetSeat: cloudSetSeat,
+  cloudStartGame: cloudStartGame,
+  cloudResetRoom: cloudResetRoom,
   cloudJoinRoom: cloudJoinRoom
 };

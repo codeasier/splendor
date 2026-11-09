@@ -900,3 +900,197 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .preset-avatar text { font-size: 8px; color: #fff1d5; text-shadow: 0 1px 3px #000; }
 .preset-avatar.is-active { border: 2px solid #69d7e8; box-shadow: 0 0 0 1px rgba(105, 215, 232, .5); }
+
+/* ---------- 12. 入口界面 / 房间界面 ----------
+   与牌桌同源材质：深紫棕皮革 + 暖金倒角 + 左上柔光；
+   入口页只保留「人机对战 / 邀请好友」两条主路径，其余入口收敛到底部。 */
+.board-layer {
+  position: absolute; left: 0; top: 0; width: 1080px; height: 560px;
+}
+.screen-layer {
+  position: absolute; left: 0; top: 0; width: 1080px; height: 560px;
+  box-sizing: border-box; z-index: 12;
+}
+
+/* 首页 */
+.home-screen {
+  display: flex; align-items: stretch; gap: 26px;
+  padding: 38px 44px 26px;
+  background:
+    radial-gradient(ellipse 66% 58% at 26% 26%, rgba(255, 224, 190, .08), transparent 68%),
+    linear-gradient(162deg, rgba(24, 10, 20, .34), rgba(16, 7, 14, .62));
+}
+.home-brand {
+  flex: 0 0 320px; display: flex; flex-direction: column; align-items: flex-start;
+  padding-top: 10px;
+}
+.brand-crest {
+  width: 62px; height: 62px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(243, 212, 139, .55);
+  background: radial-gradient(circle at 34% 24%, #ffeec4 0%, #e2b268 34%, #a97124 68%, #4d2c12 100%);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .55), inset 0 -3px 8px rgba(60, 30, 8, .6), 0 8px 20px rgba(0, 0, 0, .6);
+  margin-bottom: 16px;
+}
+.brand-gem { width: 30px; height: 30px; }
+.brand-title {
+  font-family: "Songti SC", "STSong", Georgia, serif;
+  font-size: 44px; font-weight: 700; letter-spacing: 9px;
+  color: #ffe6b8; text-shadow: 0 4px 16px rgba(0, 0, 0, .78), 0 1px 0 rgba(255, 240, 200, .25);
+}
+.brand-en { font-size: 11px; letter-spacing: 7px; color: rgba(243, 212, 139, .66); margin-top: 3px; }
+.brand-rule {
+  width: 100%; height: 1px; margin: 17px 0 13px;
+  background: linear-gradient(90deg, rgba(243, 212, 139, .75), rgba(243, 212, 139, .05));
+}
+.brand-desc { font-size: 12px; line-height: 1.95; color: #dcc0b2; }
+.brand-meta { font-size: 10px; letter-spacing: 1px; color: rgba(243, 212, 139, .72); margin-top: 12px; }
+.brand-player {
+  margin-top: auto; width: 100%; box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border-radius: 8px; border: 1px solid rgba(197, 149, 74, .4);
+  background: rgba(24, 12, 20, .55);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 205, .14);
+}
+.brand-player-hover { transform: translateY(1px); }
+.brand-avatar {
+  width: 40px; height: 44px; flex-shrink: 0; border-radius: 4px; overflow: hidden;
+  border: 2px solid #c5954a;
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 200, .32), 0 3px 8px rgba(0, 0, 0, .6);
+}
+.brand-avatar-img { width: 100%; height: 100%; }
+.brand-player-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.brand-player-name { font-size: 13px; font-weight: 700; color: #fff1d5; }
+.brand-player-sub { font-size: 9px; color: #b99884; }
+
+.home-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.home-choices { display: flex; gap: 18px; flex: 1; min-height: 0; }
+.choice {
+  position: relative; flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  padding: 18px 20px; border-radius: 12px;
+  border: 1px solid rgba(197, 149, 74, .45);
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 230, 200, .014) 0px, rgba(255, 230, 200, .014) 1px, transparent 1px, transparent 6px),
+    linear-gradient(158deg, #55303f 0%, #2c1723 62%, #1d0f18 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(12, 5, 11, .35), inset 0 1px 0 rgba(255, 225, 180, .16),
+    0 14px 34px rgba(0, 0, 0, .58);
+}
+.choice-room {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 230, 200, .014) 0px, rgba(255, 230, 200, .014) 1px, transparent 1px, transparent 6px),
+    linear-gradient(158deg, #4b3242 0%, #271a26 62%, #180f18 100%);
+}
+.choice-tag {
+  font-size: 9px; letter-spacing: 3px; color: #f0ce8e;
+  padding: 3px 8px; border-radius: 3px; border: 1px solid rgba(243, 212, 139, .42);
+}
+.choice-tag-gold {
+  color: #1b1020; border-color: #f3d48b;
+  background: linear-gradient(160deg, #f3d48b, #c5954a);
+}
+.choice-title {
+  font-family: "Songti SC", "STSong", Georgia, serif;
+  font-size: 29px; font-weight: 700; letter-spacing: 4px; color: #ffe6b8;
+  margin-top: 12px; text-shadow: 0 3px 10px rgba(0, 0, 0, .7);
+}
+.choice-desc { font-size: 12px; line-height: 1.75; color: #cfae9f; margin-top: 7px; min-height: 42px; }
+.choice-points { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
+.choice-point { font-size: 11px; color: #b99884; }
+.choice-point::before { content: '·'; margin-right: 6px; color: #c5954a; }
+.choice-counts { display: flex; gap: 7px; margin-top: 18px; }
+.count-chip {
+  min-width: 60px; padding: 6px 10px; border-radius: 5px; text-align: center;
+  font-size: 12px; color: #e8d0b2; border: 1px solid rgba(197, 149, 74, .45);
+  background: linear-gradient(160deg, #4a2c3a, #22121d);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .16);
+}
+.count-chip.is-active {
+  color: #1b1020; font-weight: 700; border-color: #f3d48b;
+  background: linear-gradient(160deg, #f3d48b, #c5954a);
+}
+.choice-btn {
+  margin-top: 16px; width: 100%; box-sizing: border-box;
+  text-align: center; font-size: 15px; font-weight: 700; letter-spacing: 3px;
+  padding: 10px 0; border-radius: 7px;
+}
+.home-foot { display: flex; flex-direction: column; gap: 7px; }
+.home-join { display: flex; align-items: center; gap: 9px; }
+.home-input { width: 208px; }
+.home-cloud { font-size: 10px; letter-spacing: .5px; color: #c6a596; }
+.home-cloud.is-cloud { color: #9fe4b4; }
+
+/* 房间界面 */
+.room-screen {
+  display: flex; flex-direction: column; gap: 13px;
+  padding: 24px 40px 22px;
+  background: linear-gradient(170deg, rgba(24, 10, 20, .56), rgba(14, 6, 12, .78));
+}
+.room-top { display: flex; align-items: center; gap: 22px; }
+.room-code-block { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
+.room-code-label { font-size: 9px; letter-spacing: 3px; color: rgba(243, 212, 139, .72); }
+.room-code-big {
+  font-family: Georgia, serif; font-size: 32px; font-weight: 700; letter-spacing: 6px;
+  color: #ffe6b8; text-shadow: 0 3px 12px rgba(0, 0, 0, .75);
+}
+.room-backend { font-size: 9px; color: #9fe4b4; letter-spacing: 1px; }
+.room-status-block { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.room-status-main { font-size: 18px; font-weight: 700; letter-spacing: 1px; color: #ffe0a4; }
+.room-status-sub { font-size: 10px; line-height: 1.6; color: #c6a596; }
+.room-leave { flex: 0 0 auto; font-size: 12px; padding: 8px 14px; }
+
+.room-seat-row { display: flex; gap: 12px; flex: 0 0 auto; height: 262px; }
+.room-seat {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+  padding: 16px 10px 14px; border-radius: 10px;
+  border: 1px solid rgba(197, 149, 74, .4);
+  background: linear-gradient(160deg, #4b2a3a, #241320);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 205, .14), 0 10px 24px rgba(0, 0, 0, .5);
+}
+.room-seat.is-self { background: linear-gradient(160deg, #5d3446, #2b1725); }
+.room-seat.is-ready {
+  border-color: rgba(120, 214, 156, .65);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 205, .16),
+    0 0 0 1px rgba(120, 214, 156, .22), 0 0 18px rgba(80, 190, 130, .18), 0 10px 24px rgba(0, 0, 0, .5);
+}
+.room-seat.is-empty { border-style: dashed; opacity: .78; }
+.room-avatar {
+  width: 60px; height: 60px; flex-shrink: 0; border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #c5954a;
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 200, .3), 0 4px 12px rgba(0, 0, 0, .6);
+}
+.room-avatar-img { width: 100%; height: 100%; }
+.room-avatar-no { font-family: Georgia, serif; font-size: 22px; color: #fff1d5; text-shadow: 0 1px 4px #1a0d14; }
+.room-seat-label { font-size: 9px; letter-spacing: 2px; color: #e8c489; }
+.room-seat-name {
+  max-width: 100%; font-size: 14px; font-weight: 700; color: #fff1d5;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.room-seat-state {
+  margin-top: 6px; padding: 4px 11px; border-radius: 20px;
+  font-size: 10px; color: #d4b096;
+  border: 1px solid rgba(197, 149, 74, .38);
+}
+.room-seat-state.is-ok { color: #9fe4b4; border-color: rgba(120, 214, 156, .55); background: rgba(46, 106, 72, .22); }
+.room-seat-state.is-pending { color: #ffcf8a; border-color: rgba(243, 180, 90, .55); background: rgba(110, 72, 26, .22); }
+.room-seat-state.is-wait { color: #b79aa6; }
+.room-seat-action { font-size: 10px; color: #f0ce8e; padding: 2px 6px; text-decoration: underline; }
+
+.room-bottom { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.room-invite { display: flex; align-items: center; gap: 10px; }
+.room-counts { display: flex; align-items: center; gap: 8px; }
+.room-counts-label { font-size: 10px; letter-spacing: 2px; color: #e8c489; }
+.room-tip { font-size: 11px; letter-spacing: .5px; color: #c6a596; }
+.room-tip.is-ok { color: #9fe4b4; }
+.room-actions { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+.room-action-note { font-size: 11px; letter-spacing: .5px; color: #b99884; }
+.room-start {
+  min-width: 250px; text-align: center; box-sizing: border-box;
+  font-size: 15px; font-weight: 700; letter-spacing: 3px;
+  padding: 11px 24px; border-radius: 8px;
+}
+.setup-state { margin-top: 3px; font-size: 9px; color: #b79aa6; }
+.setup-state.is-ok { color: #9fe4b4; }

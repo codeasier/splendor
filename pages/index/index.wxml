@@ -19,6 +19,9 @@
     <view class="corner corner-bl"></view>
     <view class="corner corner-br"></view>
 
+    <!-- ========== 牌桌图层：仅在 screen === 'game' 时渲染 ========== -->
+    <view wx:if="{{screen === 'game'}}" class="board-layer">
+
     <!-- ========== 组件：多席位状态条 / 回合提示 / 右上入口 ========== -->
     <view class="top-bar">
       <view class="seat-strip">
@@ -53,7 +56,7 @@
           <view class="gold-coin coin-face coin-gold"><view class="pile-gem gem-icon gem-gold"></view></view>
           <text class="gold-label">黄金 {{goldCount}}</text>
         </view>
-        <view class="round-btn room-btn" bindtap="onOpenLobby"><text>⚙</text></view>
+        <view wx:if="{{roomMode}}" class="round-btn room-btn" bindtap="onOpenLobby"><text>⚑</text></view>
         <view class="round-btn" bindtap="onOpenProfile"><text>☻</text></view>
         <view class="round-btn" bindtap="onShowRules"><text>?</text></view>
         <view class="round-btn" bindtap="onRestart"><text>↺</text></view>
@@ -201,6 +204,140 @@
         </view>
       </view>
     </view>
+    </view>
+    <!-- ========== /牌桌图层 ========== -->
+
+    <!-- ========== 入口界面：人机对战 / 邀请好友 ========== -->
+    <view wx:if="{{screen === 'home'}}" class="screen-layer home-screen">
+      <view class="home-brand">
+        <view class="brand-crest"><view class="brand-gem gem-icon gem-blue"></view></view>
+        <text class="brand-title">璀璨宝石</text>
+        <text class="brand-en">SPLENDOR</text>
+        <view class="brand-rule"></view>
+        <text class="brand-desc">文艺复兴时期的珠宝商，在酒红绒面的牌桌上收集宝石、经营贸易、迎候贵族到访。</text>
+        <text class="brand-meta">2–4 人 · 横屏对局 · 先达 15 声望者胜</text>
+        <view class="brand-player" bindtap="onOpenProfile" hover-class="brand-player-hover">
+          <view wx:if="{{home.avatarUrl}}" class="brand-avatar">
+            <image class="brand-avatar-img" src="{{home.avatarUrl}}" mode="aspectFill"></image>
+          </view>
+          <view wx:else class="brand-avatar"
+                style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{home.avatarHue}} 52%, rgba(20,10,16,.92) 100%);"></view>
+          <view class="brand-player-text">
+            <text class="brand-player-name">{{home.nickname}}</text>
+            <text class="brand-player-sub">点击修改头像与昵称</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="home-main">
+        <view class="home-choices">
+          <view class="choice">
+            <text class="choice-tag">单人</text>
+            <text class="choice-title">人机对战</text>
+            <text class="choice-desc">立即开局，对手由本地 AI 托管，不依赖网络</text>
+            <view class="choice-points">
+              <text class="choice-point">规则完整：拿取 / 预留 / 购买 / 贵族</text>
+              <text class="choice-point">每局随机牌序，2–4 人自由设定</text>
+            </view>
+            <view class="choice-counts">
+              <view wx:for="{{home.soloCounts}}" wx:key="n"
+                    class="count-chip {{item.active ? 'is-active' : ''}}"
+                    bindtap="onSelectSoloCount" data-n="{{item.n}}">{{item.label}}</view>
+            </view>
+            <view class="btn btn-primary choice-btn" bindtap="onStartSolo">开始对局</view>
+          </view>
+
+          <view class="choice choice-room">
+            <text class="choice-tag choice-tag-gold">联机</text>
+            <text class="choice-title">邀请好友</text>
+            <text class="choice-desc">创建房间并分享到群，好友入席准备，全员就绪后房主开始</text>
+            <view class="choice-points">
+              <text class="choice-point">房间号 / 分享卡片两种入席方式</text>
+              <text class="choice-point">实时显示加入人数与准备状态</text>
+            </view>
+            <view class="choice-counts">
+              <view wx:for="{{home.roomCounts}}" wx:key="n"
+                    class="count-chip {{item.active ? 'is-active' : ''}}"
+                    bindtap="onSelectRoomCount" data-n="{{item.n}}">{{item.label}}</view>
+            </view>
+            <view class="btn btn-primary choice-btn" bindtap="onCreateRoom">创建房间</view>
+          </view>
+        </view>
+
+        <view class="home-foot">
+          <view class="home-join">
+            <input class="room-input home-input" type="text" maxlength="6" value="{{home.joinCode}}"
+                   placeholder="输入 6 位房间号加入" bindinput="onJoinCodeInput"></input>
+            <view class="btn" bindtap="onJoinFromHome">加入房间</view>
+            <view class="btn" bindtap="onShowRules">玩法</view>
+          </view>
+          <text class="home-cloud {{home.cloud ? 'is-cloud' : ''}}">{{home.cloudText}}</text>
+          <text wx:if="{{home.notice}}" class="room-notice">{{home.notice}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ========== 房间界面：加入人数 / 准备 / 房主开始 ========== -->
+    <view wx:if="{{screen === 'room'}}" class="screen-layer room-screen">
+      <view class="room-top">
+        <view class="room-code-block">
+          <text class="room-code-label">房间号</text>
+          <text class="room-code-big">{{roomScreen.code}}</text>
+          <text class="room-backend">{{roomScreen.backend}}</text>
+        </view>
+        <view class="room-status-block">
+          <text class="room-status-main">{{roomScreen.statusText}}</text>
+          <text class="room-status-sub">{{roomScreen.backendHint}}</text>
+        </view>
+        <view class="btn room-leave" bindtap="onLeaveRoom">离开房间</view>
+      </view>
+
+      <view class="room-seat-row">
+        <view wx:for="{{roomScreen.seats}}" wx:key="index"
+              class="room-seat {{item.ready ? 'is-ready' : ''}} {{item.empty ? 'is-empty' : ''}} {{item.isSelf ? 'is-self' : ''}}">
+          <view wx:if="{{item.avatarUrl}}" class="room-avatar">
+            <image class="room-avatar-img" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+          </view>
+          <view wx:else class="room-avatar"
+                style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);">
+            <text class="room-avatar-no">{{item.seatNo}}</text>
+          </view>
+          <text class="room-seat-label">{{item.label}}</text>
+          <text class="room-seat-name">{{item.name}}</text>
+          <view class="room-seat-state {{item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')}}">
+            <text>{{item.stateText}}</text>
+          </view>
+          <view wx:if="{{item.canToggleBot}}" class="room-seat-action"
+                bindtap="onRoomToggleBot" data-index="{{item.index}}">设为机器人</view>
+        </view>
+      </view>
+
+      <view class="room-tip {{roomScreen.canStart ? 'is-ok' : ''}}">{{roomScreen.tip}}</view>
+
+      <view class="room-bottom">
+        <view class="room-invite">
+          <button class="btn share-btn" open-type="share">分享到群</button>
+          <view class="btn" bindtap="onCopyRoomCode">复制房间号</view>
+          <text class="invite-tip">好友点分享卡片即自动入席</text>
+        </view>
+        <view wx:if="{{roomScreen.isHost}}" class="room-counts">
+          <text class="room-counts-label">人数</text>
+          <view wx:for="{{roomScreen.counts}}" wx:key="n"
+                class="count-chip {{item.active ? 'is-active' : ''}}"
+                bindtap="onRoomCount" data-n="{{item.n}}">{{item.label}}</view>
+        </view>
+        <text wx:if="{{roomScreen.notice}}" class="room-notice">{{roomScreen.notice}}</text>
+      </view>
+
+      <view class="room-actions">
+        <text class="room-action-note">{{roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'}}</text>
+        <view wx:if="{{roomScreen.isHost}}"
+              class="btn btn-primary room-start {{roomScreen.canStart ? '' : 'btn-off'}}"
+              bindtap="onRoomStart">{{roomScreen.startLabel}}</view>
+        <view wx:else class="btn btn-primary room-start {{roomScreen.myReady ? 'btn-off' : ''}}"
+              bindtap="onRoomToggleReady">{{roomScreen.startLabel}}</view>
+      </view>
+    </view>
 
     <!-- ========== 组件：卡牌详情（选中卡放大，费用与缺口可辨） ========== -->
     <view wx:if="{{detail}}" class="overlay" bindtap="onCloseDetail">
@@ -285,7 +422,7 @@
           <text class="dialog-sub">{{playerCount}} 人对局 · 先达到 15 声望者胜 · 点击任意头像可查看详情</text>
         </view>
         <view class="rules-body">
-          <text class="rule-item">1. 支持 2 / 3 / 4 人：点右上「⚙」调整人数，未加入的席位可切换为机器人托管。</text>
+          <text class="rule-item">1. 支持 2 / 3 / 4 人：首页可开「人机对战」或「邀请好友」；房间内所有真人点「准备」、房主才可开始，空席可改成机器人。</text>
           <text class="rule-item">2. 每回合四选一：拿 3 枚不同色筹码（或同色 2 枚，该色需剩 ≥4）、预留 1 张卡并拿 1 枚黄金、购买 1 张桌面卡或预留卡。</text>
           <text class="rule-item">3. 卡牌左下角气泡是购买成本；每持有 1 张同色发展卡，该色成本自动减 1（宝石红利）。不足部分可用黄金补齐。</text>
           <text class="rule-item">4. 发展卡提供声望与永久红利；贵族牌在回合末自动判定，满足红利要求即 +3 声望。每人筹码上限 10 枚，预留卡上限 3 张。</text>
@@ -306,61 +443,47 @@
         <text class="result-detail">{{resultDetail}}</text>
         <view class="dialog-btns">
           <view class="btn btn-primary" bindtap="onRestart">再来一局</view>
-          <view class="btn" bindtap="onOpenLobby">房间大厅</view>
-          <view class="btn" bindtap="onShowRules">查看规则</view>
+          <view wx:if="{{roomMode}}" class="btn" bindtap="onOpenLobby">房间信息</view>
+          <view class="btn" bindtap="onLeaveRoom">返回首页</view>
         </view>
       </view>
     </view>
 
-    <!-- ========== 组件：房间大厅（人数 / 机器人席位 / 微信邀请） ========== -->
+    <!-- ========== 组件：牌局中的房间信息（邀请 / 席位 / 退出） ========== -->
     <view wx:if="{{showLobby}}" class="overlay overlay-top" bindtap="onCloseLobby">
       <view class="dialog lobby-dialog" catchtap="noop">
         <view class="dialog-head">
-          <text class="dialog-title">房间大厅 · {{roomCode}}</text>
-          <text class="dialog-sub">{{lobby.backend}} · {{playerCount}} 人牌局 · 未加入的席位可添加机器人</text>
+          <text class="dialog-title">房间 · {{roomScreen.code}}</text>
+          <text class="dialog-sub">{{roomScreen.statusText}} · {{roomScreen.backend}}</text>
         </view>
         <view class="lobby-body">
           <view class="lobby-section">
-            <text class="lobby-label">对局人数</text>
-            <view class="count-row">
-              <view wx:for="{{lobby.counts}}" wx:key="n"
-                    class="count-btn {{item.active ? 'is-active' : ''}}"
-                    bindtap="onSelectPlayerCount" data-n="{{item.n}}">{{item.label}}</view>
-            </view>
-          </view>
-          <view class="lobby-section">
-            <text class="lobby-label">席位安排</text>
+            <text class="lobby-label">席位</text>
             <view class="seat-setup">
-              <view wx:for="{{lobby.seats}}" wx:key="index" class="setup-seat">
-                <view class="setup-avatar" style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);"></view>
+              <view wx:for="{{roomScreen.seats}}" wx:key="index" class="setup-seat">
+                <view class="setup-avatar"
+                      style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);"></view>
                 <text class="setup-label">{{item.label}}</text>
                 <text class="setup-name">{{item.name}}</text>
-                <view wx:if="{{item.canToggle}}" class="setup-toggle {{item.isBot ? 'is-bot' : ''}}"
-                      bindtap="onToggleBot" data-index="{{item.index}}">{{item.isBot ? '机器人 · 点击改为好友席' : '好友席 · 点击添加机器人'}}</view>
-                <text wx:else class="setup-host">房主</text>
+                <text class="setup-state {{item.ready ? 'is-ok' : ''}}">{{item.stateText}}</text>
               </view>
             </view>
           </view>
           <view class="lobby-section">
             <text class="lobby-label">邀请好友</text>
             <view class="invite-row">
-              <text class="room-code">{{roomCode}}</text>
+              <text class="room-code">{{roomScreen.code}}</text>
               <button class="btn share-btn" open-type="share">分享到群</button>
               <view class="btn" bindtap="onCopyRoomCode">复制房间号</view>
-              <text class="invite-tip">点「分享到群」选微信群，成员点卡片即可入席</text>
+              <text class="invite-tip">下一局开始前仍可邀请</text>
             </view>
-            <view class="join-row">
-              <input class="room-input" type="text" maxlength="6" value="{{lobby.joinCode}}"
-                     placeholder="输入 6 位房间号" bindinput="onJoinCodeInput"></input>
-              <view class="btn" bindtap="onJoinRoom">加入房间</view>
-            </view>
-            <text class="room-hint">{{lobby.backendHint}}</text>
+            <text class="room-hint">{{roomScreen.backendHint}}</text>
           </view>
-          <text wx:if="{{lobby.notice}}" class="room-notice">{{lobby.notice}}</text>
+          <text wx:if="{{roomScreen.notice}}" class="room-notice">{{roomScreen.notice}}</text>
         </view>
         <view class="dialog-btns">
-          <view class="btn btn-primary" bindtap="onStartRoom">开始牌局（{{lobby.playerCount}} 人）</view>
-          <view class="btn" bindtap="onCloseLobby">返回牌桌</view>
+          <view class="btn btn-primary" bindtap="onCloseLobby">返回牌桌</view>
+          <view class="btn" bindtap="onLeaveRoom">离开房间</view>
         </view>
       </view>
     </view>

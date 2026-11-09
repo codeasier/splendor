@@ -47,6 +47,22 @@ function run(width, height) {
 // 1) 横屏桌面窗口
 const a = run(1280, 720);
 assert(a.page, 'Page 实例应已挂载');
+
+// 1.1 入口界面（默认首屏）
+const homeHtml = a.host.innerHTML;
+console.log('入口界面 HTML 长度:', homeHtml.length);
+assert(a.page.data.screen === 'home', '默认应停在入口界面');
+assert(homeHtml.indexOf('人机对战') > 0, '入口界面应有「人机对战」');
+assert(homeHtml.indexOf('邀请好友') > 0, '入口界面应有「邀请好友」');
+assert(homeHtml.indexOf('创建房间') > 0, '入口界面应有「创建房间」按钮');
+assert(homeHtml.indexOf('加入房间') > 0, '入口界面应有「加入房间」入口');
+assert(homeHtml.indexOf('class="choice-counts"') > 0, '入口界面应有 2/3/4 人选择');
+assert(homeHtml.indexOf('undefined') < 0, '入口界面含 undefined');
+assert(homeHtml.indexOf('{{') < 0, '入口界面存在未求值的模板表达式');
+assert(homeHtml.indexOf('wx:') < 0, '入口界面残留 wx: 指令');
+
+// 1.2 进入人机对战
+a.page.onStartSolo();
 const out = a.host.innerHTML;
 console.log('横屏渲染 HTML 长度:', out.length);
 assert(out.length > 12000, '渲染结果过短，模板可能未展开');
@@ -101,6 +117,25 @@ click('onConfirmTake');
 assert(page.state.bank.white < before, '确认后应扣除银行筹码');
 console.log('交互链路：选 3 色筹码 -> 确认拿取 OK，玩家筹码 =', page.state.players[0].tokens);
 assert(a.host.innerHTML.indexOf('data-tap="onTapPile"') > 0, '交互后应重新渲染');
+
+// 4.1 房间准备流（本机适配器：空席改机器人后由房主开始）
+click('onLeaveRoom');
+assert(a.page.data.screen === 'home', '离开牌局回到入口界面');
+click('onCreateRoom');
+assert(a.page.data.screen === 'room', '创建房间进入房间界面');
+const roomHtml = a.host.innerHTML;
+assert(roomHtml.indexOf('房间号') > 0, '房间界面应显示房间号');
+assert(roomHtml.indexOf('已加入') > 0 && roomHtml.indexOf('已准备') > 0, '房间界面应显示加入与准备人数');
+assert(roomHtml.indexOf('等待玩家准备') > 0, '有未就绪席位时房主不可开始');
+assert(roomHtml.indexOf('data-tap="onRoomToggleBot"') > 0, '空席应可改成机器人');
+click('onRoomToggleBot', { index: 1 });
+click('onRoomToggleBot', { index: 2 });
+assert(a.page.data.roomScreen.canStart === true, '全员就绪后房主可开始');
+assert(a.host.innerHTML.indexOf('开始牌局') > 0, '按钮应变为「开始牌局」');
+click('onRoomStart');
+assert(a.page.data.screen === 'game', '房主开始后进入牌桌');
+assert(a.page.state.players.length === 3, '按房间人数开出 3 人局');
+console.log('房间流：空席→机器人→全就绪→房主开始 OK');
 
 // 4) 完整对局（直接驱动引擎 + AI，验证视图模型不崩）
 let steps = 0;

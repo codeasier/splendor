@@ -1114,6 +1114,200 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .preset-avatar text { font-size: 8px; color: #fff1d5; text-shadow: 0 1px 3px #000; }
 .preset-avatar.is-active { border: 2px solid #69d7e8; box-shadow: 0 0 0 1px rgba(105, 215, 232, .5); }
 
+/* ---------- 12. 入口界面 / 房间界面 ----------
+   与牌桌同源材质：深紫棕皮革 + 暖金倒角 + 左上柔光；
+   入口页只保留「人机对战 / 邀请好友」两条主路径，其余入口收敛到底部。 */
+.board-layer {
+  position: absolute; left: 0; top: 0; width: 1080px; height: 560px;
+}
+.screen-layer {
+  position: absolute; left: 0; top: 0; width: 1080px; height: 560px;
+  box-sizing: border-box; z-index: 12;
+}
+
+/* 首页 */
+.home-screen {
+  display: flex; align-items: stretch; gap: 26px;
+  padding: 38px 44px 26px;
+  background:
+    radial-gradient(ellipse 66% 58% at 26% 26%, rgba(255, 224, 190, .08), transparent 68%),
+    linear-gradient(162deg, rgba(24, 10, 20, .34), rgba(16, 7, 14, .62));
+}
+.home-brand {
+  flex: 0 0 320px; display: flex; flex-direction: column; align-items: flex-start;
+  padding-top: 10px;
+}
+.brand-crest {
+  width: 62px; height: 62px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(243, 212, 139, .55);
+  background: radial-gradient(circle at 34% 24%, #ffeec4 0%, #e2b268 34%, #a97124 68%, #4d2c12 100%);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .55), inset 0 -3px 8px rgba(60, 30, 8, .6), 0 8px 20px rgba(0, 0, 0, .6);
+  margin-bottom: 16px;
+}
+.brand-gem { width: 30px; height: 30px; }
+.brand-title {
+  font-family: "Songti SC", "STSong", Georgia, serif;
+  font-size: 44px; font-weight: 700; letter-spacing: 9px;
+  color: #ffe6b8; text-shadow: 0 4px 16px rgba(0, 0, 0, .78), 0 1px 0 rgba(255, 240, 200, .25);
+}
+.brand-en { font-size: 11px; letter-spacing: 7px; color: rgba(243, 212, 139, .66); margin-top: 3px; }
+.brand-rule {
+  width: 100%; height: 1px; margin: 17px 0 13px;
+  background: linear-gradient(90deg, rgba(243, 212, 139, .75), rgba(243, 212, 139, .05));
+}
+.brand-desc { font-size: 12px; line-height: 1.95; color: #dcc0b2; }
+.brand-meta { font-size: 10px; letter-spacing: 1px; color: rgba(243, 212, 139, .72); margin-top: 12px; }
+.brand-player {
+  margin-top: auto; width: 100%; box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border-radius: 8px; border: 1px solid rgba(197, 149, 74, .4);
+  background: rgba(24, 12, 20, .55);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 205, .14);
+}
+.brand-player-hover { transform: translateY(1px); }
+.brand-avatar {
+  width: 40px; height: 44px; flex-shrink: 0; border-radius: 4px; overflow: hidden;
+  border: 2px solid #c5954a;
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 200, .32), 0 3px 8px rgba(0, 0, 0, .6);
+}
+.brand-avatar-img { width: 100%; height: 100%; }
+.brand-player-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.brand-player-name { font-size: 13px; font-weight: 700; color: #fff1d5; }
+.brand-player-sub { font-size: 9px; color: #b99884; }
+
+.home-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.home-choices { display: flex; gap: 18px; flex: 1; min-height: 0; }
+.choice {
+  position: relative; flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  padding: 18px 20px; border-radius: 12px;
+  border: 1px solid rgba(197, 149, 74, .45);
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 230, 200, .014) 0px, rgba(255, 230, 200, .014) 1px, transparent 1px, transparent 6px),
+    linear-gradient(158deg, #55303f 0%, #2c1723 62%, #1d0f18 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(12, 5, 11, .35), inset 0 1px 0 rgba(255, 225, 180, .16),
+    0 14px 34px rgba(0, 0, 0, .58);
+}
+.choice-room {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 230, 200, .014) 0px, rgba(255, 230, 200, .014) 1px, transparent 1px, transparent 6px),
+    linear-gradient(158deg, #4b3242 0%, #271a26 62%, #180f18 100%);
+}
+.choice-tag {
+  font-size: 9px; letter-spacing: 3px; color: #f0ce8e;
+  padding: 3px 8px; border-radius: 3px; border: 1px solid rgba(243, 212, 139, .42);
+}
+.choice-tag-gold {
+  color: #1b1020; border-color: #f3d48b;
+  background: linear-gradient(160deg, #f3d48b, #c5954a);
+}
+.choice-title {
+  font-family: "Songti SC", "STSong", Georgia, serif;
+  font-size: 29px; font-weight: 700; letter-spacing: 4px; color: #ffe6b8;
+  margin-top: 12px; text-shadow: 0 3px 10px rgba(0, 0, 0, .7);
+}
+.choice-desc { font-size: 12px; line-height: 1.75; color: #cfae9f; margin-top: 7px; min-height: 42px; }
+.choice-points { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
+.choice-point { font-size: 11px; color: #b99884; }
+.choice-point::before { content: '·'; margin-right: 6px; color: #c5954a; }
+.choice-counts { display: flex; gap: 7px; margin-top: 18px; }
+.count-chip {
+  min-width: 60px; padding: 6px 10px; border-radius: 5px; text-align: center;
+  font-size: 12px; color: #e8d0b2; border: 1px solid rgba(197, 149, 74, .45);
+  background: linear-gradient(160deg, #4a2c3a, #22121d);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .16);
+}
+.count-chip.is-active {
+  color: #1b1020; font-weight: 700; border-color: #f3d48b;
+  background: linear-gradient(160deg, #f3d48b, #c5954a);
+}
+.choice-btn {
+  margin-top: 16px; width: 100%; box-sizing: border-box;
+  text-align: center; font-size: 15px; font-weight: 700; letter-spacing: 3px;
+  padding: 10px 0; border-radius: 7px;
+}
+.home-foot { display: flex; flex-direction: column; gap: 7px; }
+.home-join { display: flex; align-items: center; gap: 9px; }
+.home-input { width: 208px; }
+.home-cloud { font-size: 10px; letter-spacing: .5px; color: #c6a596; }
+.home-cloud.is-cloud { color: #9fe4b4; }
+
+/* 房间界面 */
+.room-screen {
+  display: flex; flex-direction: column; gap: 13px;
+  padding: 24px 40px 22px;
+  background: linear-gradient(170deg, rgba(24, 10, 20, .56), rgba(14, 6, 12, .78));
+}
+.room-top { display: flex; align-items: center; gap: 22px; }
+.room-code-block { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
+.room-code-label { font-size: 9px; letter-spacing: 3px; color: rgba(243, 212, 139, .72); }
+.room-code-big {
+  font-family: Georgia, serif; font-size: 32px; font-weight: 700; letter-spacing: 6px;
+  color: #ffe6b8; text-shadow: 0 3px 12px rgba(0, 0, 0, .75);
+}
+.room-backend { font-size: 9px; color: #9fe4b4; letter-spacing: 1px; }
+.room-status-block { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.room-status-main { font-size: 18px; font-weight: 700; letter-spacing: 1px; color: #ffe0a4; }
+.room-status-sub { font-size: 10px; line-height: 1.6; color: #c6a596; }
+.room-leave { flex: 0 0 auto; font-size: 12px; padding: 8px 14px; }
+
+.room-seat-row { display: flex; gap: 12px; flex: 0 0 auto; height: 262px; }
+.room-seat {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+  padding: 16px 10px 14px; border-radius: 10px;
+  border: 1px solid rgba(197, 149, 74, .4);
+  background: linear-gradient(160deg, #4b2a3a, #241320);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 205, .14), 0 10px 24px rgba(0, 0, 0, .5);
+}
+.room-seat.is-self { background: linear-gradient(160deg, #5d3446, #2b1725); }
+.room-seat.is-ready {
+  border-color: rgba(120, 214, 156, .65);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 205, .16),
+    0 0 0 1px rgba(120, 214, 156, .22), 0 0 18px rgba(80, 190, 130, .18), 0 10px 24px rgba(0, 0, 0, .5);
+}
+.room-seat.is-empty { border-style: dashed; opacity: .78; }
+.room-avatar {
+  width: 60px; height: 60px; flex-shrink: 0; border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #c5954a;
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 200, .3), 0 4px 12px rgba(0, 0, 0, .6);
+}
+.room-avatar-img { width: 100%; height: 100%; }
+.room-avatar-no { font-family: Georgia, serif; font-size: 22px; color: #fff1d5; text-shadow: 0 1px 4px #1a0d14; }
+.room-seat-label { font-size: 9px; letter-spacing: 2px; color: #e8c489; }
+.room-seat-name {
+  max-width: 100%; font-size: 14px; font-weight: 700; color: #fff1d5;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.room-seat-state {
+  margin-top: 6px; padding: 4px 11px; border-radius: 20px;
+  font-size: 10px; color: #d4b096;
+  border: 1px solid rgba(197, 149, 74, .38);
+}
+.room-seat-state.is-ok { color: #9fe4b4; border-color: rgba(120, 214, 156, .55); background: rgba(46, 106, 72, .22); }
+.room-seat-state.is-pending { color: #ffcf8a; border-color: rgba(243, 180, 90, .55); background: rgba(110, 72, 26, .22); }
+.room-seat-state.is-wait { color: #b79aa6; }
+.room-seat-action { font-size: 10px; color: #f0ce8e; padding: 2px 6px; text-decoration: underline; }
+
+.room-bottom { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.room-invite { display: flex; align-items: center; gap: 10px; }
+.room-counts { display: flex; align-items: center; gap: 8px; }
+.room-counts-label { font-size: 10px; letter-spacing: 2px; color: #e8c489; }
+.room-tip { font-size: 11px; letter-spacing: .5px; color: #c6a596; }
+.room-tip.is-ok { color: #9fe4b4; }
+.room-actions { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+.room-action-note { font-size: 11px; letter-spacing: .5px; color: #b99884; }
+.room-start {
+  min-width: 250px; text-align: center; box-sizing: border-box;
+  font-size: 15px; font-weight: 700; letter-spacing: 3px;
+  padding: 11px 24px; border-radius: 8px;
+}
+.setup-state { margin-top: 3px; font-size: 9px; color: #b79aa6; }
+.setup-state.is-ok { color: #9fe4b4; }
+
 
 #host .viewport { width: 100%; height: 100%; }
 
@@ -2043,7 +2237,10 @@ function avatarName(avatar) {
   return '微信头像';
 }
 
-/** 生成席位：0 号恒为本机玩家，其余按 bots 数组决定真人空席或机器人 */
+/**
+ * 生成席位：0 号恒为房主，其余按 bots 数组决定真人空席或机器人。
+ * ready 语义：房主创建房间即视为已就绪；机器人恒定就绪；真人入席后需自己点准备。
+ */
 function makeSeats(playerCount, bots, profile) {
   const seats = [];
   for (let i = 0; i < playerCount; i++) {
@@ -2057,7 +2254,8 @@ function makeSeats(playerCount, bots, profile) {
       avatarUrl: i === 0 ? (profile.avatarUrl || '') : '',
       isAI: isAI,
       type: i === 0 ? 'self' : (isAI ? 'bot' : 'remote'),
-      joined: i === 0 || isAI
+      joined: i === 0 || isAI,
+      ready: i === 0 || isAI
     });
   }
   return seats;
@@ -2073,7 +2271,8 @@ function createRoom(config) {
     playerCount: playerCount,
     hostUid: profile.uid,
     createdAt: Date.now(),
-    status: 'playing',
+    // 大厅态：等人入席 / 等准备；开局后由页面写入 playing
+    status: cfg.status || 'lobby',
     backend: hasCloud() ? 'cloud' : 'local',
     seats: cfg.seats || makeSeats(playerCount, cfg.bots || {}, profile)
   };
@@ -2174,7 +2373,7 @@ function errMsg(error) {
 }
 function nowIso() { return new Date().toISOString(); }
 
-/** 建房：先写房间，再写初始牌局快照，版本从 1 起 */
+/** 建房：先写房间，再写初始牌局快照（大厅阶段允许 state 为空），版本从 1 起 */
 async function cloudCreateRoom(room, state) {
   if (!hasCloud()) return offline();
   try {
@@ -2184,15 +2383,17 @@ async function cloudCreateRoom(room, state) {
       host_uid: room.hostUid,
       player_count: room.playerCount,
       seats: room.seats,
-      status: room.status || 'playing',
+      status: room.status || 'lobby',
       version: 1,
       updated_at: nowIso()
     });
     if (a.error) return { ok: false, error: errMsg(a.error) };
-    const b = await db.from(GAME_TABLE).upsert({
-      code: room.code, state: state, version: 1, updated_at: nowIso()
-    });
-    if (b.error) return { ok: false, error: errMsg(b.error) };
+    if (state) {
+      const b = await db.from(GAME_TABLE).upsert({
+        code: room.code, state: state, version: 1, updated_at: nowIso()
+      });
+      if (b.error) return { ok: false, error: errMsg(b.error) };
+    }
     return { ok: true, version: 1 };
   } catch (e) {
     return { ok: false, error: (e && e.message) || '网络异常，请重试' };
@@ -2276,6 +2477,84 @@ async function cloudUpdateSeats(code, seats, expectedVersion) {
   }
 }
 
+/** CAS 更新任意房间字段（人数 / 席位 / 状态），用于大厅准备与开局 */
+async function cloudUpdateRoom(code, patch, expectedVersion) {
+  if (!hasCloud()) return offline();
+  const next = (expectedVersion || 0) + 1;
+  const row = Object.assign({}, patch || {}, { version: next, updated_at: nowIso() });
+  try {
+    const res = await cloudClient.database.from(ROOM_TABLE)
+      .update(row)
+      .eq('code', code).eq('version', expectedVersion).select('version');
+    if (res.error) return { ok: false, error: errMsg(res.error) };
+    if (!res.data || !res.data.length) {
+      return { ok: false, conflict: true, error: '房间刚被其他玩家更新，请重试' };
+    }
+    return { ok: true, version: next };
+  } catch (e) {
+    return { ok: false, error: (e && e.message) || '网络异常，请重试' };
+  }
+}
+
+/**
+ * 更新单个席位（准备 / 机器人开关）。内部先拉最新版本再 CAS，
+ * 冲突时重试一次——准备状态是高频小写入，不能因为别人刚好也在点就失败。
+ */
+async function cloudSetSeat(code, index, patch, attempt) {
+  if (!hasCloud()) return offline();
+  const tryNo = attempt || 0;
+  const pulled = await cloudPullRoom(code);
+  if (!pulled.ok) return pulled;
+  const seats = (pulled.room.seats || []).slice();
+  if (!seats[index]) return { ok: false, error: '席位不存在' };
+  seats[index] = Object.assign({}, seats[index], patch || {}, { index: index });
+  const saved = await cloudUpdateSeats(code, seats, pulled.version);
+  if (saved.conflict && tryNo < 2) return cloudSetSeat(code, index, patch, tryNo + 1);
+  if (!saved.ok) return saved;
+  return { ok: true, version: saved.version, seats: seats };
+}
+
+/**
+ * 房主开局：同一个 CAS 里把房间置为 playing 并落席位，
+ * 再把牌局快照写成 version=1（重开一局时版本归零，避免旧版本号干扰乐观锁）。
+ */
+async function cloudStartGame(code, state, expectedRoomVersion, seats) {
+  if (!hasCloud()) return offline();
+  const next = (expectedRoomVersion || 0) + 1;
+  try {
+    const upd = await cloudClient.database.from(ROOM_TABLE)
+      .update({ status: 'playing', seats: seats, version: next, updated_at: nowIso() })
+      .eq('code', code).eq('version', expectedRoomVersion).select('version');
+    if (upd.error) return { ok: false, error: errMsg(upd.error) };
+    if (!upd.data || !upd.data.length) {
+      return { ok: false, conflict: true, error: '房间状态刚被更新，请重试' };
+    }
+    const g = await cloudClient.database.from(GAME_TABLE).upsert({
+      code: code, state: state, version: 1, updated_at: nowIso()
+    });
+    if (g.error) return { ok: false, error: errMsg(g.error) };
+    return { ok: true, version: next, gameVersion: 1 };
+  } catch (e) {
+    return { ok: false, error: (e && e.message) || '网络异常，请重试' };
+  }
+}
+
+/**
+ * 一局结束后回到大厅：清空准备状态，等房主再次开始。
+ * 同时把牌局快照写成 { lobby: true }，其他设备轮询到该标记就切回大厅，
+ * 否则它们会一直停在已结束的牌桌上等不到重开。
+ */
+async function cloudResetRoom(code, seats, expectedVersion) {
+  const res = await cloudUpdateRoom(code, { status: 'lobby', seats: seats }, expectedVersion);
+  if (!res.ok || !hasCloud()) return res;
+  try {
+    await cloudClient.database.from(GAME_TABLE).upsert({
+      code: code, state: { lobby: true }, version: 0, updated_at: nowIso()
+    });
+  } catch (e) { /* 标记失败不影响回大厅，下一轮开始会覆盖快照 */ }
+  return res;
+}
+
 /** 好友通过分享卡片带房间号入席，返回本机的席位号与最新牌局快照 */
 async function cloudJoinRoom(code, profile) {
   if (!hasCloud()) return offline('跨设备加入需要云端房间；当前为浏览器预览 / 本机房间');
@@ -2290,38 +2569,58 @@ async function cloudJoinRoom(code, profile) {
       ? '云端未找到该房间，请确认房间号' : pulled.error };
 
     const seats = (pulled.room.seats || []).slice();
+    const status = pulled.room.status || 'lobby';
     let slot = -1;
     // 同一设备重复进入时复用原席位，不占用新位置
     for (let i = 1; i < seats.length; i += 1) {
       if (seats[i] && seats[i].uid === p.uid && !seats[i].isAI) { slot = i; break; }
     }
+    const mine = slot >= 0;
     if (slot < 0) {
+      // 开局后不再接受新玩家入席，避免牌局快照里的席位与实际人数不一致
+      if (status === 'playing') {
+        return { ok: false, error: '牌局已经开始，等房主结束后再加入' };
+      }
       for (let i = 1; i < seats.length; i += 1) {
         if (seats[i] && !seats[i].joined && !seats[i].isAI) { slot = i; break; }
       }
     }
     if (slot < 0) return { ok: false, error: '房间没有空余真人席位' };
 
-    seats[slot] = Object.assign({}, seats[slot], {
-      uid: p.uid,
-      name: p.nickname,
-      nickname: p.nickname,
-      avatar: p.avatar,
-      avatarUrl: p.avatarUrl || '',
-      type: 'remote',
-      joined: true
-    });
-    const saved = await cloudUpdateSeats(normalized, seats, pulled.version);
-    if (!saved.ok) return saved;
-    const game = await cloudPullGame(normalized);
-    if (!game.ok) return { ok: false, error: game.error };
+    let roomVersion = pulled.version;
+    if (!mine) {
+      seats[slot] = Object.assign({}, seats[slot], {
+        index: slot,
+        uid: p.uid,
+        name: p.nickname,
+        nickname: p.nickname,
+        avatar: p.avatar,
+        avatarUrl: p.avatarUrl || '',
+        type: 'remote',
+        joined: true,
+        ready: false
+      });
+      const saved = await cloudUpdateSeats(normalized, seats, pulled.version);
+      if (!saved.ok) return saved;
+      roomVersion = saved.version;
+    }
+
+    let state = null;
+    let gameVersion = 0;
+    if (status === 'playing') {
+      const game = await cloudPullGame(normalized);
+      if (!game.ok) return { ok: false, error: game.error };
+      state = game.state;
+      gameVersion = game.version;
+    }
 
     return {
       ok: true,
       seat: slot,
-      room: Object.assign({}, pulled.room, { seats: seats, version: saved.version }),
-      state: game.state,
-      version: game.version
+      status: status,
+      room: Object.assign({}, pulled.room, { seats: seats, status: status, version: roomVersion }),
+      state: state,
+      version: gameVersion
     };
   } catch (e) {
     return { ok: false, error: (e && e.message) || '网络异常，请重试' };
@@ -2353,13 +2652,17 @@ module.exports = {
   cloudPullGame: cloudPullGame,
   cloudPushState: cloudPushState,
   cloudUpdateSeats: cloudUpdateSeats,
+  cloudUpdateRoom: cloudUpdateRoom,
+  cloudSetSeat: cloudSetSeat,
+  cloudStartGame: cloudStartGame,
+  cloudResetRoom: cloudResetRoom,
   cloudJoinRoom: cloudJoinRoom
 };
 
 });
 
 
-var EXPR_TEXTS = ["stageRotate","stageScale","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.avatarHue","item.index + 1","item.name","item.subtitle","item.points","item.cardCount","item.reservedCount","statusText","turnText","logText","goldCount","decks","item.lv","item.artClass","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.affordable ? 'is-affordable' : ''","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costs","cost.gemClass","cost.covered ? 'is-covered' : ''","cost.ink","cost.display","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.coinClass","item.gemClass","nobles","item.photoClass","item.title","item.reqs","req.gemClass","req.num","nobles.length === 0","me.points","me.reservedCount","me.totalTokens","me.discounts","item.num","me.discounts.length === 0","me.tokens","item.zero ? 'is-zero' : ''","needDiscard ? 'can-discard' : ''","needDiscard ? 'hint-warn' : ''","hintText","canConfirm ? '' : 'btn-off'","confirmLabel","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.canBuy ? '' : 'btn-off'","detail.kind === 'board'","detail.canReserve ? '' : 'btn-off'","showReserved","reservedCards.length","reservedCards","item.pointsText","item.costs","reservedCards.length === 0","showRules","playerCount","gameOver","resultTitle","resultDetail","showLobby","roomCode","lobby.backend","lobby.counts","item.active ? 'is-active' : ''","item.n","lobby.seats","item.canToggle","item.isBot ? '机器人 · 点击改为好友席' : '好友席 · 点击添加机器人'","lobby.joinCode","lobby.backendHint","lobby.notice","lobby.playerCount","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","item.value","playerDetail.discounts","playerDetail.discounts.length === 0","playerDetail.tokens","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice"];
+var EXPR_TEXTS = ["stageRotate","stageScale","screen === 'game'","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.avatarHue","item.index + 1","item.name","item.subtitle","item.points","item.cardCount","item.reservedCount","statusText","turnText","logText","goldCount","roomMode","decks","item.lv","item.artClass","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.affordable ? 'is-affordable' : ''","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costs","cost.gemClass","cost.covered ? 'is-covered' : ''","cost.ink","cost.display","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.coinClass","item.gemClass","nobles","item.photoClass","item.title","item.reqs","req.gemClass","req.num","nobles.length === 0","me.points","me.reservedCount","me.totalTokens","me.discounts","item.num","me.discounts.length === 0","me.tokens","item.zero ? 'is-zero' : ''","needDiscard ? 'can-discard' : ''","needDiscard ? 'hint-warn' : ''","hintText","canConfirm ? '' : 'btn-off'","confirmLabel","screen === 'home'","home.avatarUrl","home.avatarHue","home.nickname","home.soloCounts","item.active ? 'is-active' : ''","item.n","home.roomCounts","home.joinCode","home.cloud ? 'is-cloud' : ''","home.cloudText","home.notice","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.isSelf ? 'is-self' : ''","item.seatNo","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.notice","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.canBuy ? '' : 'btn-off'","detail.kind === 'board'","detail.canReserve ? '' : 'btn-off'","showReserved","reservedCards.length","reservedCards","item.pointsText","item.costs","reservedCards.length === 0","showRules","playerCount","gameOver","resultTitle","resultDetail","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","item.value","playerDetail.discounts","playerDetail.discounts.length === 0","playerDetail.tokens","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice"];
 var EXPR_CACHE = {};
 function EV(id, scope) {
   var fn = EXPR_CACHE[id] || (EXPR_CACHE[id] = new Function('$s', 'with ($s) { return (' + EXPR_TEXTS[id] + '); }'));
@@ -2463,45 +2766,948 @@ window.renderStage = function (data) {
   $h.push("\"");
   $h.push(">");
   $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("top-bar"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("seat-strip"));
-  $h.push("\"");
-  $h.push(">");
-  var $list1 = EV(2, $s) || [];
-  for (var $i1 = 0; $i1 < $list1.length; $i1++) {
-    var $s1 = Object.create($s);
-    $s1.item = $list1[$i1];
-    $s1.index = $i1;
+  if (EV(2, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("seat-badge " + String(EV(3, $s1)) + " " + String(EV(4, $s1)) + " " + String(EV(5, $s1)))));
-    $h.push("\"");
-    $h.push(" data-tap=\"onTapPlayer\"");
-    $h.push(" data-index=\"");
-    $h.push(ESC(String(EV(6, $s1))));
-    $h.push("\"");
-    $h.push(" hover-class=\"");
-    $h.push(ESC("seat-hover"));
+    $h.push(ESC("board-layer"));
     $h.push("\"");
     $h.push(">");
-    if (EV(7, $s1)) {
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("top-bar"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("seat-strip"));
+    $h.push("\"");
+    $h.push(">");
+    var $list1 = EV(3, $s) || [];
+    for (var $i1 = 0; $i1 < $list1.length; $i1++) {
+      var $s1 = Object.create($s);
+      $s1.item = $list1[$i1];
+      $s1.index = $i1;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC("seat-avatar"));
+      $h.push(ESC(("seat-badge " + String(EV(4, $s1)) + " " + String(EV(5, $s1)) + " " + String(EV(6, $s1)))));
+      $h.push("\"");
+      $h.push(" data-tap=\"onTapPlayer\"");
+      $h.push(" data-index=\"");
+      $h.push(ESC(String(EV(7, $s1))));
+      $h.push("\"");
+      $h.push(" hover-class=\"");
+      $h.push(ESC("seat-hover"));
+      $h.push("\"");
+      $h.push(">");
+      if (EV(8, $s1)) {
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC("seat-avatar"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("<img");
+        $h.push(" class=\"");
+        $h.push(ESC("seat-avatar-img"));
+        $h.push("\"");
+        $h.push(" src=\"");
+        $h.push(ESC(String(EV(8, $s1))));
+        $h.push("\"");
+        $h.push(" mode=\"");
+        $h.push(ESC("aspectFill"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("</img>");
+        $h.push("</div>");
+      } else {
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC("seat-avatar"));
+        $h.push("\"");
+        $h.push(" style=\"");
+        $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(9, $s1)) + " 52%, rgba(20,10,16,.92) 100%);")));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("<span");
+        $h.push(" class=\"");
+        $h.push(ESC("seat-avatar-initial"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push(ESC(EV(10, $s1)));
+        $h.push("</span>");
+        $h.push("</div>");
+      }
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("seat-meta"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("seat-name"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(11, $s1)));
+      $h.push("</span>");
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("seat-sub"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(12, $s1)));
+      $h.push(" · ");
+      $h.push(ESC(EV(13, $s1)));
+      $h.push(" 声望");
+      $h.push("</span>");
+      $h.push("</div>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("seat-stats"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<span");
+      $h.push(">");
+      $h.push("卡 ");
+      $h.push(ESC(EV(14, $s1)));
+      $h.push("</span>");
+      $h.push("<span");
+      $h.push(">");
+      $h.push("预留 ");
+      $h.push(ESC(EV(15, $s1)));
+      $h.push("</span>");
+      $h.push("</div>");
+      $h.push("</div>");
+    }
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("turn-banner"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("turn-main"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(16, $s)));
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("turn-sub"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(17, $s)));
+    $h.push(" · ");
+    $h.push(ESC(EV(18, $s)));
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("top-right"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("gold-box"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("gold-coin coin-face coin-gold"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("pile-gem gem-icon gem-gold"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("gold-label"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("黄金 ");
+    $h.push(ESC(EV(19, $s)));
+    $h.push("</span>");
+    $h.push("</div>");
+    if (EV(20, $s)) {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("round-btn room-btn"));
+      $h.push("\"");
+      $h.push(" data-tap=\"onOpenLobby\"");
+      $h.push(">");
+      $h.push("<span");
+      $h.push(">");
+      $h.push("⚑");
+      $h.push("</span>");
+      $h.push("</div>");
+    }
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("round-btn"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onOpenProfile\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(">");
+    $h.push("☻");
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("round-btn"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onShowRules\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(">");
+    $h.push("?");
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("round-btn"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onRestart\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(">");
+    $h.push("↺");
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("left-rail"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("rail-shadow"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("</div>");
+    var $list2 = EV(21, $s) || [];
+    for (var $i2 = 0; $i2 < $list2.length; $i2++) {
+      var $s2 = Object.create($s);
+      $s2.item = $list2[$i2];
+      $s2.index = $i2;
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("deck-slot deck-lv-" + String(EV(22, $s2)))));
+      $h.push("\"");
+      $h.push(" data-tap=\"onTapDeck\"");
+      $h.push(" data-lv=\"");
+      $h.push(ESC(String(EV(22, $s2))));
+      $h.push("\"");
+      $h.push(" hover-class=\"");
+      $h.push(ESC("deck-hover"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("deck-stack " + String(EV(23, $s2)) + " " + String(EV(6, $s2)))));
+      $h.push("\"");
+      $h.push(" style=\"");
+      $h.push(ESC(String(EV(24, $s2))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("deck-edges"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("</div>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("deck-face"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("</div>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("deck-sheen"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("</div>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("deck-crest"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("deck-label"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(25, $s2)));
+      $h.push("</span>");
+      $h.push("</div>");
+      $h.push("</div>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("deck-count"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<span");
+      $h.push(">");
+      $h.push(ESC(EV(26, $s2)));
+      $h.push("</span>");
+      $h.push("</div>");
+      $h.push("</div>");
+    }
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("rail-hint"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("点击牌库 · 盲抽预留");
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("board"));
+    $h.push("\"");
+    $h.push(">");
+    var $list3 = EV(27, $s) || [];
+    for (var $i3 = 0; $i3 < $list3.length; $i3++) {
+      var $s3 = Object.create($s);
+      $s3.item = $list3[$i3];
+      $s3.index = $i3;
+      $s3.row = $list3[$i3];
+      $s3.ri = $i3;
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("card-row " + String(EV(28, $s3)))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("row-label"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(29, $s3)));
+      $h.push("</span>");
+      var $list4 = EV(30, $s3) || [];
+      for (var $i4 = 0; $i4 < $list4.length; $i4++) {
+        var $s4 = Object.create($s3);
+        $s4.item = $list4[$i4];
+        $s4.index = $i4;
+        $s4.card = $list4[$i4];
+        $s4.ci = $i4;
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC(("card-slot " + String(EV(31, $s4)))));
+        $h.push("\"");
+        $h.push(" data-tap=\"onTapCard\"");
+        $h.push(" data-lv=\"");
+        $h.push(ESC(String(EV(32, $s4))));
+        $h.push("\"");
+        $h.push(" data-index=\"");
+        $h.push(ESC(String(EV(33, $s4))));
+        $h.push("\"");
+        $h.push(" hover-class=\"");
+        $h.push(ESC("slot-hover"));
+        $h.push("\"");
+        $h.push(">");
+        if (EV(34, $s4)) {
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC(("card " + String(EV(35, $s4)))));
+          $h.push("\"");
+          $h.push(" style=\"");
+          $h.push(ESC(String(EV(36, $s4))));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("card-art"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC(("card-photo " + String(EV(37, $s4)) + " " + String(EV(38, $s4)))));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("art-glaze"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("<span");
+          $h.push(" class=\"");
+          $h.push(ESC("card-name"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push(ESC(EV(39, $s4)));
+          $h.push("</span>");
+          $h.push("</div>");
+          if (EV(40, $s4)) {
+            $h.push("<span");
+            $h.push(" class=\"");
+            $h.push(ESC("card-points"));
+            $h.push("\"");
+            $h.push(">");
+            $h.push(ESC(EV(40, $s4)));
+            $h.push("</span>");
+          }
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC(("card-gem gem-icon " + String(EV(41, $s4)))));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("card-foot"));
+          $h.push("\"");
+          $h.push(">");
+          var $list5 = EV(42, $s4) || [];
+          for (var $i5 = 0; $i5 < $list5.length; $i5++) {
+            var $s5 = Object.create($s4);
+            $s5.item = $list5[$i5];
+            $s5.index = $i5;
+            $s5.cost = $list5[$i5];
+            $h.push("<div");
+            $h.push(" class=\"");
+            $h.push(ESC(("cost-bubble gem-icon " + String(EV(43, $s5)) + " " + String(EV(44, $s5)))));
+            $h.push("\"");
+            $h.push(">");
+            $h.push("<span");
+            $h.push(" style=\"");
+            $h.push(ESC(("color:" + String(EV(45, $s5)))));
+            $h.push("\"");
+            $h.push(">");
+            $h.push(ESC(EV(46, $s5)));
+            $h.push("</span>");
+            $h.push("</div>");
+          }
+          $h.push("</div>");
+          $h.push("</div>");
+        } else {
+          $h.push("<div");
+          $h.push(" class=\"");
+          $h.push(ESC("card-empty"));
+          $h.push("\"");
+          $h.push(">");
+          $h.push("</div>");
+        }
+        $h.push("</div>");
+      }
+      $h.push("</div>");
+    }
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("right-rail"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("pile-area"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("rail-title"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("宝石筹码 · 点击选取");
+    $h.push("</span>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("pile-list"));
+    $h.push("\"");
+    $h.push(">");
+    var $list6 = EV(47, $s) || [];
+    for (var $i6 = 0; $i6 < $list6.length; $i6++) {
+      var $s6 = Object.create($s);
+      $s6.item = $list6[$i6];
+      $s6.index = $i6;
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("pile-item " + String(EV(48, $s6)) + " " + String(EV(49, $s6)) + " " + String(EV(50, $s6)) + " " + String(EV(51, $s6)))));
+      $h.push("\"");
+      $h.push(" data-tap=\"onTapPile\"");
+      $h.push(" data-key=\"");
+      $h.push(ESC(String(EV(52, $s6))));
+      $h.push("\"");
+      $h.push(" hover-class=\"");
+      $h.push(ESC("pile-hover"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("pile-coin coin-face " + String(EV(53, $s6)))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("pile-gem gem-icon " + String(EV(54, $s6)))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("</div>");
+      $h.push("</div>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("pile-count"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<span");
+      $h.push(">");
+      $h.push(ESC(EV(26, $s6)));
+      $h.push("</span>");
+      $h.push("</div>");
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("pile-name"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(25, $s6)));
+      $h.push("</span>");
+      $h.push("</div>");
+    }
+    $h.push("</div>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("pile-tip"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("黄金仅可通过预留获得");
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("noble-area"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("rail-title"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("贵族牌 · 各 3 声望");
+    $h.push("</span>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("noble-row"));
+    $h.push("\"");
+    $h.push(">");
+    var $list7 = EV(55, $s) || [];
+    for (var $i7 = 0; $i7 < $list7.length; $i7++) {
+      var $s7 = Object.create($s);
+      $s7.item = $list7[$i7];
+      $s7.index = $i7;
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("noble"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("noble-face"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("noble-photo " + String(EV(56, $s7)) + " " + String(EV(23, $s7)))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("</div>");
+      $h.push("</div>");
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("noble-points"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(13, $s7)));
+      $h.push("</span>");
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("noble-title"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(57, $s7)));
+      $h.push("</span>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("noble-reqs"));
+      $h.push("\"");
+      $h.push(">");
+      var $list8 = EV(58, $s7) || [];
+      for (var $i8 = 0; $i8 < $list8.length; $i8++) {
+        var $s8 = Object.create($s7);
+        $s8.item = $list8[$i8];
+        $s8.index = $i8;
+        $s8.req = $list8[$i8];
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC(("noble-req gem-icon " + String(EV(59, $s8)))));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("<span");
+        $h.push(">");
+        $h.push(ESC(EV(60, $s8)));
+        $h.push("</span>");
+        $h.push("</div>");
+      }
+      $h.push("</div>");
+      $h.push("</div>");
+    }
+    if (EV(61, $s)) {
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("noble-none"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("贵族牌已全部获得");
+      $h.push("</span>");
+    }
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("tray"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("tray-rim"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("tray-left"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("portrait-frame"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onTapMyPortrait\"");
+    $h.push(" hover-class=\"");
+    $h.push(ESC("portrait-hover"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("portrait"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("portrait-gem"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("player-badges"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("score-disc"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("score-num"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(62, $s)));
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("score-den"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("/15");
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("tray-reserved"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onShowReserved\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("tray-reserved-num"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(63, $s)));
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("tray-reserved-label"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("预留卡");
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("tray-vault"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("vault-total"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("vault-total-num"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(64, $s)));
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("vault-total-den"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("/10");
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("vault-groups"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("vault-group"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("vault-label"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("红利");
+    $h.push("</span>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("vault-row"));
+    $h.push("\"");
+    $h.push(">");
+    var $list9 = EV(65, $s) || [];
+    for (var $i9 = 0; $i9 < $list9.length; $i9++) {
+      var $s9 = Object.create($s);
+      $s9.item = $list9[$i9];
+      $s9.index = $i9;
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("disc-chip gem-icon " + String(EV(54, $s9)))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<span");
+      $h.push(">");
+      $h.push(ESC(EV(66, $s9)));
+      $h.push("</span>");
+      $h.push("</div>");
+    }
+    if (EV(67, $s)) {
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("disc-empty"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("尚无永久红利");
+      $h.push("</span>");
+    }
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("vault-group"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("vault-label"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("持有筹码");
+    $h.push("</span>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("vault-row"));
+    $h.push("\"");
+    $h.push(">");
+    var $list10 = EV(68, $s) || [];
+    for (var $i10 = 0; $i10 < $list10.length; $i10++) {
+      var $s10 = Object.create($s);
+      $s10.item = $list10[$i10];
+      $s10.index = $i10;
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("vault-token " + String(EV(69, $s10)) + " " + String(EV(70, $s10)))));
+      $h.push("\"");
+      $h.push(" data-tap=\"onTapMyToken\"");
+      $h.push(" data-key=\"");
+      $h.push(ESC(String(EV(52, $s10))));
+      $h.push("\"");
+      $h.push(" hover-class=\"");
+      $h.push(ESC("vault-hover"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("vault-token-icon gem-icon " + String(EV(54, $s10)))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("</div>");
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("vault-token-num"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(26, $s10)));
+      $h.push("</span>");
+      $h.push("</div>");
+    }
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("tray-right"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC(("hint " + String(EV(71, $s)))));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(72, $s)));
+    $h.push("</span>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn-row"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC(("btn btn-primary " + String(EV(73, $s)))));
+    $h.push("\"");
+    $h.push(" data-tap=\"onConfirmTake\"");
+    $h.push(">");
+    $h.push(ESC(EV(74, $s)));
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onCancelSelection\"");
+    $h.push(">");
+    $h.push("清除");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onPass\"");
+    $h.push(">");
+    $h.push("跳过");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+  }
+  if (EV(75, $s)) {
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("screen-layer home-screen"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("home-brand"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("brand-crest"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("brand-gem gem-icon gem-blue"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("brand-title"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("璀璨宝石");
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("brand-en"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("SPLENDOR");
+    $h.push("</span>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("brand-rule"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("</div>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("brand-desc"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("文艺复兴时期的珠宝商，在酒红绒面的牌桌上收集宝石、经营贸易、迎候贵族到访。");
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("brand-meta"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("2–4 人 · 横屏对局 · 先达 15 声望者胜");
+    $h.push("</span>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("brand-player"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onOpenProfile\"");
+    $h.push(" hover-class=\"");
+    $h.push(ESC("brand-player-hover"));
+    $h.push("\"");
+    $h.push(">");
+    if (EV(76, $s)) {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("brand-avatar"));
       $h.push("\"");
       $h.push(">");
       $h.push("<img");
       $h.push(" class=\"");
-      $h.push(ESC("seat-avatar-img"));
+      $h.push(ESC("brand-avatar-img"));
       $h.push("\"");
       $h.push(" src=\"");
-      $h.push(ESC(String(EV(7, $s1))));
+      $h.push(ESC(String(EV(76, $s))));
       $h.push("\"");
       $h.push(" mode=\"");
       $h.push(ESC("aspectFill"));
@@ -2512,812 +3718,548 @@ window.renderStage = function (data) {
     } else {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC("seat-avatar"));
+      $h.push(ESC("brand-avatar"));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(8, $s1)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(77, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(">");
-      $h.push("<span");
-      $h.push(" class=\"");
-      $h.push(ESC("seat-avatar-initial"));
-      $h.push("\"");
-      $h.push(">");
-      $h.push(ESC(EV(9, $s1)));
-      $h.push("</span>");
       $h.push("</div>");
     }
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC("seat-meta"));
+    $h.push(ESC("brand-player-text"));
     $h.push("\"");
     $h.push(">");
     $h.push("<span");
     $h.push(" class=\"");
-    $h.push(ESC("seat-name"));
+    $h.push(ESC("brand-player-name"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(10, $s1)));
+    $h.push(ESC(EV(78, $s)));
     $h.push("</span>");
     $h.push("<span");
     $h.push(" class=\"");
-    $h.push(ESC("seat-sub"));
+    $h.push(ESC("brand-player-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(11, $s1)));
-    $h.push(" · ");
-    $h.push(ESC(EV(12, $s1)));
-    $h.push(" 声望");
-    $h.push("</span>");
-    $h.push("</div>");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("seat-stats"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("<span");
-    $h.push(">");
-    $h.push("卡 ");
-    $h.push(ESC(EV(13, $s1)));
-    $h.push("</span>");
-    $h.push("<span");
-    $h.push(">");
-    $h.push("预留 ");
-    $h.push(ESC(EV(14, $s1)));
+    $h.push("点击修改头像与昵称");
     $h.push("</span>");
     $h.push("</div>");
     $h.push("</div>");
-  }
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("turn-banner"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("turn-main"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push(ESC(EV(15, $s)));
-  $h.push("</span>");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("turn-sub"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push(ESC(EV(16, $s)));
-  $h.push(" · ");
-  $h.push(ESC(EV(17, $s)));
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("top-right"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("gold-box"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("gold-coin coin-face coin-gold"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("pile-gem gem-icon gem-gold"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("gold-label"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("黄金 ");
-  $h.push(ESC(EV(18, $s)));
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("round-btn room-btn"));
-  $h.push("\"");
-  $h.push(" data-tap=\"onOpenLobby\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(">");
-  $h.push("⚙");
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("round-btn"));
-  $h.push("\"");
-  $h.push(" data-tap=\"onOpenProfile\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(">");
-  $h.push("☻");
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("round-btn"));
-  $h.push("\"");
-  $h.push(" data-tap=\"onShowRules\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(">");
-  $h.push("?");
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("round-btn"));
-  $h.push("\"");
-  $h.push(" data-tap=\"onRestart\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(">");
-  $h.push("↺");
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("left-rail"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("rail-shadow"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("</div>");
-  var $list2 = EV(19, $s) || [];
-  for (var $i2 = 0; $i2 < $list2.length; $i2++) {
-    var $s2 = Object.create($s);
-    $s2.item = $list2[$i2];
-    $s2.index = $i2;
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC(("deck-slot deck-lv-" + String(EV(20, $s2)))));
-    $h.push("\"");
-    $h.push(" data-tap=\"onTapDeck\"");
-    $h.push(" data-lv=\"");
-    $h.push(ESC(String(EV(20, $s2))));
-    $h.push("\"");
-    $h.push(" hover-class=\"");
-    $h.push(ESC("deck-hover"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC(("deck-stack " + String(EV(21, $s2)) + " " + String(EV(5, $s2)))));
-    $h.push("\"");
-    $h.push(" style=\"");
-    $h.push(ESC(String(EV(22, $s2))));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("deck-edges"));
-    $h.push("\"");
-    $h.push(">");
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC("deck-face"));
+    $h.push(ESC("home-main"));
     $h.push("\"");
     $h.push(">");
-    $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC("deck-sheen"));
+    $h.push(ESC("home-choices"));
     $h.push("\"");
     $h.push(">");
-    $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC("deck-crest"));
+    $h.push(ESC("choice"));
     $h.push("\"");
     $h.push(">");
     $h.push("<span");
     $h.push(" class=\"");
-    $h.push(ESC("deck-label"));
+    $h.push(ESC("choice-tag"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(23, $s2)));
+    $h.push("单人");
     $h.push("</span>");
-    $h.push("</div>");
-    $h.push("</div>");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("deck-count"));
-    $h.push("\"");
-    $h.push(">");
     $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-title"));
+    $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(24, $s2)));
+    $h.push("人机对战");
     $h.push("</span>");
-    $h.push("</div>");
-    $h.push("</div>");
-  }
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("rail-hint"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("点击牌库 · 盲抽预留");
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("board"));
-  $h.push("\"");
-  $h.push(">");
-  var $list3 = EV(25, $s) || [];
-  for (var $i3 = 0; $i3 < $list3.length; $i3++) {
-    var $s3 = Object.create($s);
-    $s3.item = $list3[$i3];
-    $s3.index = $i3;
-    $s3.row = $list3[$i3];
-    $s3.ri = $i3;
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-desc"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("立即开局，对手由本地 AI 托管，不依赖网络");
+    $h.push("</span>");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card-row " + String(EV(26, $s3)))));
+    $h.push(ESC("choice-points"));
     $h.push("\"");
     $h.push(">");
     $h.push("<span");
     $h.push(" class=\"");
-    $h.push(ESC("row-label"));
+    $h.push(ESC("choice-point"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(27, $s3)));
+    $h.push("规则完整：拿取 / 预留 / 购买 / 贵族");
     $h.push("</span>");
-    var $list4 = EV(28, $s3) || [];
-    for (var $i4 = 0; $i4 < $list4.length; $i4++) {
-      var $s4 = Object.create($s3);
-      $s4.item = $list4[$i4];
-      $s4.index = $i4;
-      $s4.card = $list4[$i4];
-      $s4.ci = $i4;
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-point"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("每局随机牌序，2–4 人自由设定");
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-counts"));
+    $h.push("\"");
+    $h.push(">");
+    var $list11 = EV(79, $s) || [];
+    for (var $i11 = 0; $i11 < $list11.length; $i11++) {
+      var $s11 = Object.create($s);
+      $s11.item = $list11[$i11];
+      $s11.index = $i11;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("card-slot " + String(EV(29, $s4)))));
+      $h.push(ESC(("count-chip " + String(EV(80, $s11)))));
       $h.push("\"");
-      $h.push(" data-tap=\"onTapCard\"");
-      $h.push(" data-lv=\"");
-      $h.push(ESC(String(EV(30, $s4))));
-      $h.push("\"");
-      $h.push(" data-index=\"");
-      $h.push(ESC(String(EV(31, $s4))));
-      $h.push("\"");
-      $h.push(" hover-class=\"");
-      $h.push(ESC("slot-hover"));
+      $h.push(" data-tap=\"onSelectSoloCount\"");
+      $h.push(" data-n=\"");
+      $h.push(ESC(String(EV(81, $s11))));
       $h.push("\"");
       $h.push(">");
-      if (EV(32, $s4)) {
+      $h.push(ESC(EV(25, $s11)));
+      $h.push("</div>");
+    }
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn btn-primary choice-btn"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onStartSolo\"");
+    $h.push(">");
+    $h.push("开始对局");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("choice choice-room"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-tag choice-tag-gold"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("联机");
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-title"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("邀请好友");
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-desc"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("创建房间并分享到群，好友入席准备，全员就绪后房主开始");
+    $h.push("</span>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-points"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-point"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("房间号 / 分享卡片两种入席方式");
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-point"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("实时显示加入人数与准备状态");
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("choice-counts"));
+    $h.push("\"");
+    $h.push(">");
+    var $list12 = EV(82, $s) || [];
+    for (var $i12 = 0; $i12 < $list12.length; $i12++) {
+      var $s12 = Object.create($s);
+      $s12.item = $list12[$i12];
+      $s12.index = $i12;
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("count-chip " + String(EV(80, $s12)))));
+      $h.push("\"");
+      $h.push(" data-tap=\"onSelectRoomCount\"");
+      $h.push(" data-n=\"");
+      $h.push(ESC(String(EV(81, $s12))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(25, $s12)));
+      $h.push("</div>");
+    }
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn btn-primary choice-btn"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onCreateRoom\"");
+    $h.push(">");
+    $h.push("创建房间");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("home-foot"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("home-join"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<input");
+    $h.push(" class=\"");
+    $h.push(ESC("room-input home-input"));
+    $h.push("\"");
+    $h.push(" type=\"");
+    $h.push(ESC("text"));
+    $h.push("\"");
+    $h.push(" maxlength=\"");
+    $h.push(ESC("6"));
+    $h.push("\"");
+    $h.push(" value=\"");
+    $h.push(ESC(String(EV(83, $s))));
+    $h.push("\"");
+    $h.push(" placeholder=\"");
+    $h.push(ESC("输入 6 位房间号加入"));
+    $h.push("\"");
+    $h.push(" data-input=\"onJoinCodeInput\"");
+    $h.push(">");
+    $h.push("</input>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onJoinFromHome\"");
+    $h.push(">");
+    $h.push("加入房间");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onShowRules\"");
+    $h.push(">");
+    $h.push("玩法");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC(("home-cloud " + String(EV(84, $s)))));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(85, $s)));
+    $h.push("</span>");
+    if (EV(86, $s)) {
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("room-notice"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(86, $s)));
+      $h.push("</span>");
+    }
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+  }
+  if (EV(87, $s)) {
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("screen-layer room-screen"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("room-top"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("room-code-block"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("room-code-label"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("房间号");
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("room-code-big"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(88, $s)));
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("room-backend"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(89, $s)));
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("room-status-block"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("room-status-main"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(90, $s)));
+    $h.push("</span>");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("room-status-sub"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(91, $s)));
+    $h.push("</span>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn room-leave"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onLeaveRoom\"");
+    $h.push(">");
+    $h.push("离开房间");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("room-seat-row"));
+    $h.push("\"");
+    $h.push(">");
+    var $list13 = EV(92, $s) || [];
+    for (var $i13 = 0; $i13 < $list13.length; $i13++) {
+      var $s13 = Object.create($s);
+      $s13.item = $list13[$i13];
+      $s13.index = $i13;
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("room-seat " + String(EV(93, $s13)) + " " + String(EV(6, $s13)) + " " + String(EV(94, $s13)))));
+      $h.push("\"");
+      $h.push(">");
+      if (EV(8, $s13)) {
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("card " + String(EV(33, $s4)))));
-        $h.push("\"");
-        $h.push(" style=\"");
-        $h.push(ESC(String(EV(34, $s4))));
+        $h.push(ESC("room-avatar"));
         $h.push("\"");
         $h.push(">");
-        $h.push("<div");
+        $h.push("<img");
         $h.push(" class=\"");
-        $h.push(ESC("card-art"));
+        $h.push(ESC("room-avatar-img"));
+        $h.push("\"");
+        $h.push(" src=\"");
+        $h.push(ESC(String(EV(8, $s13))));
+        $h.push("\"");
+        $h.push(" mode=\"");
+        $h.push(ESC("aspectFill"));
         $h.push("\"");
         $h.push(">");
-        $h.push("<div");
-        $h.push(" class=\"");
-        $h.push(ESC(("card-photo " + String(EV(35, $s4)) + " " + String(EV(36, $s4)))));
-        $h.push("\"");
-        $h.push(">");
-        $h.push("</div>");
-        $h.push("<div");
-        $h.push(" class=\"");
-        $h.push(ESC("art-glaze"));
-        $h.push("\"");
-        $h.push(">");
-        $h.push("</div>");
-        $h.push("<span");
-        $h.push(" class=\"");
-        $h.push(ESC("card-name"));
-        $h.push("\"");
-        $h.push(">");
-        $h.push(ESC(EV(37, $s4)));
-        $h.push("</span>");
-        $h.push("</div>");
-        if (EV(38, $s4)) {
-          $h.push("<span");
-          $h.push(" class=\"");
-          $h.push(ESC("card-points"));
-          $h.push("\"");
-          $h.push(">");
-          $h.push(ESC(EV(38, $s4)));
-          $h.push("</span>");
-        }
-        $h.push("<div");
-        $h.push(" class=\"");
-        $h.push(ESC(("card-gem gem-icon " + String(EV(39, $s4)))));
-        $h.push("\"");
-        $h.push(">");
-        $h.push("</div>");
-        $h.push("<div");
-        $h.push(" class=\"");
-        $h.push(ESC("card-foot"));
-        $h.push("\"");
-        $h.push(">");
-        var $list5 = EV(40, $s4) || [];
-        for (var $i5 = 0; $i5 < $list5.length; $i5++) {
-          var $s5 = Object.create($s4);
-          $s5.item = $list5[$i5];
-          $s5.index = $i5;
-          $s5.cost = $list5[$i5];
-          $h.push("<div");
-          $h.push(" class=\"");
-          $h.push(ESC(("cost-bubble gem-icon " + String(EV(41, $s5)) + " " + String(EV(42, $s5)))));
-          $h.push("\"");
-          $h.push(">");
-          $h.push("<span");
-          $h.push(" style=\"");
-          $h.push(ESC(("color:" + String(EV(43, $s5)))));
-          $h.push("\"");
-          $h.push(">");
-          $h.push(ESC(EV(44, $s5)));
-          $h.push("</span>");
-          $h.push("</div>");
-        }
-        $h.push("</div>");
+        $h.push("</img>");
         $h.push("</div>");
       } else {
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC("card-empty"));
+        $h.push(ESC("room-avatar"));
+        $h.push("\"");
+        $h.push(" style=\"");
+        $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(9, $s13)) + " 52%, rgba(20,10,16,.92) 100%);")));
         $h.push("\"");
         $h.push(">");
+        $h.push("<span");
+        $h.push(" class=\"");
+        $h.push(ESC("room-avatar-no"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push(ESC(EV(95, $s13)));
+        $h.push("</span>");
+        $h.push("</div>");
+      }
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("room-seat-label"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(25, $s13)));
+      $h.push("</span>");
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("room-seat-name"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(11, $s13)));
+      $h.push("</span>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("room-seat-state " + String(EV(96, $s13)))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<span");
+      $h.push(">");
+      $h.push(ESC(EV(97, $s13)));
+      $h.push("</span>");
+      $h.push("</div>");
+      if (EV(98, $s13)) {
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC("room-seat-action"));
+        $h.push("\"");
+        $h.push(" data-tap=\"onRoomToggleBot\"");
+        $h.push(" data-index=\"");
+        $h.push(ESC(String(EV(7, $s13))));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("设为机器人");
         $h.push("</div>");
       }
       $h.push("</div>");
     }
     $h.push("</div>");
-  }
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("right-rail"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("pile-area"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("rail-title"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("宝石筹码 · 点击选取");
-  $h.push("</span>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("pile-list"));
-  $h.push("\"");
-  $h.push(">");
-  var $list6 = EV(45, $s) || [];
-  for (var $i6 = 0; $i6 < $list6.length; $i6++) {
-    var $s6 = Object.create($s);
-    $s6.item = $list6[$i6];
-    $s6.index = $i6;
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("pile-item " + String(EV(46, $s6)) + " " + String(EV(47, $s6)) + " " + String(EV(48, $s6)) + " " + String(EV(49, $s6)))));
-    $h.push("\"");
-    $h.push(" data-tap=\"onTapPile\"");
-    $h.push(" data-key=\"");
-    $h.push(ESC(String(EV(50, $s6))));
-    $h.push("\"");
-    $h.push(" hover-class=\"");
-    $h.push(ESC("pile-hover"));
+    $h.push(ESC(("room-tip " + String(EV(99, $s)))));
     $h.push("\"");
     $h.push(">");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC(("pile-coin coin-face " + String(EV(51, $s6)))));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC(("pile-gem gem-icon " + String(EV(52, $s6)))));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("</div>");
+    $h.push(ESC(EV(100, $s)));
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC("pile-count"));
+    $h.push(ESC("room-bottom"));
     $h.push("\"");
     $h.push(">");
-    $h.push("<span");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("room-invite"));
+    $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(24, $s6)));
-    $h.push("</span>");
+    $h.push("<button");
+    $h.push(" class=\"");
+    $h.push(ESC("btn share-btn"));
+    $h.push("\"");
+    $h.push(" open-type=\"");
+    $h.push(ESC("share"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("分享到群");
+    $h.push("</button>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onCopyRoomCode\"");
+    $h.push(">");
+    $h.push("复制房间号");
     $h.push("</div>");
     $h.push("<span");
     $h.push(" class=\"");
-    $h.push(ESC("pile-name"));
+    $h.push(ESC("invite-tip"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(23, $s6)));
+    $h.push("好友点分享卡片即自动入席");
     $h.push("</span>");
     $h.push("</div>");
-  }
-  $h.push("</div>");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("pile-tip"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("黄金仅可通过预留获得");
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("noble-area"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("rail-title"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("贵族牌 · 各 3 声望");
-  $h.push("</span>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("noble-row"));
-  $h.push("\"");
-  $h.push(">");
-  var $list7 = EV(53, $s) || [];
-  for (var $i7 = 0; $i7 < $list7.length; $i7++) {
-    var $s7 = Object.create($s);
-    $s7.item = $list7[$i7];
-    $s7.index = $i7;
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("noble"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("noble-face"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC(("noble-photo " + String(EV(54, $s7)) + " " + String(EV(21, $s7)))));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("</div>");
-    $h.push("</div>");
-    $h.push("<span");
-    $h.push(" class=\"");
-    $h.push(ESC("noble-points"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push(ESC(EV(12, $s7)));
-    $h.push("</span>");
-    $h.push("<span");
-    $h.push(" class=\"");
-    $h.push(ESC("noble-title"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push(ESC(EV(55, $s7)));
-    $h.push("</span>");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("noble-reqs"));
-    $h.push("\"");
-    $h.push(">");
-    var $list8 = EV(56, $s7) || [];
-    for (var $i8 = 0; $i8 < $list8.length; $i8++) {
-      var $s8 = Object.create($s7);
-      $s8.item = $list8[$i8];
-      $s8.index = $i8;
-      $s8.req = $list8[$i8];
+    if (EV(101, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("noble-req gem-icon " + String(EV(57, $s8)))));
+      $h.push(ESC("room-counts"));
       $h.push("\"");
       $h.push(">");
       $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("room-counts-label"));
+      $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(58, $s8)));
+      $h.push("人数");
       $h.push("</span>");
+      var $list14 = EV(102, $s) || [];
+      for (var $i14 = 0; $i14 < $list14.length; $i14++) {
+        var $s14 = Object.create($s);
+        $s14.item = $list14[$i14];
+        $s14.index = $i14;
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC(("count-chip " + String(EV(80, $s14)))));
+        $h.push("\"");
+        $h.push(" data-tap=\"onRoomCount\"");
+        $h.push(" data-n=\"");
+        $h.push(ESC(String(EV(81, $s14))));
+        $h.push("\"");
+        $h.push(">");
+        $h.push(ESC(EV(25, $s14)));
+        $h.push("</div>");
+      }
+      $h.push("</div>");
+    }
+    if (EV(103, $s)) {
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC("room-notice"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(103, $s)));
+      $h.push("</span>");
+    }
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("room-actions"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<span");
+    $h.push(" class=\"");
+    $h.push(ESC("room-action-note"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(104, $s)));
+    $h.push("</span>");
+    if (EV(101, $s)) {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("btn btn-primary room-start " + String(EV(105, $s)))));
+      $h.push("\"");
+      $h.push(" data-tap=\"onRoomStart\"");
+      $h.push(">");
+      $h.push(ESC(EV(106, $s)));
+      $h.push("</div>");
+    } else {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("btn btn-primary room-start " + String(EV(107, $s)))));
+      $h.push("\"");
+      $h.push(" data-tap=\"onRoomToggleReady\"");
+      $h.push(">");
+      $h.push(ESC(EV(106, $s)));
       $h.push("</div>");
     }
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(59, $s)) {
-    $h.push("<span");
-    $h.push(" class=\"");
-    $h.push(ESC("noble-none"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("贵族牌已全部获得");
-    $h.push("</span>");
-  }
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("tray"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("tray-rim"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("tray-left"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("portrait-frame"));
-  $h.push("\"");
-  $h.push(" data-tap=\"onTapMyPortrait\"");
-  $h.push(" hover-class=\"");
-  $h.push(ESC("portrait-hover"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("portrait"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("portrait-gem"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("player-badges"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("score-disc"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("score-num"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push(ESC(EV(60, $s)));
-  $h.push("</span>");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("score-den"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("/15");
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("tray-reserved"));
-  $h.push("\"");
-  $h.push(" data-tap=\"onShowReserved\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("tray-reserved-num"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push(ESC(EV(61, $s)));
-  $h.push("</span>");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("tray-reserved-label"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("预留卡");
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("tray-vault"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("vault-total"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("vault-total-num"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push(ESC(EV(62, $s)));
-  $h.push("</span>");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("vault-total-den"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("/10");
-  $h.push("</span>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("vault-groups"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("vault-group"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("vault-label"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("红利");
-  $h.push("</span>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("vault-row"));
-  $h.push("\"");
-  $h.push(">");
-  var $list9 = EV(63, $s) || [];
-  for (var $i9 = 0; $i9 < $list9.length; $i9++) {
-    var $s9 = Object.create($s);
-    $s9.item = $list9[$i9];
-    $s9.index = $i9;
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC(("disc-chip gem-icon " + String(EV(52, $s9)))));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("<span");
-    $h.push(">");
-    $h.push(ESC(EV(64, $s9)));
-    $h.push("</span>");
-    $h.push("</div>");
-  }
-  if (EV(65, $s)) {
-    $h.push("<span");
-    $h.push(" class=\"");
-    $h.push(ESC("disc-empty"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("尚无永久红利");
-    $h.push("</span>");
-  }
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("vault-group"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC("vault-label"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("持有筹码");
-  $h.push("</span>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("vault-row"));
-  $h.push("\"");
-  $h.push(">");
-  var $list10 = EV(66, $s) || [];
-  for (var $i10 = 0; $i10 < $list10.length; $i10++) {
-    var $s10 = Object.create($s);
-    $s10.item = $list10[$i10];
-    $s10.index = $i10;
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC(("vault-token " + String(EV(67, $s10)) + " " + String(EV(68, $s10)))));
-    $h.push("\"");
-    $h.push(" data-tap=\"onTapMyToken\"");
-    $h.push(" data-key=\"");
-    $h.push(ESC(String(EV(50, $s10))));
-    $h.push("\"");
-    $h.push(" hover-class=\"");
-    $h.push(ESC("vault-hover"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC(("vault-token-icon gem-icon " + String(EV(52, $s10)))));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("</div>");
-    $h.push("<span");
-    $h.push(" class=\"");
-    $h.push(ESC("vault-token-num"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push(ESC(EV(24, $s10)));
-    $h.push("</span>");
-    $h.push("</div>");
-  }
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("tray-right"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<span");
-  $h.push(" class=\"");
-  $h.push(ESC(("hint " + String(EV(69, $s)))));
-  $h.push("\"");
-  $h.push(">");
-  $h.push(ESC(EV(70, $s)));
-  $h.push("</span>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("btn-row"));
-  $h.push("\"");
-  $h.push(">");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC(("btn btn-primary " + String(EV(71, $s)))));
-  $h.push("\"");
-  $h.push(" data-tap=\"onConfirmTake\"");
-  $h.push(">");
-  $h.push(ESC(EV(72, $s)));
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("btn"));
-  $h.push("\"");
-  $h.push(" data-tap=\"onCancelSelection\"");
-  $h.push(">");
-  $h.push("清除");
-  $h.push("</div>");
-  $h.push("<div");
-  $h.push(" class=\"");
-  $h.push(ESC("btn"));
-  $h.push("\"");
-  $h.push(" data-tap=\"onPass\"");
-  $h.push(">");
-  $h.push("跳过");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("</div>");
-  $h.push("</div>");
-  if (EV(73, $s)) {
+  if (EV(108, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -3340,7 +4282,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(74, $s)));
+    $h.push(ESC(EV(109, $s)));
     $h.push("</span>");
     $h.push("<span");
     $h.push(" class=\"");
@@ -3348,11 +4290,11 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("第 ");
-    $h.push(ESC(EV(75, $s)));
+    $h.push(ESC(EV(110, $s)));
     $h.push(" 级发展卡 · ");
-    $h.push(ESC(EV(76, $s)));
+    $h.push(ESC(EV(111, $s)));
     $h.push(" · 产出");
-    $h.push(ESC(EV(77, $s)));
+    $h.push(ESC(EV(112, $s)));
     $h.push("红利");
     $h.push("</span>");
     $h.push("</div>");
@@ -3373,7 +4315,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card-photo " + String(EV(78, $s)) + " " + String(EV(79, $s)))));
+    $h.push(ESC(("card-photo " + String(EV(113, $s)) + " " + String(EV(114, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("</div>");
@@ -3388,21 +4330,21 @@ window.renderStage = function (data) {
     $h.push(ESC("card-name"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(74, $s)));
+    $h.push(ESC(EV(109, $s)));
     $h.push("</span>");
     $h.push("</div>");
-    if (EV(80, $s)) {
+    if (EV(115, $s)) {
       $h.push("<span");
       $h.push(" class=\"");
       $h.push(ESC("card-points"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(80, $s)));
+      $h.push(ESC(EV(115, $s)));
       $h.push("</span>");
     }
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card-gem gem-icon " + String(EV(81, $s)))));
+    $h.push(ESC(("card-gem gem-icon " + String(EV(116, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("</div>");
@@ -3411,23 +4353,23 @@ window.renderStage = function (data) {
     $h.push(ESC("card-foot"));
     $h.push("\"");
     $h.push(">");
-    var $list11 = EV(82, $s) || [];
-    for (var $i11 = 0; $i11 < $list11.length; $i11++) {
-      var $s11 = Object.create($s);
-      $s11.item = $list11[$i11];
-      $s11.index = $i11;
-      $s11.cost = $list11[$i11];
+    var $list15 = EV(117, $s) || [];
+    for (var $i15 = 0; $i15 < $list15.length; $i15++) {
+      var $s15 = Object.create($s);
+      $s15.item = $list15[$i15];
+      $s15.index = $i15;
+      $s15.cost = $list15[$i15];
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("cost-bubble gem-icon " + String(EV(41, $s11)) + " " + String(EV(42, $s11)))));
+      $h.push(ESC(("cost-bubble gem-icon " + String(EV(43, $s15)) + " " + String(EV(44, $s15)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<span");
       $h.push(" style=\"");
-      $h.push(ESC(("color:" + String(EV(43, $s11)))));
+      $h.push(ESC(("color:" + String(EV(45, $s15)))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(44, $s11)));
+      $h.push(ESC(EV(46, $s15)));
       $h.push("</span>");
       $h.push("</div>");
     }
@@ -3445,19 +4387,19 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("购买成本（气泡为扣除红利后的实付量）");
     $h.push("</span>");
-    var $list12 = EV(83, $s) || [];
-    for (var $i12 = 0; $i12 < $list12.length; $i12++) {
-      var $s12 = Object.create($s);
-      $s12.item = $list12[$i12];
-      $s12.index = $i12;
+    var $list16 = EV(118, $s) || [];
+    for (var $i16 = 0; $i16 < $list16.length; $i16++) {
+      var $s16 = Object.create($s);
+      $s16.item = $list16[$i16];
+      $s16.index = $i16;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("cost-line " + String(EV(84, $s12)))));
+      $h.push(ESC(("cost-line " + String(EV(119, $s16)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("cost-line-dot gem-icon " + String(EV(52, $s12)))));
+      $h.push(ESC(("cost-line-dot gem-icon " + String(EV(54, $s16)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -3466,7 +4408,7 @@ window.renderStage = function (data) {
       $h.push(ESC("cost-line-label"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(23, $s12)));
+      $h.push(ESC(EV(25, $s16)));
       $h.push("</span>");
       $h.push("<span");
       $h.push(" class=\"");
@@ -3474,20 +4416,20 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("印刷 ");
-      $h.push(ESC(EV(85, $s12)));
+      $h.push(ESC(EV(120, $s16)));
       $h.push(" − 红利 ");
-      $h.push(ESC(EV(86, $s12)));
+      $h.push(ESC(EV(121, $s16)));
       $h.push(" = 实付 ");
-      $h.push(ESC(EV(87, $s12)));
+      $h.push(ESC(EV(122, $s16)));
       $h.push("</span>");
       $h.push("</div>");
     }
     $h.push("<span");
     $h.push(" class=\"");
-    $h.push(ESC(("detail-summary " + String(EV(88, $s)))));
+    $h.push(ESC(("detail-summary " + String(EV(123, $s)))));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(89, $s)));
+    $h.push(ESC(EV(124, $s)));
     $h.push("</span>");
     $h.push("<span");
     $h.push(" class=\"");
@@ -3505,16 +4447,16 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("btn btn-primary " + String(EV(90, $s)))));
+    $h.push(ESC(("btn btn-primary " + String(EV(125, $s)))));
     $h.push("\"");
     $h.push(" data-tap=\"onBuyFromDetail\"");
     $h.push(">");
     $h.push("购买此卡");
     $h.push("</div>");
-    if (EV(91, $s)) {
+    if (EV(126, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("btn " + String(EV(92, $s)))));
+      $h.push(ESC(("btn " + String(EV(127, $s)))));
       $h.push("\"");
       $h.push(" data-tap=\"onReserveFromDetail\"");
       $h.push(">");
@@ -3533,7 +4475,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(93, $s)) {
+  if (EV(128, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -3557,7 +4499,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("我的预留卡（");
-    $h.push(ESC(EV(94, $s)));
+    $h.push(ESC(EV(129, $s)));
     $h.push("/3）");
     $h.push("</span>");
     $h.push("<span");
@@ -3573,18 +4515,18 @@ window.renderStage = function (data) {
     $h.push(ESC("reserved-list"));
     $h.push("\"");
     $h.push(">");
-    var $list13 = EV(95, $s) || [];
-    for (var $i13 = 0; $i13 < $list13.length; $i13++) {
-      var $s13 = Object.create($s);
-      $s13.item = $list13[$i13];
-      $s13.index = $i13;
+    var $list17 = EV(130, $s) || [];
+    for (var $i17 = 0; $i17 < $list17.length; $i17++) {
+      var $s17 = Object.create($s);
+      $s17.item = $list17[$i17];
+      $s17.index = $i17;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("reserved-item"));
       $h.push("\"");
       $h.push(" data-tap=\"onTapReservedCard\"");
       $h.push(" data-index=\"");
-      $h.push(ESC(String(EV(6, $s13))));
+      $h.push(ESC(String(EV(7, $s17))));
       $h.push("\"");
       $h.push(">");
       $h.push("<div");
@@ -3599,7 +4541,7 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("card-photo " + String(EV(54, $s13)) + " " + String(EV(21, $s13)))));
+      $h.push(ESC(("card-photo " + String(EV(56, $s17)) + " " + String(EV(23, $s17)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -3614,21 +4556,21 @@ window.renderStage = function (data) {
       $h.push(ESC("card-name"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(10, $s13)));
+      $h.push(ESC(EV(11, $s17)));
       $h.push("</span>");
       $h.push("</div>");
-      if (EV(96, $s13)) {
+      if (EV(131, $s17)) {
         $h.push("<span");
         $h.push(" class=\"");
         $h.push(ESC("card-points"));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(96, $s13)));
+        $h.push(ESC(EV(131, $s17)));
         $h.push("</span>");
       }
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("card-gem gem-icon " + String(EV(52, $s13)))));
+      $h.push(ESC(("card-gem gem-icon " + String(EV(54, $s17)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -3637,23 +4579,23 @@ window.renderStage = function (data) {
       $h.push(ESC("card-foot"));
       $h.push("\"");
       $h.push(">");
-      var $list14 = EV(97, $s13) || [];
-      for (var $i14 = 0; $i14 < $list14.length; $i14++) {
-        var $s14 = Object.create($s13);
-        $s14.item = $list14[$i14];
-        $s14.index = $i14;
-        $s14.cost = $list14[$i14];
+      var $list18 = EV(132, $s17) || [];
+      for (var $i18 = 0; $i18 < $list18.length; $i18++) {
+        var $s18 = Object.create($s17);
+        $s18.item = $list18[$i18];
+        $s18.index = $i18;
+        $s18.cost = $list18[$i18];
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("cost-bubble gem-icon " + String(EV(41, $s14)) + " " + String(EV(42, $s14)))));
+        $h.push(ESC(("cost-bubble gem-icon " + String(EV(43, $s18)) + " " + String(EV(44, $s18)))));
         $h.push("\"");
         $h.push(">");
         $h.push("<span");
         $h.push(" style=\"");
-        $h.push(ESC(("color:" + String(EV(43, $s14)))));
+        $h.push(ESC(("color:" + String(EV(45, $s18)))));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(44, $s14)));
+        $h.push(ESC(EV(46, $s18)));
         $h.push("</span>");
         $h.push("</div>");
       }
@@ -3661,7 +4603,7 @@ window.renderStage = function (data) {
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(98, $s)) {
+    if (EV(133, $s)) {
       $h.push("<span");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -3688,7 +4630,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(99, $s)) {
+  if (EV(134, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay overlay-top"));
@@ -3718,7 +4660,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(100, $s)));
+    $h.push(ESC(EV(135, $s)));
     $h.push(" 人对局 · 先达到 15 声望者胜 · 点击任意头像可查看详情");
     $h.push("</span>");
     $h.push("</div>");
@@ -3732,7 +4674,7 @@ window.renderStage = function (data) {
     $h.push(ESC("rule-item"));
     $h.push("\"");
     $h.push(">");
-    $h.push("1. 支持 2 / 3 / 4 人：点右上「⚙」调整人数，未加入的席位可切换为机器人托管。");
+    $h.push("1. 支持 2 / 3 / 4 人：首页可开「人机对战」或「邀请好友」；房间内所有真人点「准备」、房主才可开始，空席可改成机器人。");
     $h.push("</span>");
     $h.push("<span");
     $h.push(" class=\"");
@@ -3787,7 +4729,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(101, $s)) {
+  if (EV(136, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -3811,14 +4753,14 @@ window.renderStage = function (data) {
     $h.push(ESC("result-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(102, $s)));
+    $h.push(ESC(EV(137, $s)));
     $h.push("</span>");
     $h.push("<span");
     $h.push(" class=\"");
     $h.push(ESC("result-detail"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(103, $s)));
+    $h.push(ESC(EV(138, $s)));
     $h.push("</span>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -3833,27 +4775,29 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("再来一局");
     $h.push("</div>");
+    if (EV(20, $s)) {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("btn"));
+      $h.push("\"");
+      $h.push(" data-tap=\"onOpenLobby\"");
+      $h.push(">");
+      $h.push("房间信息");
+      $h.push("</div>");
+    }
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("btn"));
     $h.push("\"");
-    $h.push(" data-tap=\"onOpenLobby\"");
+    $h.push(" data-tap=\"onLeaveRoom\"");
     $h.push(">");
-    $h.push("房间大厅");
-    $h.push("</div>");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("btn"));
-    $h.push("\"");
-    $h.push(" data-tap=\"onShowRules\"");
-    $h.push(">");
-    $h.push("查看规则");
+    $h.push("返回首页");
     $h.push("</div>");
     $h.push("</div>");
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(104, $s)) {
+  if (EV(139, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay overlay-top"));
@@ -3876,18 +4820,17 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push("房间大厅 · ");
-    $h.push(ESC(EV(105, $s)));
+    $h.push("房间 · ");
+    $h.push(ESC(EV(88, $s)));
     $h.push("</span>");
     $h.push("<span");
     $h.push(" class=\"");
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(106, $s)));
+    $h.push(ESC(EV(90, $s)));
     $h.push(" · ");
-    $h.push(ESC(EV(100, $s)));
-    $h.push(" 人牌局 · 未加入的席位可添加机器人");
+    $h.push(ESC(EV(89, $s)));
     $h.push("</span>");
     $h.push("</div>");
     $h.push("<div");
@@ -3905,54 +4848,18 @@ window.renderStage = function (data) {
     $h.push(ESC("lobby-label"));
     $h.push("\"");
     $h.push(">");
-    $h.push("对局人数");
-    $h.push("</span>");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("count-row"));
-    $h.push("\"");
-    $h.push(">");
-    var $list15 = EV(107, $s) || [];
-    for (var $i15 = 0; $i15 < $list15.length; $i15++) {
-      var $s15 = Object.create($s);
-      $s15.item = $list15[$i15];
-      $s15.index = $i15;
-      $h.push("<div");
-      $h.push(" class=\"");
-      $h.push(ESC(("count-btn " + String(EV(108, $s15)))));
-      $h.push("\"");
-      $h.push(" data-tap=\"onSelectPlayerCount\"");
-      $h.push(" data-n=\"");
-      $h.push(ESC(String(EV(109, $s15))));
-      $h.push("\"");
-      $h.push(">");
-      $h.push(ESC(EV(23, $s15)));
-      $h.push("</div>");
-    }
-    $h.push("</div>");
-    $h.push("</div>");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("lobby-section"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("<span");
-    $h.push(" class=\"");
-    $h.push(ESC("lobby-label"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("席位安排");
+    $h.push("席位");
     $h.push("</span>");
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("seat-setup"));
     $h.push("\"");
     $h.push(">");
-    var $list16 = EV(110, $s) || [];
-    for (var $i16 = 0; $i16 < $list16.length; $i16++) {
-      var $s16 = Object.create($s);
-      $s16.item = $list16[$i16];
-      $s16.index = $i16;
+    var $list19 = EV(92, $s) || [];
+    for (var $i19 = 0; $i19 < $list19.length; $i19++) {
+      var $s19 = Object.create($s);
+      $s19.item = $list19[$i19];
+      $s19.index = $i19;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("setup-seat"));
@@ -3963,7 +4870,7 @@ window.renderStage = function (data) {
       $h.push(ESC("setup-avatar"));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(8, $s16)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(9, $s19)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -3972,36 +4879,22 @@ window.renderStage = function (data) {
       $h.push(ESC("setup-label"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(23, $s16)));
+      $h.push(ESC(EV(25, $s19)));
       $h.push("</span>");
       $h.push("<span");
       $h.push(" class=\"");
       $h.push(ESC("setup-name"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(10, $s16)));
+      $h.push(ESC(EV(11, $s19)));
       $h.push("</span>");
-      if (EV(111, $s16)) {
-        $h.push("<div");
-        $h.push(" class=\"");
-        $h.push(ESC(("setup-toggle " + String(EV(4, $s16)))));
-        $h.push("\"");
-        $h.push(" data-tap=\"onToggleBot\"");
-        $h.push(" data-index=\"");
-        $h.push(ESC(String(EV(6, $s16))));
-        $h.push("\"");
-        $h.push(">");
-        $h.push(ESC(EV(112, $s16)));
-        $h.push("</div>");
-      } else {
-        $h.push("<span");
-        $h.push(" class=\"");
-        $h.push(ESC("setup-host"));
-        $h.push("\"");
-        $h.push(">");
-        $h.push("房主");
-        $h.push("</span>");
-      }
+      $h.push("<span");
+      $h.push(" class=\"");
+      $h.push(ESC(("setup-state " + String(EV(140, $s19)))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(97, $s19)));
+      $h.push("</span>");
       $h.push("</div>");
     }
     $h.push("</div>");
@@ -4028,7 +4921,7 @@ window.renderStage = function (data) {
     $h.push(ESC("room-code"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(105, $s)));
+    $h.push(ESC(EV(88, $s)));
     $h.push("</span>");
     $h.push("<button");
     $h.push(" class=\"");
@@ -4053,57 +4946,24 @@ window.renderStage = function (data) {
     $h.push(ESC("invite-tip"));
     $h.push("\"");
     $h.push(">");
-    $h.push("点「分享到群」选微信群，成员点卡片即可入席");
+    $h.push("下一局开始前仍可邀请");
     $h.push("</span>");
-    $h.push("</div>");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("join-row"));
-    $h.push("\"");
-    $h.push(">");
-    $h.push("<input");
-    $h.push(" class=\"");
-    $h.push(ESC("room-input"));
-    $h.push("\"");
-    $h.push(" type=\"");
-    $h.push(ESC("text"));
-    $h.push("\"");
-    $h.push(" maxlength=\"");
-    $h.push(ESC("6"));
-    $h.push("\"");
-    $h.push(" value=\"");
-    $h.push(ESC(String(EV(113, $s))));
-    $h.push("\"");
-    $h.push(" placeholder=\"");
-    $h.push(ESC("输入 6 位房间号"));
-    $h.push("\"");
-    $h.push(" data-input=\"onJoinCodeInput\"");
-    $h.push(">");
-    $h.push("</input>");
-    $h.push("<div");
-    $h.push(" class=\"");
-    $h.push(ESC("btn"));
-    $h.push("\"");
-    $h.push(" data-tap=\"onJoinRoom\"");
-    $h.push(">");
-    $h.push("加入房间");
-    $h.push("</div>");
     $h.push("</div>");
     $h.push("<span");
     $h.push(" class=\"");
     $h.push(ESC("room-hint"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(114, $s)));
+    $h.push(ESC(EV(91, $s)));
     $h.push("</span>");
     $h.push("</div>");
-    if (EV(115, $s)) {
+    if (EV(103, $s)) {
       $h.push("<span");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(115, $s)));
+      $h.push(ESC(EV(103, $s)));
       $h.push("</span>");
     }
     $h.push("</div>");
@@ -4116,25 +4976,23 @@ window.renderStage = function (data) {
     $h.push(" class=\"");
     $h.push(ESC("btn btn-primary"));
     $h.push("\"");
-    $h.push(" data-tap=\"onStartRoom\"");
+    $h.push(" data-tap=\"onCloseLobby\"");
     $h.push(">");
-    $h.push("开始牌局（");
-    $h.push(ESC(EV(116, $s)));
-    $h.push(" 人）");
+    $h.push("返回牌桌");
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("btn"));
     $h.push("\"");
-    $h.push(" data-tap=\"onCloseLobby\"");
+    $h.push(" data-tap=\"onLeaveRoom\"");
     $h.push(">");
-    $h.push("返回牌桌");
+    $h.push("离开房间");
     $h.push("</div>");
     $h.push("</div>");
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(117, $s)) {
+  if (EV(141, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -4157,14 +5015,14 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(118, $s)));
+    $h.push(ESC(EV(142, $s)));
     $h.push("</span>");
     $h.push("<span");
     $h.push(" class=\"");
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(119, $s)));
+    $h.push(ESC(EV(143, $s)));
     $h.push("</span>");
     $h.push("</div>");
     $h.push("<div");
@@ -4177,7 +5035,7 @@ window.renderStage = function (data) {
     $h.push(ESC("player-left"));
     $h.push("\"");
     $h.push(">");
-    if (EV(120, $s)) {
+    if (EV(144, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("player-avatar"));
@@ -4188,7 +5046,7 @@ window.renderStage = function (data) {
       $h.push(ESC("player-avatar-img"));
       $h.push("\"");
       $h.push(" src=\"");
-      $h.push(ESC(String(EV(120, $s))));
+      $h.push(ESC(String(EV(144, $s))));
       $h.push("\"");
       $h.push(" mode=\"");
       $h.push(ESC("aspectFill"));
@@ -4202,7 +5060,7 @@ window.renderStage = function (data) {
       $h.push(ESC("player-avatar"));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(121, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(145, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -4212,7 +5070,7 @@ window.renderStage = function (data) {
     $h.push(ESC("player-score"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(122, $s)));
+    $h.push(ESC(EV(146, $s)));
     $h.push(" / 15 声望");
     $h.push("</span>");
     $h.push("<span");
@@ -4221,11 +5079,11 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("发展卡 ");
-    $h.push(ESC(EV(123, $s)));
+    $h.push(ESC(EV(147, $s)));
     $h.push(" · 预留 ");
-    $h.push(ESC(EV(124, $s)));
+    $h.push(ESC(EV(148, $s)));
     $h.push(" · 筹码 ");
-    $h.push(ESC(EV(125, $s)));
+    $h.push(ESC(EV(149, $s)));
     $h.push("/10");
     $h.push("</span>");
     $h.push("<span");
@@ -4235,11 +5093,11 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("声望构成");
     $h.push("</span>");
-    var $list17 = EV(126, $s) || [];
-    for (var $i17 = 0; $i17 < $list17.length; $i17++) {
-      var $s17 = Object.create($s);
-      $s17.item = $list17[$i17];
-      $s17.index = $i17;
+    var $list20 = EV(150, $s) || [];
+    for (var $i20 = 0; $i20 < $list20.length; $i20++) {
+      var $s20 = Object.create($s);
+      $s20.item = $list20[$i20];
+      $s20.index = $i20;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("score-line"));
@@ -4247,11 +5105,11 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<span");
       $h.push(">");
-      $h.push(ESC(EV(23, $s17)));
+      $h.push(ESC(EV(25, $s20)));
       $h.push("</span>");
       $h.push("<span");
       $h.push(">");
-      $h.push(ESC(EV(127, $s17)));
+      $h.push(ESC(EV(151, $s20)));
       $h.push("</span>");
       $h.push("</div>");
     }
@@ -4267,23 +5125,23 @@ window.renderStage = function (data) {
     $h.push(ESC("player-chips"));
     $h.push("\"");
     $h.push(">");
-    var $list18 = EV(128, $s) || [];
-    for (var $i18 = 0; $i18 < $list18.length; $i18++) {
-      var $s18 = Object.create($s);
-      $s18.item = $list18[$i18];
-      $s18.index = $i18;
+    var $list21 = EV(152, $s) || [];
+    for (var $i21 = 0; $i21 < $list21.length; $i21++) {
+      var $s21 = Object.create($s);
+      $s21.item = $list21[$i21];
+      $s21.index = $i21;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("disc-chip gem-icon " + String(EV(52, $s18)))));
+      $h.push(ESC(("disc-chip gem-icon " + String(EV(54, $s21)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<span");
       $h.push(">");
-      $h.push(ESC(EV(64, $s18)));
+      $h.push(ESC(EV(66, $s21)));
       $h.push("</span>");
       $h.push("</div>");
     }
-    if (EV(129, $s)) {
+    if (EV(153, $s)) {
       $h.push("<span");
       $h.push(" class=\"");
       $h.push(ESC("disc-empty"));
@@ -4305,19 +5163,19 @@ window.renderStage = function (data) {
     $h.push(ESC("player-chips"));
     $h.push("\"");
     $h.push(">");
-    var $list19 = EV(130, $s) || [];
-    for (var $i19 = 0; $i19 < $list19.length; $i19++) {
-      var $s19 = Object.create($s);
-      $s19.item = $list19[$i19];
-      $s19.index = $i19;
+    var $list22 = EV(154, $s) || [];
+    for (var $i22 = 0; $i22 < $list22.length; $i22++) {
+      var $s22 = Object.create($s);
+      $s22.item = $list22[$i22];
+      $s22.index = $i22;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("disc-chip gem-icon " + String(EV(52, $s19)) + " " + String(EV(67, $s19)))));
+      $h.push(ESC(("disc-chip gem-icon " + String(EV(54, $s22)) + " " + String(EV(69, $s22)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<span");
       $h.push(">");
-      $h.push(ESC(EV(24, $s19)));
+      $h.push(ESC(EV(26, $s22)));
       $h.push("</span>");
       $h.push("</div>");
     }
@@ -4334,7 +5192,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("预留卡（");
-    $h.push(ESC(EV(131, $s)));
+    $h.push(ESC(EV(155, $s)));
     $h.push("/3）");
     $h.push("</span>");
     $h.push("<div");
@@ -4342,11 +5200,11 @@ window.renderStage = function (data) {
     $h.push(ESC("pd-list"));
     $h.push("\"");
     $h.push(">");
-    var $list20 = EV(132, $s) || [];
-    for (var $i20 = 0; $i20 < $list20.length; $i20++) {
-      var $s20 = Object.create($s);
-      $s20.item = $list20[$i20];
-      $s20.index = $i20;
+    var $list23 = EV(156, $s) || [];
+    for (var $i23 = 0; $i23 < $list23.length; $i23++) {
+      var $s23 = Object.create($s);
+      $s23.item = $list23[$i23];
+      $s23.index = $i23;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("pd-card"));
@@ -4359,7 +5217,7 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("card-photo " + String(EV(54, $s20)) + " " + String(EV(21, $s20)))));
+      $h.push(ESC(("card-photo " + String(EV(56, $s23)) + " " + String(EV(23, $s23)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -4374,7 +5232,7 @@ window.renderStage = function (data) {
       $h.push(ESC("pd-card-name"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(10, $s20)));
+      $h.push(ESC(EV(11, $s23)));
       $h.push("</span>");
       $h.push("<span");
       $h.push(" class=\"");
@@ -4382,23 +5240,23 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("第 ");
-      $h.push(ESC(EV(133, $s20)));
+      $h.push(ESC(EV(157, $s23)));
       $h.push(" 级 · ");
-      $h.push(ESC(EV(96, $s20)));
+      $h.push(ESC(EV(131, $s23)));
       $h.push(" 声望 · ");
-      $h.push(ESC(EV(134, $s20)));
+      $h.push(ESC(EV(158, $s23)));
       $h.push("红利");
       $h.push("</span>");
       $h.push("</div>");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("pd-card-gem gem-icon " + String(EV(52, $s20)))));
+      $h.push(ESC(("pd-card-gem gem-icon " + String(EV(54, $s23)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(135, $s)) {
+    if (EV(159, $s)) {
       $h.push("<span");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -4414,7 +5272,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("贵族到访（");
-    $h.push(ESC(EV(136, $s)));
+    $h.push(ESC(EV(160, $s)));
     $h.push("）");
     $h.push("</span>");
     $h.push("<div");
@@ -4422,11 +5280,11 @@ window.renderStage = function (data) {
     $h.push(ESC("pd-list"));
     $h.push("\"");
     $h.push(">");
-    var $list21 = EV(137, $s) || [];
-    for (var $i21 = 0; $i21 < $list21.length; $i21++) {
-      var $s21 = Object.create($s);
-      $s21.item = $list21[$i21];
-      $s21.index = $i21;
+    var $list24 = EV(161, $s) || [];
+    for (var $i24 = 0; $i24 < $list24.length; $i24++) {
+      var $s24 = Object.create($s);
+      $s24.item = $list24[$i24];
+      $s24.index = $i24;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("pd-noble"));
@@ -4437,7 +5295,7 @@ window.renderStage = function (data) {
       $h.push(ESC("pd-noble-title"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(55, $s21)));
+      $h.push(ESC(EV(57, $s24)));
       $h.push("</span>");
       $h.push("<span");
       $h.push(" class=\"");
@@ -4445,34 +5303,34 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("+");
-      $h.push(ESC(EV(12, $s21)));
+      $h.push(ESC(EV(13, $s24)));
       $h.push("</span>");
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("pd-noble-reqs"));
       $h.push("\"");
       $h.push(">");
-      var $list22 = EV(56, $s21) || [];
-      for (var $i22 = 0; $i22 < $list22.length; $i22++) {
-        var $s22 = Object.create($s21);
-        $s22.item = $list22[$i22];
-        $s22.index = $i22;
-        $s22.req = $list22[$i22];
+      var $list25 = EV(58, $s24) || [];
+      for (var $i25 = 0; $i25 < $list25.length; $i25++) {
+        var $s25 = Object.create($s24);
+        $s25.item = $list25[$i25];
+        $s25.index = $i25;
+        $s25.req = $list25[$i25];
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("noble-req gem-icon " + String(EV(57, $s22)))));
+        $h.push(ESC(("noble-req gem-icon " + String(EV(59, $s25)))));
         $h.push("\"");
         $h.push(">");
         $h.push("<span");
         $h.push(">");
-        $h.push(ESC(EV(58, $s22)));
+        $h.push(ESC(EV(60, $s25)));
         $h.push("</span>");
         $h.push("</div>");
       }
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(138, $s)) {
+    if (EV(162, $s)) {
       $h.push("<span");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -4501,7 +5359,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(139, $s)) {
+  if (EV(163, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -4544,7 +5402,7 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-current"));
     $h.push("\"");
     $h.push(">");
-    if (EV(140, $s)) {
+    if (EV(164, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("profile-avatar"));
@@ -4555,7 +5413,7 @@ window.renderStage = function (data) {
       $h.push(ESC("profile-avatar-img"));
       $h.push("\"");
       $h.push(" src=\"");
-      $h.push(ESC(String(EV(140, $s))));
+      $h.push(ESC(String(EV(164, $s))));
       $h.push("\"");
       $h.push(" mode=\"");
       $h.push(ESC("aspectFill"));
@@ -4581,7 +5439,7 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-nickname"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(141, $s)));
+    $h.push(ESC(EV(165, $s)));
     $h.push("</span>");
     $h.push("<span");
     $h.push(" class=\"");
@@ -4589,7 +5447,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("当前头像：");
-    $h.push(ESC(EV(142, $s)));
+    $h.push(ESC(EV(166, $s)));
     $h.push("</span>");
     $h.push("</div>");
     $h.push("</div>");
@@ -4616,7 +5474,7 @@ window.renderStage = function (data) {
     $h.push(ESC("12"));
     $h.push("\"");
     $h.push(" value=\"");
-    $h.push(ESC(String(EV(141, $s))));
+    $h.push(ESC(String(EV(165, $s))));
     $h.push("\"");
     $h.push(" placeholder=\"");
     $h.push(ESC("输入或选择微信昵称"));
@@ -4624,7 +5482,7 @@ window.renderStage = function (data) {
     $h.push(" data-input=\"onNicknameInput\"");
     $h.push(">");
     $h.push("</input>");
-    if (EV(143, $s)) {
+    if (EV(167, $s)) {
       $h.push("<button");
       $h.push(" class=\"");
       $h.push(ESC("native-avatar-btn"));
@@ -4643,21 +5501,21 @@ window.renderStage = function (data) {
     $h.push(ESC("preset-nicknames"));
     $h.push("\"");
     $h.push(">");
-    var $list23 = EV(144, $s) || [];
-    for (var $i23 = 0; $i23 < $list23.length; $i23++) {
-      var $s23 = Object.create($s);
-      $s23.item = $list23[$i23];
-      $s23.index = $i23;
+    var $list26 = EV(168, $s) || [];
+    for (var $i26 = 0; $i26 < $list26.length; $i26++) {
+      var $s26 = Object.create($s);
+      $s26.item = $list26[$i26];
+      $s26.index = $i26;
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("preset-nick"));
       $h.push("\"");
       $h.push(" data-tap=\"onPickNickname\"");
       $h.push(" data-name=\"");
-      $h.push(ESC(String(EV(145, $s23))));
+      $h.push(ESC(String(EV(169, $s26))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(145, $s23)));
+      $h.push(ESC(EV(169, $s26)));
       $h.push("</div>");
     }
     $h.push("</div>");
@@ -4673,37 +5531,37 @@ window.renderStage = function (data) {
     $h.push(ESC("preset-avatars"));
     $h.push("\"");
     $h.push(">");
-    var $list24 = EV(146, $s) || [];
-    for (var $i24 = 0; $i24 < $list24.length; $i24++) {
-      var $s24 = Object.create($s);
-      $s24.item = $list24[$i24];
-      $s24.index = $i24;
+    var $list27 = EV(170, $s) || [];
+    for (var $i27 = 0; $i27 < $list27.length; $i27++) {
+      var $s27 = Object.create($s);
+      $s27.item = $list27[$i27];
+      $s27.index = $i27;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("preset-avatar " + String(EV(108, $s24)))));
+      $h.push(ESC(("preset-avatar " + String(EV(80, $s27)))));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(147, $s24)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(171, $s27)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(" data-tap=\"onPickAvatar\"");
       $h.push(" data-key=\"");
-      $h.push(ESC(String(EV(50, $s24))));
+      $h.push(ESC(String(EV(52, $s27))));
       $h.push("\"");
       $h.push(">");
       $h.push("<span");
       $h.push(">");
-      $h.push(ESC(EV(10, $s24)));
+      $h.push(ESC(EV(11, $s27)));
       $h.push("</span>");
       $h.push("</div>");
     }
     $h.push("</div>");
-    if (EV(148, $s)) {
+    if (EV(172, $s)) {
       $h.push("<span");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(148, $s)));
+      $h.push(ESC(EV(172, $s)));
       $h.push("</span>");
     }
     $h.push("<span");
@@ -4960,39 +5818,125 @@ function playerDetailVM(state, index, room, selfSeat) {
   };
 }
 
-function lobbyVM(ui, room, profile, mySeat) {
-  const self = mySeat || 0;
-  const counts = [2, 3, 4].map(function (n) {
-    return { n: n, label: n + ' 人', active: ui.playerCount === n };
-  });
-  const seats = [];
-  for (let i = 0; i < ui.playerCount; i++) {
-    const cs = (room && room.seats && room.seats[i]) || {};
-    const isBot = i > 0 ? !!ui.bots[i] : false;
-    seats.push({
-      index: i,
-      label: (i === 0 ? '房主' : '席位 ' + (i + 1)) + (i === self ? ' · 你' : ''),
-      name: i === self
-        ? (profile ? profile.nickname : '珠宝商')
-        : (cs.nickname || (isBot ? '机器人托管' : '等待好友加入')),
-      isBot: isBot,
-      canToggle: i > 0 && i !== self,
-      type: i === self ? 'self' : (isBot ? 'bot' : 'remote'),
-      avatarHue: avatarHue(i === self
-        ? ((profile && profile.avatar) || 'a0')
-        : (cs.avatar || R.PRESET_AVATARS[i % R.PRESET_AVATARS.length].key))
+/** 首页入口：两种模式的人数选择与云端可用性 */
+function homeVM(ui, profile) {
+  function counts(active, key) {
+    return [2, 3, 4].map(function (n) {
+      return { n: n, key: key, label: n + ' 人', active: active === n };
     });
   }
-  const cloud = !!(room && room.backend === 'cloud');
+  const solo = ui.soloCount || 2;
+  const room = ui.roomCount || 3;
+  const cloud = R.hasCloud();
   return {
-    counts: counts,
-    seats: seats,
-    playerCount: ui.playerCount,
-    roomCode: room ? room.code : '',
+    nickname: (profile && profile.nickname) || '珠宝商',
+    avatarHue: avatarHue((profile && profile.avatar) || 'a0'),
+    avatarUrl: (profile && profile.avatarUrl) || '',
+    soloCount: solo,
+    roomCount: room,
+    soloCounts: counts(solo, 'solo'),
+    roomCounts: counts(room, 'room'),
+    cloud: cloud,
+    cloudText: cloud
+      ? '云端已连接 · 可微信邀请好友跨设备加入'
+      : '本机模式 · 人机对战可玩；跨设备邀请需连接云端',
+    joinCode: ui.joinCode || '',
+    notice: ui.homeNotice || ''
+  };
+}
+
+/**
+ * 房间界面：加入人数 / 准备状态 / 房主开始条件。
+ * 房主创建房间即视为就绪，机器人恒定就绪，真人入席后必须自己点「准备」。
+ */
+function roomScreenVM(ui, room, profile, mySeat) {
+  const self = mySeat || 0;
+  const amHost = self === 0;
+  const raw = (room && room.seats) || [];
+  const list = [];
+  let joinedHumans = 0;
+  let botCount = 0;
+  let readyCount = 0;
+  let waitingReady = 0;
+  let emptyCount = 0;
+
+  for (let i = 0; i < raw.length; i++) {
+    const s = raw[i] || {};
+    const isHost = i === 0;
+    const isBot = !!s.isAI;
+    const joined = !!s.joined;
+    const isSelf = i === self;
+    const ready = isBot || isHost || !!s.ready;
+    if (isBot) botCount += 1;
+    else if (joined) joinedHumans += 1;
+    if (ready) readyCount += 1;
+    if (!isBot && joined && !ready) waitingReady += 1;
+    if (!isBot && !joined) emptyCount += 1;
+    list.push({
+      index: i,
+      seatNo: i + 1,
+      isHost: isHost,
+      isBot: isBot,
+      isSelf: isSelf,
+      joined: joined,
+      ready: ready,
+      empty: !joined && !isBot,
+      label: isHost ? '房主' : (isBot ? '机器人' : '席位 ' + (i + 1) + (isSelf ? ' · 你' : '')),
+      name: isSelf
+        ? ((profile && profile.nickname) || '珠宝商')
+        : (s.nickname || s.name || (isBot ? '机器人 ' + (i + 1) : '等待好友')),
+      avatarHue: avatarHue(isSelf
+        ? ((profile && profile.avatar) || 'a0')
+        : (s.avatar || R.PRESET_AVATARS[i % R.PRESET_AVATARS.length].key)),
+      avatarUrl: isSelf ? ((profile && profile.avatarUrl) || '') : (s.avatarUrl || ''),
+      stateText: isBot ? '已就绪'
+        : (isHost ? '房主 · 已就绪'
+          : (ready ? '已准备' : (joined ? '未准备' : '空席'))),
+      canReady: !isHost && !isBot && joined && isSelf,
+      canToggleBot: amHost && !isSelf && !joined
+    });
+  }
+
+  const total = list.length || (ui.playerCount || 2);
+  const isHost = amHost;
+  const allSettled = list.length > 0 && list.every(function (s) {
+    return s.isBot || (s.joined && s.ready);
+  });
+  const cloud = !!(room && room.backend === 'cloud');
+  const mySeatData = raw[self] || {};
+
+  return {
+    code: room ? room.code : '',
+    status: room ? room.status : 'lobby',
+    seats: list,
+    playerCount: total,
+    joinedHumans: joinedHumans,
+    botCount: botCount,
+    readyCount: readyCount,
+    waitingReady: waitingReady,
+    emptyCount: emptyCount,
+    isHost: isHost,
+    myReady: isHost || !!mySeatData.ready,
+    canStart: isHost && allSettled,
+    readyLabel: (isHost || mySeatData.ready) ? '取消准备' : '准备',
+    startLabel: isHost
+      ? (allSettled ? '开始牌局' : '等待玩家准备')
+      : (mySeatData.ready ? '已准备 · 等房主开始' : '准备后等房主开始'),
+    statusText: '已加入 ' + joinedHumans + ' 人 · 已准备 ' + readyCount + '/' + total,
+    tip: allSettled
+      ? '全员已就绪，房主可以开始牌局'
+      : (waitingReady > 0
+        ? '还有 ' + waitingReady + ' 位玩家未准备'
+        : '还有 ' + emptyCount + ' 个空席位：等好友加入，或点席位下方「设为机器人」'),
+    counts: (function () {
+      return [2, 3, 4].map(function (n) {
+        return { n: n, label: n + ' 人', active: total === n };
+      });
+    })(),
     backend: cloud ? '云端同步' : '本机房间',
     backendHint: cloud
-      ? '房间状态已云端同步，好友可跨设备加入；牌局自动同步。'
-      : '当前为本机房间：浏览器预览或无云端能力时，好友无法跨设备加入。',
+      ? '席位与准备状态实时同步，好友进房后会出现在空席上。'
+      : '本机房间：浏览器预览下好友无法跨设备加入，可把空席改成机器人先开局。',
     joinCode: ui.joinCode || '',
     notice: ui.roomNotice || ''
   };
@@ -5071,6 +6015,61 @@ function buildViewModel(state, ui, layout, ctx) {
   const profile = context.profile || null;
   // 联机后本机可能是 1/2/3 号席；所有「我的」视角都由 mySeat 驱动
   const seat = context.mySeat === undefined ? 0 : context.mySeat;
+  // 入口界面 / 房间大厅 / 牌桌 三态；无牌局状态时自动落到首页
+  const screen = ui.screen || (state ? 'game' : 'home');
+  const canNativeAvatar = !!(typeof wx !== 'undefined' && wx.canIUse &&
+    wx.canIUse('button.open-type.chooseAvatar'));
+
+  if (screen !== 'game' || !state) {
+    return {
+      stageScale: layout.scale,
+      stageRotate: layout.rotate,
+      screen: screen,
+      home: homeVM(ui, profile),
+      roomScreen: roomScreenVM(ui, room, profile, seat),
+      profileDialog: profileVM(ui, profile),
+      showProfile: !!ui.showProfile,
+      showRules: !!ui.showRules,
+      showReserved: false,
+      showLobby: false,
+      showPlayerDetail: false,
+      playerDetail: null,
+      canUseNativeAvatar: canNativeAvatar,
+      toast: ui.toast || '',
+      meName: (profile && profile.nickname) || '珠宝商',
+      meAvatarHue: avatarHue((profile && profile.avatar) || 'a0'),
+      playerCount: (room && room.playerCount) || ui.playerCount || 2,
+      roomCode: room ? room.code : '',
+      roomMode: !!(room && room.mode === 'room'),
+      roomBackend: room && room.backend === 'cloud' ? '云端同步' : '本机房间',
+      rows: [],
+      decks: [],
+      bankPiles: [],
+      nobles: [],
+      seats: [],
+      rivals: [],
+      reservedCards: [],
+      detail: null,
+      gameOver: false,
+      isMyTurn: false,
+      needDiscard: false,
+      discardCount: 0,
+      selectionCount: 0,
+      canConfirm: false,
+      confirmLabel: '确认拿取',
+      statusText: '',
+      turnText: '',
+      logText: '',
+      hintText: '',
+      goldCount: 0,
+      goldStyle: '',
+      resultTitle: '',
+      resultDetail: '',
+      me: { name: '', points: 0, totalTokens: 0, reservedCount: 0, tokens: [], discounts: [] },
+      rival: { name: '', points: 0, cardCount: 0, reservedCount: 0, tokens: [] }
+    };
+  }
+
   const me = state.players[seat] || state.players[0];
   const rival = state.players[seat === 0 ? 1 : 0] || me;
   const isMyTurn = state.current === seat && !state.gameOver;
@@ -5206,6 +6205,9 @@ function buildViewModel(state, ui, layout, ctx) {
   return {
     stageScale: layout.scale,
     stageRotate: layout.rotate,
+    screen: 'game',
+    home: homeVM(ui, profile),
+    roomScreen: roomScreenVM(ui, room, profile, seat),
     rows: rows,
     decks: decks,
     bankPiles: bankPiles,
@@ -5216,8 +6218,8 @@ function buildViewModel(state, ui, layout, ctx) {
     seats: seats,
     playerCount: state.players.length,
     roomCode: room ? room.code : '',
+    roomMode: !!(room && room.mode === 'room'),
     roomBackend: room && room.backend === 'cloud' ? '云端同步' : '本机房间',
-    lobby: lobbyVM(ui, room, profile, seat),
     profileDialog: profileVM(ui, profile),
     playerDetail: ui.showPlayerDetail ? playerDetailVM(state, ui.detailSeat, room, seat) : null,
     showLobby: !!ui.showLobby,
@@ -5225,8 +6227,7 @@ function buildViewModel(state, ui, layout, ctx) {
     showProfile: !!ui.showProfile,
     meName: (profile && profile.nickname) || me.nickname || me.name,
     meAvatarHue: avatarHue((profile && profile.avatar) || me.avatar || 'a0'),
-    canUseNativeAvatar: !!(typeof wx !== 'undefined' && wx.canIUse &&
-      wx.canIUse('button.open-type.chooseAvatar')),
+    canUseNativeAvatar: canNativeAvatar,
     rival: {
       name: rival.name,
       points: rival.points,
@@ -5277,14 +6278,20 @@ function needsAutoPlay(state, ctx) {
 function freshUI(config) {
   const c = config || {};
   return {
+    // 入口界面 / 房间大厅 / 牌桌
+    screen: c.screen || 'home',
     selectedGems: [],
     toast: '',
     detail: null,
     showRules: false,
     showReserved: false,
+    // 入口界面的两种模式人数
+    soloCount: c.soloCount || 2,
+    roomCount: c.roomCount || 3,
+    homeNotice: '',
     // 房间配置：重开一局时保留人数与机器人席位
     playerCount: c.playerCount || 2,
-    bots: c.bots || { 1: true, 2: true, 3: true },
+    bots: c.bots || { 1: false, 2: false, 3: false },
     showLobby: false,
     showPlayerDetail: false,
     detailSeat: -1,
@@ -5314,35 +6321,36 @@ Page({
     this._polling = false;
     this._pendingPush = false;
     this._pendingJoin = false;
+    this._enteringGame = false;
+    this.mode = 'solo';
     this.mySeat = 0;
     this.profile = R.getProfile();
-    this.ui = freshUI();
+    this.ui = freshUI({ screen: 'home' });
 
-    // 微信分享卡片带 ?room=XXXXXX；有云端能力时自动入席，
-    // 没有云端能力（浏览器预览）时保留手动「加入房间」的本机路径。
+    // 微信分享卡片带 ?room=XXXXXX：有云端能力时直接入席，
+    // 没有云端能力（浏览器预览）时留在首页并说明原因。
     const query = options || {};
-    if (query.room && R.hasCloud()) this._pendingJoin = String(query.room).toUpperCase();
-    this.startGame();
-
     if (query.room) {
       const code = String(query.room).toUpperCase();
       this.ui.joinCode = code;
-      if (this._pendingJoin) {
-        this.joinCloudRoom(this._pendingJoin);
-        this._pendingJoin = false;
+      if (R.hasCloud()) {
+        this.joinCloudRoom(code);
       } else {
-        this.ui.showLobby = true;
-        this.ui.roomNotice = '收到房间邀请 ' + code + ' · 当前设备未连接云端，只能在本机试玩';
+        this.ui.homeNotice = '收到房间邀请 ' + code + ' · 当前设备未连接云端，无法跨设备加入';
         this.refresh('');
       }
+      return;
     }
+    this.refresh('');
   },
 
-  /** 按当前人数与机器人配置重开一局，并同步创建 / 刷新房间 */
-  startGame() {
+  /** 人机对战：本地牌局，不建云端房间、不发起任何网络请求 */
+  startLocalGame() {
     this.clearTimer();
     this.stopCloudPolling();
-    this.mySeat = 0;                       // 房主恒为 0 号席
+    this.mode = 'solo';
+    this.mySeat = 0;
+    this._cloudCode = '';
     this._cloudVersion = 0;
     this._roomVersion = 0;
     const profile = this.profile || R.getProfile();
@@ -5351,18 +6359,22 @@ Page({
     this.room = R.createRoom({
       playerCount: this.ui.playerCount,
       seats: seats,
-      profile: profile
+      profile: profile,
+      status: 'playing'
     });
-    this._cloudCode = this.room.code;
+    this.room.mode = 'solo';
+    this.ui.screen = 'game';
     this.ui.detail = null;
     this.ui.showReserved = false;
     this.ui.showPlayerDetail = false;
-    this.setData(buildViewModel(this.state, this.ui, this._layout, {
-      room: this.room, profile: this.profile, mySeat: this.mySeat
-    }));
-    if (!this._pendingJoin && R.hasCloud()) this.createCloudRoom();
+    this.ui.showLobby = false;
+    this.ui.selectedGems = [];
+    this.refresh('');
     this.maybeRunAi({ ended: true });
   },
+
+  /** 兼容旧调用：默认走人机对战 */
+  startGame() { this.startLocalGame(); },
 
   onShow() {
     // 从后台切回时，若仍轮到托管席位则恢复其行动节奏
@@ -5413,50 +6425,63 @@ Page({
 
   createCloudRoom() {
     const that = this;
-    return R.cloudCreateRoom(this.room, this.state).then(function (res) {
+    // 大厅阶段不写牌局快照，等房主点「开始牌局」时再落 state，
+    // 否则好友入席时会拿到一副还没开始的牌。
+    return R.cloudCreateRoom(this.room, null).then(function (res) {
       if (res.ok) {
-        that._cloudVersion = res.version;
         that._roomVersion = res.version;
         that.ui.roomNotice = '房间 ' + that.room.code + ' 已同步到云端，分享给好友即可跨设备加入';
         that.startCloudPolling();
       } else if (!res.offline) {
-        that.ui.roomNotice = '云端同步不可用：' + res.error + '（本机牌局仍可玩）';
+        that.ui.roomNotice = '云端同步不可用：' + res.error + '（本机房间仍可开局）';
       }
       that.refresh('');
     });
   },
 
-  /** 好友通过分享卡片 / 房间号入席，返回自己的席位并接管牌局快照 */
+  /** 好友通过分享卡片 / 房间号入席：进大厅准备，或接管进行中的牌局 */
   joinCloudRoom(code) {
     const that = this;
-    this.ui.roomNotice = '正在加入云端房间 ' + code + ' …';
+    this.ui.roomNotice = '正在加入房间 ' + code + ' …';
+    this.ui.homeNotice = '正在加入房间 ' + code + ' …';
     this.refresh('');
     return R.cloudJoinRoom(code, this.profile).then(function (res) {
       if (!res.ok) {
-        that.ui.showLobby = true;
+        that.ui.screen = 'home';
+        that.ui.homeNotice = res.error;
         that.ui.roomNotice = res.error;
         that.refresh('');
         return;
       }
       that.clearTimer();
+      that.mode = 'room';
       that.mySeat = res.seat;
       that.room = res.room;
+      that.room.mode = 'room';
       that._cloudCode = res.room.code;
-      that._cloudVersion = res.version;
-      that.state = res.state;
-      const p = that.state.players[that.mySeat];
-      if (p) {
-        p.nickname = that.profile.nickname;
-        p.name = that.profile.nickname;
-        p.avatar = that.profile.avatar;
-        p.avatarUrl = that.profile.avatarUrl || '';
-        p.joined = true;
+      that._roomVersion = res.room.version || 1;
+      that._cloudVersion = res.version || 0;
+      that.ui.playerCount = res.room.playerCount;
+
+      if (res.status === 'playing' && res.state) {
+        that.state = res.state;
+        const p = that.state.players[that.mySeat];
+        if (p) {
+          p.nickname = that.profile.nickname;
+          p.name = that.profile.nickname;
+          p.avatar = that.profile.avatar;
+          p.avatarUrl = that.profile.avatarUrl || '';
+          p.joined = true;
+        }
+        that.ui.screen = 'game';
+        that.refresh('已重新加入牌局 ' + res.room.code + ' · 席位 ' + (res.seat + 1));
+      } else {
+        that.state = null;
+        that.ui.screen = 'room';
+        that.ui.roomNotice = '';
+        that.refresh('已加入房间 ' + res.room.code + ' · 点「准备」等房主开始');
       }
-      that.ui.showLobby = false;
-      that.ui.roomNotice = '';
-      that.refresh('已加入云端房间 ' + res.room.code + ' · 你是席位 ' + (res.seat + 1));
       that.startCloudPolling();
-      that.pushCloudState();
       // 首次入席且从未改过资料：立刻引导取昵称，否则同房间多人全叫「珠宝商」
       if (!that.profile.customized) {
         that.ui.profileDraft = Object.assign({}, that.profile);
@@ -5464,13 +6489,32 @@ Page({
         that.ui.showProfile = true;
         that.refresh('');
       }
+      if (that.ui.screen === 'game') that.maybeRunAi({ ended: true });
+    });
+  },
+
+  /** 房主开局后，其他设备轮询到 status=playing 时切入牌桌 */
+  enterCloudGame() {
+    if (this._enteringGame) return;
+    this._enteringGame = true;
+    const that = this;
+    R.cloudPullGame(this._cloudCode).then(function (res) {
+      that._enteringGame = false;
+      if (!res.ok) return;         // 快照还没写完，下一轮轮询再试
+      that.state = res.state;
+      that._cloudVersion = res.version;
+      that.ui.screen = 'game';
+      that.ui.playerCount = res.state.players.length;
+      that.ui.detail = null;
+      that.ui.selectedGems = [];
+      that.refresh('牌局开始');
       that.maybeRunAi({ ended: true });
     });
   },
 
   /** 每次合法动作后提交快照；并发动作排队，避免漏推 */
   pushCloudState() {
-    if (!R.hasCloud() || !this._cloudCode) return;
+    if (!R.hasCloud() || !this._cloudCode || !this.state) return;
     if (this._syncing) { this._pendingPush = true; return; }
     const that = this;
     const expected = this._cloudVersion;
@@ -5497,7 +6541,9 @@ Page({
     if (!R.hasCloud() || !this._cloudCode) return;
     this.stopCloudPolling();
     const that = this;
-    this._pollTimer = setInterval(function () { that.pollCloud(false); }, 1600);
+    // 大厅阶段只需要更快看到「谁进来了 / 谁准备了」，牌局阶段可以稍慢
+    const period = this.ui.screen === 'room' ? 1200 : 1600;
+    this._pollTimer = setInterval(function () { that.pollCloud(false); }, period);
   },
 
   stopCloudPolling() {
@@ -5507,16 +6553,48 @@ Page({
     }
   },
 
-  /** PostgREST 无实时订阅，用 1.6s 轮询 + version 比对实现牌局同步 */
+  /**
+   * 云端没有实时订阅能力，用轮询 + version 比对实现同步：
+   *   大厅 → 拉房间行（席位 / 准备 / status）
+   *   牌桌 → 拉牌局快照（state / version）
+   */
   pollCloud(force) {
     if (!R.hasCloud() || !this._cloudCode || this._polling) return;
     const that = this;
+
+    if (this.ui.screen === 'room') {
+      this._polling = true;
+      R.cloudPullRoom(this._cloudCode).then(function (res) {
+        that._polling = false;
+        if (!res.ok) return;
+        const changed = force || res.version !== that._roomVersion;
+        that._roomVersion = res.version;
+        that.room = Object.assign({}, that.room, res.room, { mode: 'room' });
+        if (res.room.status === 'playing') {
+          that.enterCloudGame();
+          return;
+        }
+        if (changed) that.refresh('');
+      });
+      return;
+    }
+
     const known = this._cloudVersion;
     this._polling = true;
     R.cloudPullGame(this._cloudCode).then(function (res) {
       that._polling = false;
       if (!res.ok) return;
       if (!force && res.version === known) return;
+      // 房主已回到大厅：其他设备同步退回房间界面重新准备
+      if (res.state && res.state.lobby) {
+        that.state = null;
+        that._cloudVersion = 0;
+        that.ui.screen = 'room';
+        that.ui.selectedGems = [];
+        that.ui.detail = null;
+        that.refresh('房主已回到房间，等你重新准备');
+        return;
+      }
       that._cloudVersion = res.version;
       that.state = res.state;
       that.ui.detail = null;
@@ -5528,7 +6606,8 @@ Page({
 
   /** 行动结束后驱动非本机席位：机器人，或尚未有真人加入的席位 */
   maybeRunAi(result) {
-    if (!result || !result.ended || this.state.gameOver) return;
+    if (!result || !result.ended) return;
+    if (!this.state || this.state.gameOver) return;
     if (!needsAutoPlay(this.state, this.aiContext())) return;
     this.scheduleAi();
   },
@@ -5727,11 +6806,292 @@ Page({
   },
 
   onRestart() {
-    this.ui = freshUI({ playerCount: this.ui.playerCount, bots: this.ui.bots });
-    this.startGame();
+    // 人机对战直接重开；房间牌局回到大厅重新准备，避免多端状态错位
+    if (this.mode === 'room' && this.room) {
+      this.backToLobby();
+      return;
+    }
+    const solo = this.ui.soloCount;
+    const roomCount = this.ui.roomCount;
+    this.ui = freshUI({
+      screen: 'game',
+      soloCount: solo,
+      roomCount: roomCount,
+      playerCount: this.ui.playerCount,
+      bots: { 1: true, 2: true, 3: true }
+    });
+    this.startLocalGame();
   },
 
-  /* ---------- 房间大厅 / 微信邀请 ---------- */
+  /* ---------- 入口界面：人机对战 / 邀请好友 ---------- */
+
+  onSelectSoloCount(event) {
+    const n = Number(event.currentTarget.dataset.n);
+    if (n < 2 || n > 4) return;
+    this.ui.soloCount = n;
+    this.refresh('');
+  },
+  onSelectRoomCount(event) {
+    const n = Number(event.currentTarget.dataset.n);
+    if (n < 2 || n > 4) return;
+    this.ui.roomCount = n;
+    this.refresh('');
+  },
+  /** 人机对战：全部对手由机器人托管，不建房间、不发网络请求 */
+  onStartSolo() {
+    this.ui.playerCount = this.ui.soloCount || 2;
+    this.ui.bots = { 1: true, 2: true, 3: true };
+    this.startLocalGame();
+  },
+  /** 邀请好友：先开一间大厅，等好友入席并准备后再由房主开始 */
+  onCreateRoom() {
+    this.mode = 'room';
+    this.ui.playerCount = this.ui.roomCount || 3;
+    // 邀请模式默认所有外席位留给真人，房主可按需逐个改成机器人
+    this.ui.bots = { 1: false, 2: false, 3: false };
+    this.openRoom();
+  },
+  onJoinFromHome() {
+    const code = String(this.ui.joinCode || '').trim().toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+      this.ui.homeNotice = '房间号为 6 位字母数字';
+      this.refresh('');
+      return;
+    }
+    if (!R.hasCloud()) {
+      this.ui.homeNotice = '当前设备未连接云端，无法跨设备加入房间';
+      this.refresh('');
+      return;
+    }
+    this.joinCloudRoom(code);
+  },
+  onJoinRoom() { this.onJoinFromHome(); },
+
+  /* ---------- 房间大厅：席位 / 准备 / 开局 / 微信邀请 ---------- */
+
+  openRoom() {
+    this.clearTimer();
+    this.stopCloudPolling();
+    this.mySeat = 0;                       // 房主恒为 0 号席
+    this._cloudVersion = 0;
+    this._roomVersion = 0;
+    const profile = this.profile || R.getProfile();
+    const seats = R.makeSeats(this.ui.playerCount, this.ui.bots, profile);
+    this.room = R.createRoom({
+      playerCount: this.ui.playerCount,
+      seats: seats,
+      profile: profile,
+      status: 'lobby'
+    });
+    this.room.mode = 'room';
+    this._cloudCode = this.room.code;
+    this.state = null;
+    this.ui.screen = 'room';
+    this.ui.showLobby = false;
+    this.ui.homeNotice = '';
+    this.ui.roomNotice = '';
+    this.ui.selectedGems = [];
+    this.ui.detail = null;
+    this.refresh('');
+    if (R.hasCloud()) this.createCloudRoom();
+  },
+
+  /** 改人数时保留已入席的好友，其余按当前机器人设置重建 */
+  rebuildSeats(n) {
+    const profile = this.profile || R.getProfile();
+    const base = R.makeSeats(n, this.ui.bots, profile);
+    const old = (this.room && this.room.seats) || [];
+    for (let i = 1; i < n; i++) {
+      const o = old[i];
+      if (o && o.joined && !o.isAI && o.uid) base[i] = Object.assign({}, o, { index: i });
+    }
+    return base;
+  },
+
+  updateCloudRoom(patch) {
+    if (!R.hasCloud() || !this._cloudCode) return;
+    const that = this;
+    R.cloudUpdateRoom(this._cloudCode, patch, this._roomVersion || 1).then(function (res) {
+      if (res.ok) { that._roomVersion = res.version; return; }
+      if (res.conflict) { that.pollCloud(true); return; }
+      if (!res.offline) {
+        that.ui.roomNotice = '云端同步失败：' + res.error;
+        that.refresh('');
+      }
+    });
+  },
+
+  onRoomCount(event) {
+    if (this.mySeat !== 0) return;
+    const n = Number(event.currentTarget.dataset.n);
+    if (n < 2 || n > 4 || n === this.room.playerCount) return;
+    this.ui.playerCount = n;
+    const seats = this.rebuildSeats(n);
+    this.room.seats = seats;
+    this.room.playerCount = n;
+    this.refresh('人数已改为 ' + n + ' 人');
+    if (R.hasCloud()) this.updateCloudRoom({ player_count: n, seats: seats });
+  },
+
+  /** 真人准备 / 取消准备；房主视为已就绪，不参与准备开关 */
+  onRoomToggleReady() {
+    if (this.mySeat === 0) {
+      this.ui.roomNotice = '房主视为已准备，人齐后直接点「开始牌局」';
+      this.refresh('');
+      return;
+    }
+    const seat = this.room && this.room.seats[this.mySeat];
+    if (!seat) return;
+    const next = !seat.ready;
+    seat.ready = next;
+    this.refresh(next ? '已准备，等待房主开始' : '已取消准备');
+    if (!R.hasCloud()) return;
+    const that = this;
+    R.cloudSetSeat(this._cloudCode, this.mySeat, { ready: next }).then(function (res) {
+      if (res.ok) { that._roomVersion = res.version; return; }
+      if (res.conflict) { that.pollCloud(true); return; }
+      if (!res.offline) {
+        that.ui.roomNotice = '准备状态同步失败：' + res.error;
+        that.refresh('');
+      }
+    });
+  },
+
+  /** 房主把空席切成机器人 / 释放回好友席；已入席的好友不能被顶掉 */
+  onRoomToggleBot(event) {
+    if (this.mySeat !== 0) return;
+    const i = Number(event.currentTarget.dataset.index);
+    if (i <= 0 || !this.room || !this.room.seats[i]) return;
+    const seat = this.room.seats[i];
+    if (seat.joined && !seat.isAI) return;
+    const next = !seat.isAI;
+    this.ui.bots[i] = next;
+    this.room.seats[i] = Object.assign({}, seat, {
+      index: i,
+      isAI: next,
+      type: next ? 'bot' : 'remote',
+      joined: next,
+      ready: next,
+      uid: '',
+      name: next ? '机器人 ' + (i + 1) : '等待加入',
+      nickname: next ? ('机器人 ' + (i + 1)) : '',
+      avatar: next ? R.PRESET_AVATARS[i % R.PRESET_AVATARS.length].key : '',
+      avatarUrl: ''
+    });
+    this.refresh(next
+      ? '席位 ' + (i + 1) + ' 已交给机器人'
+      : '席位 ' + (i + 1) + ' 已释放给好友');
+    if (!R.hasCloud()) return;
+    const that = this;
+    R.cloudSetSeat(this._cloudCode, i, this.room.seats[i]).then(function (res) {
+      if (res.ok) { that._roomVersion = res.version; return; }
+      if (res.conflict) { that.pollCloud(true); return; }
+      if (!res.offline) { that.ui.roomNotice = res.error; that.refresh(''); }
+    });
+  },
+
+  /** 房主开始：所有席位（机器人或已准备真人）就绪才放行 */
+  onRoomStart() {
+    if (this.mySeat !== 0) {
+      this.ui.roomNotice = '只有房主可以开始牌局';
+      this.refresh('');
+      return;
+    }
+    const vm = roomScreenVM(this.ui, this.room, this.profile, this.mySeat);
+    if (!vm.canStart) {
+      this.ui.roomNotice = vm.waitingReady > 0
+        ? '还有 ' + vm.waitingReady + ' 位玩家未准备'
+        : (vm.emptyCount > 0
+          ? '还有 ' + vm.emptyCount + ' 个空席位，等好友加入或改成机器人'
+          : '房间尚未就绪');
+      this.refresh('');
+      return;
+    }
+    this.beginRoomGame();
+  },
+
+  beginRoomGame() {
+    this.clearTimer();
+    const seats = (this.room.seats || []).map(function (s, i) {
+      return Object.assign({}, s, { index: i, ready: true });
+    });
+    this.state = E.createGame({ playerCount: seats.length, seats: seats });
+    this.room.seats = seats;
+    this.room.status = 'playing';
+    this.room.playerCount = seats.length;
+    this.ui.screen = 'game';
+    this.ui.playerCount = seats.length;
+    this.ui.detail = null;
+    this.ui.selectedGems = [];
+    this.ui.showLobby = false;
+    this.ui.roomNotice = '';
+    this.refresh('牌局开始 · ' + seats.length + ' 人');
+    if (!R.hasCloud()) {
+      this.maybeRunAi({ ended: true });
+      return;
+    }
+    const that = this;
+    R.cloudStartGame(this._cloudCode, this.state, this._roomVersion || 1, seats).then(function (res) {
+      if (res.ok) {
+        that._cloudVersion = res.gameVersion || 1;
+      } else if (res.conflict) {
+        that.ui.roomNotice = '房间状态刚被更新，请重试';
+      } else if (!res.offline) {
+        that.ui.roomNotice = '开局同步失败：' + res.error;
+      }
+      that.startCloudPolling();
+      that.maybeRunAi({ ended: true });
+    });
+  },
+
+  /** 一局结束后回大厅：房主重置房间，其他人等房主重开 */
+  backToLobby() {
+    this.clearTimer();
+    if (this.mySeat !== 0) {
+      const vm = roomScreenVM(this.ui, this.room, this.profile, this.mySeat);
+      this.ui.roomNotice = '等房主回到房间并重新开局（' + vm.joinedHumans + ' 人已加入）';
+      this.refresh('');
+      return;
+    }
+    const seats = (this.room.seats || []).map(function (s, i) {
+      return Object.assign({}, s, { index: i, ready: i === 0 || !!s.isAI });
+    });
+    this.room.seats = seats;
+    this.room.status = 'lobby';
+    this.state = null;
+    this.ui.screen = 'room';
+    this.ui.selectedGems = [];
+    this.ui.detail = null;
+    this.ui.showReserved = false;
+    this.ui.showPlayerDetail = false;
+    this.ui.showLobby = false;
+    this.refresh('回到房间，等所有玩家准备后重新开始');
+    if (!R.hasCloud()) return;
+    const that = this;
+    R.cloudResetRoom(this._cloudCode, seats, this._roomVersion || 1).then(function (res) {
+      if (res.ok) {
+        that._roomVersion = res.version;
+        that._cloudVersion = 0;
+      }
+    });
+    this.startCloudPolling();
+  },
+
+  /** 离开房间 / 退出当前牌局，统一回到首页 */
+  onLeaveRoom() {
+    this.clearTimer();
+    this.stopCloudPolling();
+    this.state = null;
+    this.room = null;
+    this.mySeat = 0;
+    this._cloudCode = '';
+    this._roomVersion = 0;
+    this._cloudVersion = 0;
+    const solo = this.ui.soloCount;
+    const roomCount = this.ui.roomCount;
+    this.ui = freshUI({ screen: 'home', soloCount: solo, roomCount: roomCount });
+    this.refresh('已离开房间');
+  },
 
   onOpenLobby() {
     this.ui.showLobby = true;
@@ -5742,79 +7102,8 @@ Page({
     this.ui.showLobby = false;
     this.refresh('');
   },
-  onSelectPlayerCount(event) {
-    const n = Number(event.currentTarget.dataset.n);
-    if (n < 2 || n > 4) return;
-    this.ui.playerCount = n;
-    this.ui.roomNotice = '人数已改为 ' + n + ' 人，点「开始牌局」生效';
-    this.refresh('');
-  },
-  onToggleBot(event) {
-    const i = Number(event.currentTarget.dataset.index);
-    if (i <= 0 || i === this.mySeat) return;
-    this.ui.bots[i] = !this.ui.bots[i];
-    this.ui.roomNotice = this.ui.bots[i]
-      ? '席位 ' + (i + 1) + ' 将由机器人托管'
-      : '席位 ' + (i + 1) + ' 留给好友加入（未入席时由机器人代打）';
-    this.syncSeatToCloud(i);
-    this.refresh('');
-  },
-
-  /** 房主调整机器人席位时同步到云端，避免好友看到不一致的席位表 */
-  syncSeatToCloud(index) {
-    if (!R.hasCloud() || !this._cloudCode || !this.room || !this.room.seats[index]) return;
-    const that = this;
-    R.cloudPullRoom(this._cloudCode).then(function (pulled) {
-      if (!pulled.ok) return;
-      const seats = (pulled.room.seats || []).slice();
-      if (!seats[index]) return;
-      const isAI = !!that.ui.bots[index];
-      seats[index] = Object.assign({}, seats[index], {
-        isAI: isAI,
-        type: isAI ? 'bot' : 'remote',
-        joined: isAI,
-        name: isAI ? '机器人 ' + index : '等待加入',
-        nickname: ''
-      });
-      R.cloudUpdateSeats(that._cloudCode, seats, pulled.version).then(function (saved) {
-        if (!saved.ok) return;
-        that._roomVersion = saved.version;
-        that.room.seats = seats;
-        // 席位变化写进牌局快照，其他设备下一次轮询即可看到
-        if (that.state.players[index]) {
-          that.state.players[index].isAI = isAI;
-          that.state.players[index].joined = isAI;
-          that.state.players[index].type = isAI ? 'bot' : 'remote';
-        }
-        that.pushCloudState();
-      });
-    });
-  },
-  onStartRoom() {
-    const count = this.ui.playerCount;
-    const bots = this.ui.bots;
-    this.ui = freshUI({ playerCount: count, bots: bots });
-    this.startGame();
-    this.refresh(count + ' 人牌局已开始 · 房间 ' + this.room.code);
-  },
   onJoinCodeInput(event) {
     this.ui.joinCode = String((event.detail && event.detail.value) || '').toUpperCase();
-  },
-  onJoinRoom() {
-    if (R.hasCloud()) {
-      this.joinCloudRoom(this.ui.joinCode);
-      return;
-    }
-    const r = R.joinRoom(this.ui.joinCode, this.profile);
-    if (!r.ok) {
-      this.ui.roomNotice = r.error;
-      this.refresh('');
-      return;
-    }
-    this.room = r.room;
-    this.ui.showLobby = false;
-    this.ui.roomNotice = '';
-    this.refresh('已加入房间 ' + r.room.code + '（本机席位）');
   },
   onCopyRoomCode() {
     const code = this.room ? this.room.code : '';
@@ -5828,6 +7117,14 @@ Page({
   },
   /** 微信分享卡片带房间号；好友点击后由 onLoad 的 query.room 带入 */
   onShareAppMessage() {
+    // 只有「邀请好友」房间才带房间号；人机对战 / 首页分享只做普通落地页
+    if (!this.room || this.room.mode !== 'room') {
+      return {
+        title: '璀璨宝石 · 2–4 人文艺复兴珠宝商桌游',
+        path: '/pages/index/index',
+        imageUrl: ''
+      };
+    }
     return R.shareMessage(this.room, this.profile);
   },
 
@@ -5888,9 +7185,9 @@ Page({
       avatarUrl: d.avatarUrl || '',
       isWechat: !!d.isWechat
     });
-    // 同步本机席位的显示资料，不改动规则状态
+    // 同步本机席位的显示资料，不改动规则状态（首页 / 大厅阶段可能还没有牌局）
     const si = this.mySeat;
-    const me = this.state.players[si];
+    const me = this.state && this.state.players[si];
     if (me) {
       me.nickname = nickname;
       me.name = nickname;
@@ -5902,6 +7199,9 @@ Page({
         name: nickname, nickname: nickname,
         avatar: this.profile.avatar, avatarUrl: this.profile.avatarUrl
       });
+      if (R.hasCloud() && this.ui.screen === 'room') {
+        this.updateCloudRoom({ seats: this.room.seats });
+      }
     }
     this.ui.showProfile = false;
     this.ui.profileDraft = null;
@@ -5913,7 +7213,7 @@ Page({
 
   onTapPlayer(event) {
     const index = Number(event.currentTarget.dataset.index);
-    if (!this.state.players[index]) return;
+    if (!this.state || !this.state.players[index]) return;
     this.ui.detailSeat = index;
     this.ui.showPlayerDetail = true;
     this.refresh('');

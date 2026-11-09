@@ -212,39 +212,125 @@ function playerDetailVM(state, index, room, selfSeat) {
   };
 }
 
-function lobbyVM(ui, room, profile, mySeat) {
-  const self = mySeat || 0;
-  const counts = [2, 3, 4].map(function (n) {
-    return { n: n, label: n + ' 人', active: ui.playerCount === n };
-  });
-  const seats = [];
-  for (let i = 0; i < ui.playerCount; i++) {
-    const cs = (room && room.seats && room.seats[i]) || {};
-    const isBot = i > 0 ? !!ui.bots[i] : false;
-    seats.push({
-      index: i,
-      label: (i === 0 ? '房主' : '席位 ' + (i + 1)) + (i === self ? ' · 你' : ''),
-      name: i === self
-        ? (profile ? profile.nickname : '珠宝商')
-        : (cs.nickname || (isBot ? '机器人托管' : '等待好友加入')),
-      isBot: isBot,
-      canToggle: i > 0 && i !== self,
-      type: i === self ? 'self' : (isBot ? 'bot' : 'remote'),
-      avatarHue: avatarHue(i === self
-        ? ((profile && profile.avatar) || 'a0')
-        : (cs.avatar || R.PRESET_AVATARS[i % R.PRESET_AVATARS.length].key))
+/** 首页入口：两种模式的人数选择与云端可用性 */
+function homeVM(ui, profile) {
+  function counts(active, key) {
+    return [2, 3, 4].map(function (n) {
+      return { n: n, key: key, label: n + ' 人', active: active === n };
     });
   }
-  const cloud = !!(room && room.backend === 'cloud');
+  const solo = ui.soloCount || 2;
+  const room = ui.roomCount || 3;
+  const cloud = R.hasCloud();
   return {
-    counts: counts,
-    seats: seats,
-    playerCount: ui.playerCount,
-    roomCode: room ? room.code : '',
+    nickname: (profile && profile.nickname) || '珠宝商',
+    avatarHue: avatarHue((profile && profile.avatar) || 'a0'),
+    avatarUrl: (profile && profile.avatarUrl) || '',
+    soloCount: solo,
+    roomCount: room,
+    soloCounts: counts(solo, 'solo'),
+    roomCounts: counts(room, 'room'),
+    cloud: cloud,
+    cloudText: cloud
+      ? '云端已连接 · 可微信邀请好友跨设备加入'
+      : '本机模式 · 人机对战可玩；跨设备邀请需连接云端',
+    joinCode: ui.joinCode || '',
+    notice: ui.homeNotice || ''
+  };
+}
+
+/**
+ * 房间界面：加入人数 / 准备状态 / 房主开始条件。
+ * 房主创建房间即视为就绪，机器人恒定就绪，真人入席后必须自己点「准备」。
+ */
+function roomScreenVM(ui, room, profile, mySeat) {
+  const self = mySeat || 0;
+  const amHost = self === 0;
+  const raw = (room && room.seats) || [];
+  const list = [];
+  let joinedHumans = 0;
+  let botCount = 0;
+  let readyCount = 0;
+  let waitingReady = 0;
+  let emptyCount = 0;
+
+  for (let i = 0; i < raw.length; i++) {
+    const s = raw[i] || {};
+    const isHost = i === 0;
+    const isBot = !!s.isAI;
+    const joined = !!s.joined;
+    const isSelf = i === self;
+    const ready = isBot || isHost || !!s.ready;
+    if (isBot) botCount += 1;
+    else if (joined) joinedHumans += 1;
+    if (ready) readyCount += 1;
+    if (!isBot && joined && !ready) waitingReady += 1;
+    if (!isBot && !joined) emptyCount += 1;
+    list.push({
+      index: i,
+      seatNo: i + 1,
+      isHost: isHost,
+      isBot: isBot,
+      isSelf: isSelf,
+      joined: joined,
+      ready: ready,
+      empty: !joined && !isBot,
+      label: isHost ? '房主' : (isBot ? '机器人' : '席位 ' + (i + 1) + (isSelf ? ' · 你' : '')),
+      name: isSelf
+        ? ((profile && profile.nickname) || '珠宝商')
+        : (s.nickname || s.name || (isBot ? '机器人 ' + (i + 1) : '等待好友')),
+      avatarHue: avatarHue(isSelf
+        ? ((profile && profile.avatar) || 'a0')
+        : (s.avatar || R.PRESET_AVATARS[i % R.PRESET_AVATARS.length].key)),
+      avatarUrl: isSelf ? ((profile && profile.avatarUrl) || '') : (s.avatarUrl || ''),
+      stateText: isBot ? '已就绪'
+        : (isHost ? '房主 · 已就绪'
+          : (ready ? '已准备' : (joined ? '未准备' : '空席'))),
+      canReady: !isHost && !isBot && joined && isSelf,
+      canToggleBot: amHost && !isSelf && !joined
+    });
+  }
+
+  const total = list.length || (ui.playerCount || 2);
+  const isHost = amHost;
+  const allSettled = list.length > 0 && list.every(function (s) {
+    return s.isBot || (s.joined && s.ready);
+  });
+  const cloud = !!(room && room.backend === 'cloud');
+  const mySeatData = raw[self] || {};
+
+  return {
+    code: room ? room.code : '',
+    status: room ? room.status : 'lobby',
+    seats: list,
+    playerCount: total,
+    joinedHumans: joinedHumans,
+    botCount: botCount,
+    readyCount: readyCount,
+    waitingReady: waitingReady,
+    emptyCount: emptyCount,
+    isHost: isHost,
+    myReady: isHost || !!mySeatData.ready,
+    canStart: isHost && allSettled,
+    readyLabel: (isHost || mySeatData.ready) ? '取消准备' : '准备',
+    startLabel: isHost
+      ? (allSettled ? '开始牌局' : '等待玩家准备')
+      : (mySeatData.ready ? '已准备 · 等房主开始' : '准备后等房主开始'),
+    statusText: '已加入 ' + joinedHumans + ' 人 · 已准备 ' + readyCount + '/' + total,
+    tip: allSettled
+      ? '全员已就绪，房主可以开始牌局'
+      : (waitingReady > 0
+        ? '还有 ' + waitingReady + ' 位玩家未准备'
+        : '还有 ' + emptyCount + ' 个空席位：等好友加入，或点席位下方「设为机器人」'),
+    counts: (function () {
+      return [2, 3, 4].map(function (n) {
+        return { n: n, label: n + ' 人', active: total === n };
+      });
+    })(),
     backend: cloud ? '云端同步' : '本机房间',
     backendHint: cloud
-      ? '房间状态已云端同步，好友可跨设备加入；牌局自动同步。'
-      : '当前为本机房间：浏览器预览或无云端能力时，好友无法跨设备加入。',
+      ? '席位与准备状态实时同步，好友进房后会出现在空席上。'
+      : '本机房间：浏览器预览下好友无法跨设备加入，可把空席改成机器人先开局。',
     joinCode: ui.joinCode || '',
     notice: ui.roomNotice || ''
   };
@@ -323,6 +409,61 @@ function buildViewModel(state, ui, layout, ctx) {
   const profile = context.profile || null;
   // 联机后本机可能是 1/2/3 号席；所有「我的」视角都由 mySeat 驱动
   const seat = context.mySeat === undefined ? 0 : context.mySeat;
+  // 入口界面 / 房间大厅 / 牌桌 三态；无牌局状态时自动落到首页
+  const screen = ui.screen || (state ? 'game' : 'home');
+  const canNativeAvatar = !!(typeof wx !== 'undefined' && wx.canIUse &&
+    wx.canIUse('button.open-type.chooseAvatar'));
+
+  if (screen !== 'game' || !state) {
+    return {
+      stageScale: layout.scale,
+      stageRotate: layout.rotate,
+      screen: screen,
+      home: homeVM(ui, profile),
+      roomScreen: roomScreenVM(ui, room, profile, seat),
+      profileDialog: profileVM(ui, profile),
+      showProfile: !!ui.showProfile,
+      showRules: !!ui.showRules,
+      showReserved: false,
+      showLobby: false,
+      showPlayerDetail: false,
+      playerDetail: null,
+      canUseNativeAvatar: canNativeAvatar,
+      toast: ui.toast || '',
+      meName: (profile && profile.nickname) || '珠宝商',
+      meAvatarHue: avatarHue((profile && profile.avatar) || 'a0'),
+      playerCount: (room && room.playerCount) || ui.playerCount || 2,
+      roomCode: room ? room.code : '',
+      roomMode: !!(room && room.mode === 'room'),
+      roomBackend: room && room.backend === 'cloud' ? '云端同步' : '本机房间',
+      rows: [],
+      decks: [],
+      bankPiles: [],
+      nobles: [],
+      seats: [],
+      rivals: [],
+      reservedCards: [],
+      detail: null,
+      gameOver: false,
+      isMyTurn: false,
+      needDiscard: false,
+      discardCount: 0,
+      selectionCount: 0,
+      canConfirm: false,
+      confirmLabel: '确认拿取',
+      statusText: '',
+      turnText: '',
+      logText: '',
+      hintText: '',
+      goldCount: 0,
+      goldStyle: '',
+      resultTitle: '',
+      resultDetail: '',
+      me: { name: '', points: 0, totalTokens: 0, reservedCount: 0, tokens: [], discounts: [] },
+      rival: { name: '', points: 0, cardCount: 0, reservedCount: 0, tokens: [] }
+    };
+  }
+
   const me = state.players[seat] || state.players[0];
   const rival = state.players[seat === 0 ? 1 : 0] || me;
   const isMyTurn = state.current === seat && !state.gameOver;
@@ -458,6 +599,9 @@ function buildViewModel(state, ui, layout, ctx) {
   return {
     stageScale: layout.scale,
     stageRotate: layout.rotate,
+    screen: 'game',
+    home: homeVM(ui, profile),
+    roomScreen: roomScreenVM(ui, room, profile, seat),
     rows: rows,
     decks: decks,
     bankPiles: bankPiles,
@@ -468,8 +612,8 @@ function buildViewModel(state, ui, layout, ctx) {
     seats: seats,
     playerCount: state.players.length,
     roomCode: room ? room.code : '',
+    roomMode: !!(room && room.mode === 'room'),
     roomBackend: room && room.backend === 'cloud' ? '云端同步' : '本机房间',
-    lobby: lobbyVM(ui, room, profile, seat),
     profileDialog: profileVM(ui, profile),
     playerDetail: ui.showPlayerDetail ? playerDetailVM(state, ui.detailSeat, room, seat) : null,
     showLobby: !!ui.showLobby,
@@ -477,8 +621,7 @@ function buildViewModel(state, ui, layout, ctx) {
     showProfile: !!ui.showProfile,
     meName: (profile && profile.nickname) || me.nickname || me.name,
     meAvatarHue: avatarHue((profile && profile.avatar) || me.avatar || 'a0'),
-    canUseNativeAvatar: !!(typeof wx !== 'undefined' && wx.canIUse &&
-      wx.canIUse('button.open-type.chooseAvatar')),
+    canUseNativeAvatar: canNativeAvatar,
     rival: {
       name: rival.name,
       points: rival.points,
@@ -529,14 +672,20 @@ function needsAutoPlay(state, ctx) {
 function freshUI(config) {
   const c = config || {};
   return {
+    // 入口界面 / 房间大厅 / 牌桌
+    screen: c.screen || 'home',
     selectedGems: [],
     toast: '',
     detail: null,
     showRules: false,
     showReserved: false,
+    // 入口界面的两种模式人数
+    soloCount: c.soloCount || 2,
+    roomCount: c.roomCount || 3,
+    homeNotice: '',
     // 房间配置：重开一局时保留人数与机器人席位
     playerCount: c.playerCount || 2,
-    bots: c.bots || { 1: true, 2: true, 3: true },
+    bots: c.bots || { 1: false, 2: false, 3: false },
     showLobby: false,
     showPlayerDetail: false,
     detailSeat: -1,
@@ -566,35 +715,36 @@ Page({
     this._polling = false;
     this._pendingPush = false;
     this._pendingJoin = false;
+    this._enteringGame = false;
+    this.mode = 'solo';
     this.mySeat = 0;
     this.profile = R.getProfile();
-    this.ui = freshUI();
+    this.ui = freshUI({ screen: 'home' });
 
-    // 微信分享卡片带 ?room=XXXXXX；有云端能力时自动入席，
-    // 没有云端能力（浏览器预览）时保留手动「加入房间」的本机路径。
+    // 微信分享卡片带 ?room=XXXXXX：有云端能力时直接入席，
+    // 没有云端能力（浏览器预览）时留在首页并说明原因。
     const query = options || {};
-    if (query.room && R.hasCloud()) this._pendingJoin = String(query.room).toUpperCase();
-    this.startGame();
-
     if (query.room) {
       const code = String(query.room).toUpperCase();
       this.ui.joinCode = code;
-      if (this._pendingJoin) {
-        this.joinCloudRoom(this._pendingJoin);
-        this._pendingJoin = false;
+      if (R.hasCloud()) {
+        this.joinCloudRoom(code);
       } else {
-        this.ui.showLobby = true;
-        this.ui.roomNotice = '收到房间邀请 ' + code + ' · 当前设备未连接云端，只能在本机试玩';
+        this.ui.homeNotice = '收到房间邀请 ' + code + ' · 当前设备未连接云端，无法跨设备加入';
         this.refresh('');
       }
+      return;
     }
+    this.refresh('');
   },
 
-  /** 按当前人数与机器人配置重开一局，并同步创建 / 刷新房间 */
-  startGame() {
+  /** 人机对战：本地牌局，不建云端房间、不发起任何网络请求 */
+  startLocalGame() {
     this.clearTimer();
     this.stopCloudPolling();
-    this.mySeat = 0;                       // 房主恒为 0 号席
+    this.mode = 'solo';
+    this.mySeat = 0;
+    this._cloudCode = '';
     this._cloudVersion = 0;
     this._roomVersion = 0;
     const profile = this.profile || R.getProfile();
@@ -603,18 +753,22 @@ Page({
     this.room = R.createRoom({
       playerCount: this.ui.playerCount,
       seats: seats,
-      profile: profile
+      profile: profile,
+      status: 'playing'
     });
-    this._cloudCode = this.room.code;
+    this.room.mode = 'solo';
+    this.ui.screen = 'game';
     this.ui.detail = null;
     this.ui.showReserved = false;
     this.ui.showPlayerDetail = false;
-    this.setData(buildViewModel(this.state, this.ui, this._layout, {
-      room: this.room, profile: this.profile, mySeat: this.mySeat
-    }));
-    if (!this._pendingJoin && R.hasCloud()) this.createCloudRoom();
+    this.ui.showLobby = false;
+    this.ui.selectedGems = [];
+    this.refresh('');
     this.maybeRunAi({ ended: true });
   },
+
+  /** 兼容旧调用：默认走人机对战 */
+  startGame() { this.startLocalGame(); },
 
   onShow() {
     // 从后台切回时，若仍轮到托管席位则恢复其行动节奏
@@ -665,50 +819,63 @@ Page({
 
   createCloudRoom() {
     const that = this;
-    return R.cloudCreateRoom(this.room, this.state).then(function (res) {
+    // 大厅阶段不写牌局快照，等房主点「开始牌局」时再落 state，
+    // 否则好友入席时会拿到一副还没开始的牌。
+    return R.cloudCreateRoom(this.room, null).then(function (res) {
       if (res.ok) {
-        that._cloudVersion = res.version;
         that._roomVersion = res.version;
         that.ui.roomNotice = '房间 ' + that.room.code + ' 已同步到云端，分享给好友即可跨设备加入';
         that.startCloudPolling();
       } else if (!res.offline) {
-        that.ui.roomNotice = '云端同步不可用：' + res.error + '（本机牌局仍可玩）';
+        that.ui.roomNotice = '云端同步不可用：' + res.error + '（本机房间仍可开局）';
       }
       that.refresh('');
     });
   },
 
-  /** 好友通过分享卡片 / 房间号入席，返回自己的席位并接管牌局快照 */
+  /** 好友通过分享卡片 / 房间号入席：进大厅准备，或接管进行中的牌局 */
   joinCloudRoom(code) {
     const that = this;
-    this.ui.roomNotice = '正在加入云端房间 ' + code + ' …';
+    this.ui.roomNotice = '正在加入房间 ' + code + ' …';
+    this.ui.homeNotice = '正在加入房间 ' + code + ' …';
     this.refresh('');
     return R.cloudJoinRoom(code, this.profile).then(function (res) {
       if (!res.ok) {
-        that.ui.showLobby = true;
+        that.ui.screen = 'home';
+        that.ui.homeNotice = res.error;
         that.ui.roomNotice = res.error;
         that.refresh('');
         return;
       }
       that.clearTimer();
+      that.mode = 'room';
       that.mySeat = res.seat;
       that.room = res.room;
+      that.room.mode = 'room';
       that._cloudCode = res.room.code;
-      that._cloudVersion = res.version;
-      that.state = res.state;
-      const p = that.state.players[that.mySeat];
-      if (p) {
-        p.nickname = that.profile.nickname;
-        p.name = that.profile.nickname;
-        p.avatar = that.profile.avatar;
-        p.avatarUrl = that.profile.avatarUrl || '';
-        p.joined = true;
+      that._roomVersion = res.room.version || 1;
+      that._cloudVersion = res.version || 0;
+      that.ui.playerCount = res.room.playerCount;
+
+      if (res.status === 'playing' && res.state) {
+        that.state = res.state;
+        const p = that.state.players[that.mySeat];
+        if (p) {
+          p.nickname = that.profile.nickname;
+          p.name = that.profile.nickname;
+          p.avatar = that.profile.avatar;
+          p.avatarUrl = that.profile.avatarUrl || '';
+          p.joined = true;
+        }
+        that.ui.screen = 'game';
+        that.refresh('已重新加入牌局 ' + res.room.code + ' · 席位 ' + (res.seat + 1));
+      } else {
+        that.state = null;
+        that.ui.screen = 'room';
+        that.ui.roomNotice = '';
+        that.refresh('已加入房间 ' + res.room.code + ' · 点「准备」等房主开始');
       }
-      that.ui.showLobby = false;
-      that.ui.roomNotice = '';
-      that.refresh('已加入云端房间 ' + res.room.code + ' · 你是席位 ' + (res.seat + 1));
       that.startCloudPolling();
-      that.pushCloudState();
       // 首次入席且从未改过资料：立刻引导取昵称，否则同房间多人全叫「珠宝商」
       if (!that.profile.customized) {
         that.ui.profileDraft = Object.assign({}, that.profile);
@@ -716,13 +883,32 @@ Page({
         that.ui.showProfile = true;
         that.refresh('');
       }
+      if (that.ui.screen === 'game') that.maybeRunAi({ ended: true });
+    });
+  },
+
+  /** 房主开局后，其他设备轮询到 status=playing 时切入牌桌 */
+  enterCloudGame() {
+    if (this._enteringGame) return;
+    this._enteringGame = true;
+    const that = this;
+    R.cloudPullGame(this._cloudCode).then(function (res) {
+      that._enteringGame = false;
+      if (!res.ok) return;         // 快照还没写完，下一轮轮询再试
+      that.state = res.state;
+      that._cloudVersion = res.version;
+      that.ui.screen = 'game';
+      that.ui.playerCount = res.state.players.length;
+      that.ui.detail = null;
+      that.ui.selectedGems = [];
+      that.refresh('牌局开始');
       that.maybeRunAi({ ended: true });
     });
   },
 
   /** 每次合法动作后提交快照；并发动作排队，避免漏推 */
   pushCloudState() {
-    if (!R.hasCloud() || !this._cloudCode) return;
+    if (!R.hasCloud() || !this._cloudCode || !this.state) return;
     if (this._syncing) { this._pendingPush = true; return; }
     const that = this;
     const expected = this._cloudVersion;
@@ -749,7 +935,9 @@ Page({
     if (!R.hasCloud() || !this._cloudCode) return;
     this.stopCloudPolling();
     const that = this;
-    this._pollTimer = setInterval(function () { that.pollCloud(false); }, 1600);
+    // 大厅阶段只需要更快看到「谁进来了 / 谁准备了」，牌局阶段可以稍慢
+    const period = this.ui.screen === 'room' ? 1200 : 1600;
+    this._pollTimer = setInterval(function () { that.pollCloud(false); }, period);
   },
 
   stopCloudPolling() {
@@ -759,16 +947,48 @@ Page({
     }
   },
 
-  /** PostgREST 无实时订阅，用 1.6s 轮询 + version 比对实现牌局同步 */
+  /**
+   * 云端没有实时订阅能力，用轮询 + version 比对实现同步：
+   *   大厅 → 拉房间行（席位 / 准备 / status）
+   *   牌桌 → 拉牌局快照（state / version）
+   */
   pollCloud(force) {
     if (!R.hasCloud() || !this._cloudCode || this._polling) return;
     const that = this;
+
+    if (this.ui.screen === 'room') {
+      this._polling = true;
+      R.cloudPullRoom(this._cloudCode).then(function (res) {
+        that._polling = false;
+        if (!res.ok) return;
+        const changed = force || res.version !== that._roomVersion;
+        that._roomVersion = res.version;
+        that.room = Object.assign({}, that.room, res.room, { mode: 'room' });
+        if (res.room.status === 'playing') {
+          that.enterCloudGame();
+          return;
+        }
+        if (changed) that.refresh('');
+      });
+      return;
+    }
+
     const known = this._cloudVersion;
     this._polling = true;
     R.cloudPullGame(this._cloudCode).then(function (res) {
       that._polling = false;
       if (!res.ok) return;
       if (!force && res.version === known) return;
+      // 房主已回到大厅：其他设备同步退回房间界面重新准备
+      if (res.state && res.state.lobby) {
+        that.state = null;
+        that._cloudVersion = 0;
+        that.ui.screen = 'room';
+        that.ui.selectedGems = [];
+        that.ui.detail = null;
+        that.refresh('房主已回到房间，等你重新准备');
+        return;
+      }
       that._cloudVersion = res.version;
       that.state = res.state;
       that.ui.detail = null;
@@ -780,7 +1000,8 @@ Page({
 
   /** 行动结束后驱动非本机席位：机器人，或尚未有真人加入的席位 */
   maybeRunAi(result) {
-    if (!result || !result.ended || this.state.gameOver) return;
+    if (!result || !result.ended) return;
+    if (!this.state || this.state.gameOver) return;
     if (!needsAutoPlay(this.state, this.aiContext())) return;
     this.scheduleAi();
   },
@@ -979,11 +1200,292 @@ Page({
   },
 
   onRestart() {
-    this.ui = freshUI({ playerCount: this.ui.playerCount, bots: this.ui.bots });
-    this.startGame();
+    // 人机对战直接重开；房间牌局回到大厅重新准备，避免多端状态错位
+    if (this.mode === 'room' && this.room) {
+      this.backToLobby();
+      return;
+    }
+    const solo = this.ui.soloCount;
+    const roomCount = this.ui.roomCount;
+    this.ui = freshUI({
+      screen: 'game',
+      soloCount: solo,
+      roomCount: roomCount,
+      playerCount: this.ui.playerCount,
+      bots: { 1: true, 2: true, 3: true }
+    });
+    this.startLocalGame();
   },
 
-  /* ---------- 房间大厅 / 微信邀请 ---------- */
+  /* ---------- 入口界面：人机对战 / 邀请好友 ---------- */
+
+  onSelectSoloCount(event) {
+    const n = Number(event.currentTarget.dataset.n);
+    if (n < 2 || n > 4) return;
+    this.ui.soloCount = n;
+    this.refresh('');
+  },
+  onSelectRoomCount(event) {
+    const n = Number(event.currentTarget.dataset.n);
+    if (n < 2 || n > 4) return;
+    this.ui.roomCount = n;
+    this.refresh('');
+  },
+  /** 人机对战：全部对手由机器人托管，不建房间、不发网络请求 */
+  onStartSolo() {
+    this.ui.playerCount = this.ui.soloCount || 2;
+    this.ui.bots = { 1: true, 2: true, 3: true };
+    this.startLocalGame();
+  },
+  /** 邀请好友：先开一间大厅，等好友入席并准备后再由房主开始 */
+  onCreateRoom() {
+    this.mode = 'room';
+    this.ui.playerCount = this.ui.roomCount || 3;
+    // 邀请模式默认所有外席位留给真人，房主可按需逐个改成机器人
+    this.ui.bots = { 1: false, 2: false, 3: false };
+    this.openRoom();
+  },
+  onJoinFromHome() {
+    const code = String(this.ui.joinCode || '').trim().toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+      this.ui.homeNotice = '房间号为 6 位字母数字';
+      this.refresh('');
+      return;
+    }
+    if (!R.hasCloud()) {
+      this.ui.homeNotice = '当前设备未连接云端，无法跨设备加入房间';
+      this.refresh('');
+      return;
+    }
+    this.joinCloudRoom(code);
+  },
+  onJoinRoom() { this.onJoinFromHome(); },
+
+  /* ---------- 房间大厅：席位 / 准备 / 开局 / 微信邀请 ---------- */
+
+  openRoom() {
+    this.clearTimer();
+    this.stopCloudPolling();
+    this.mySeat = 0;                       // 房主恒为 0 号席
+    this._cloudVersion = 0;
+    this._roomVersion = 0;
+    const profile = this.profile || R.getProfile();
+    const seats = R.makeSeats(this.ui.playerCount, this.ui.bots, profile);
+    this.room = R.createRoom({
+      playerCount: this.ui.playerCount,
+      seats: seats,
+      profile: profile,
+      status: 'lobby'
+    });
+    this.room.mode = 'room';
+    this._cloudCode = this.room.code;
+    this.state = null;
+    this.ui.screen = 'room';
+    this.ui.showLobby = false;
+    this.ui.homeNotice = '';
+    this.ui.roomNotice = '';
+    this.ui.selectedGems = [];
+    this.ui.detail = null;
+    this.refresh('');
+    if (R.hasCloud()) this.createCloudRoom();
+  },
+
+  /** 改人数时保留已入席的好友，其余按当前机器人设置重建 */
+  rebuildSeats(n) {
+    const profile = this.profile || R.getProfile();
+    const base = R.makeSeats(n, this.ui.bots, profile);
+    const old = (this.room && this.room.seats) || [];
+    for (let i = 1; i < n; i++) {
+      const o = old[i];
+      if (o && o.joined && !o.isAI && o.uid) base[i] = Object.assign({}, o, { index: i });
+    }
+    return base;
+  },
+
+  updateCloudRoom(patch) {
+    if (!R.hasCloud() || !this._cloudCode) return;
+    const that = this;
+    R.cloudUpdateRoom(this._cloudCode, patch, this._roomVersion || 1).then(function (res) {
+      if (res.ok) { that._roomVersion = res.version; return; }
+      if (res.conflict) { that.pollCloud(true); return; }
+      if (!res.offline) {
+        that.ui.roomNotice = '云端同步失败：' + res.error;
+        that.refresh('');
+      }
+    });
+  },
+
+  onRoomCount(event) {
+    if (this.mySeat !== 0) return;
+    const n = Number(event.currentTarget.dataset.n);
+    if (n < 2 || n > 4 || n === this.room.playerCount) return;
+    this.ui.playerCount = n;
+    const seats = this.rebuildSeats(n);
+    this.room.seats = seats;
+    this.room.playerCount = n;
+    this.refresh('人数已改为 ' + n + ' 人');
+    if (R.hasCloud()) this.updateCloudRoom({ player_count: n, seats: seats });
+  },
+
+  /** 真人准备 / 取消准备；房主视为已就绪，不参与准备开关 */
+  onRoomToggleReady() {
+    if (this.mySeat === 0) {
+      this.ui.roomNotice = '房主视为已准备，人齐后直接点「开始牌局」';
+      this.refresh('');
+      return;
+    }
+    const seat = this.room && this.room.seats[this.mySeat];
+    if (!seat) return;
+    const next = !seat.ready;
+    seat.ready = next;
+    this.refresh(next ? '已准备，等待房主开始' : '已取消准备');
+    if (!R.hasCloud()) return;
+    const that = this;
+    R.cloudSetSeat(this._cloudCode, this.mySeat, { ready: next }).then(function (res) {
+      if (res.ok) { that._roomVersion = res.version; return; }
+      if (res.conflict) { that.pollCloud(true); return; }
+      if (!res.offline) {
+        that.ui.roomNotice = '准备状态同步失败：' + res.error;
+        that.refresh('');
+      }
+    });
+  },
+
+  /** 房主把空席切成机器人 / 释放回好友席；已入席的好友不能被顶掉 */
+  onRoomToggleBot(event) {
+    if (this.mySeat !== 0) return;
+    const i = Number(event.currentTarget.dataset.index);
+    if (i <= 0 || !this.room || !this.room.seats[i]) return;
+    const seat = this.room.seats[i];
+    if (seat.joined && !seat.isAI) return;
+    const next = !seat.isAI;
+    this.ui.bots[i] = next;
+    this.room.seats[i] = Object.assign({}, seat, {
+      index: i,
+      isAI: next,
+      type: next ? 'bot' : 'remote',
+      joined: next,
+      ready: next,
+      uid: '',
+      name: next ? '机器人 ' + (i + 1) : '等待加入',
+      nickname: next ? ('机器人 ' + (i + 1)) : '',
+      avatar: next ? R.PRESET_AVATARS[i % R.PRESET_AVATARS.length].key : '',
+      avatarUrl: ''
+    });
+    this.refresh(next
+      ? '席位 ' + (i + 1) + ' 已交给机器人'
+      : '席位 ' + (i + 1) + ' 已释放给好友');
+    if (!R.hasCloud()) return;
+    const that = this;
+    R.cloudSetSeat(this._cloudCode, i, this.room.seats[i]).then(function (res) {
+      if (res.ok) { that._roomVersion = res.version; return; }
+      if (res.conflict) { that.pollCloud(true); return; }
+      if (!res.offline) { that.ui.roomNotice = res.error; that.refresh(''); }
+    });
+  },
+
+  /** 房主开始：所有席位（机器人或已准备真人）就绪才放行 */
+  onRoomStart() {
+    if (this.mySeat !== 0) {
+      this.ui.roomNotice = '只有房主可以开始牌局';
+      this.refresh('');
+      return;
+    }
+    const vm = roomScreenVM(this.ui, this.room, this.profile, this.mySeat);
+    if (!vm.canStart) {
+      this.ui.roomNotice = vm.waitingReady > 0
+        ? '还有 ' + vm.waitingReady + ' 位玩家未准备'
+        : (vm.emptyCount > 0
+          ? '还有 ' + vm.emptyCount + ' 个空席位，等好友加入或改成机器人'
+          : '房间尚未就绪');
+      this.refresh('');
+      return;
+    }
+    this.beginRoomGame();
+  },
+
+  beginRoomGame() {
+    this.clearTimer();
+    const seats = (this.room.seats || []).map(function (s, i) {
+      return Object.assign({}, s, { index: i, ready: true });
+    });
+    this.state = E.createGame({ playerCount: seats.length, seats: seats });
+    this.room.seats = seats;
+    this.room.status = 'playing';
+    this.room.playerCount = seats.length;
+    this.ui.screen = 'game';
+    this.ui.playerCount = seats.length;
+    this.ui.detail = null;
+    this.ui.selectedGems = [];
+    this.ui.showLobby = false;
+    this.ui.roomNotice = '';
+    this.refresh('牌局开始 · ' + seats.length + ' 人');
+    if (!R.hasCloud()) {
+      this.maybeRunAi({ ended: true });
+      return;
+    }
+    const that = this;
+    R.cloudStartGame(this._cloudCode, this.state, this._roomVersion || 1, seats).then(function (res) {
+      if (res.ok) {
+        that._cloudVersion = res.gameVersion || 1;
+      } else if (res.conflict) {
+        that.ui.roomNotice = '房间状态刚被更新，请重试';
+      } else if (!res.offline) {
+        that.ui.roomNotice = '开局同步失败：' + res.error;
+      }
+      that.startCloudPolling();
+      that.maybeRunAi({ ended: true });
+    });
+  },
+
+  /** 一局结束后回大厅：房主重置房间，其他人等房主重开 */
+  backToLobby() {
+    this.clearTimer();
+    if (this.mySeat !== 0) {
+      const vm = roomScreenVM(this.ui, this.room, this.profile, this.mySeat);
+      this.ui.roomNotice = '等房主回到房间并重新开局（' + vm.joinedHumans + ' 人已加入）';
+      this.refresh('');
+      return;
+    }
+    const seats = (this.room.seats || []).map(function (s, i) {
+      return Object.assign({}, s, { index: i, ready: i === 0 || !!s.isAI });
+    });
+    this.room.seats = seats;
+    this.room.status = 'lobby';
+    this.state = null;
+    this.ui.screen = 'room';
+    this.ui.selectedGems = [];
+    this.ui.detail = null;
+    this.ui.showReserved = false;
+    this.ui.showPlayerDetail = false;
+    this.ui.showLobby = false;
+    this.refresh('回到房间，等所有玩家准备后重新开始');
+    if (!R.hasCloud()) return;
+    const that = this;
+    R.cloudResetRoom(this._cloudCode, seats, this._roomVersion || 1).then(function (res) {
+      if (res.ok) {
+        that._roomVersion = res.version;
+        that._cloudVersion = 0;
+      }
+    });
+    this.startCloudPolling();
+  },
+
+  /** 离开房间 / 退出当前牌局，统一回到首页 */
+  onLeaveRoom() {
+    this.clearTimer();
+    this.stopCloudPolling();
+    this.state = null;
+    this.room = null;
+    this.mySeat = 0;
+    this._cloudCode = '';
+    this._roomVersion = 0;
+    this._cloudVersion = 0;
+    const solo = this.ui.soloCount;
+    const roomCount = this.ui.roomCount;
+    this.ui = freshUI({ screen: 'home', soloCount: solo, roomCount: roomCount });
+    this.refresh('已离开房间');
+  },
 
   onOpenLobby() {
     this.ui.showLobby = true;
@@ -994,79 +1496,8 @@ Page({
     this.ui.showLobby = false;
     this.refresh('');
   },
-  onSelectPlayerCount(event) {
-    const n = Number(event.currentTarget.dataset.n);
-    if (n < 2 || n > 4) return;
-    this.ui.playerCount = n;
-    this.ui.roomNotice = '人数已改为 ' + n + ' 人，点「开始牌局」生效';
-    this.refresh('');
-  },
-  onToggleBot(event) {
-    const i = Number(event.currentTarget.dataset.index);
-    if (i <= 0 || i === this.mySeat) return;
-    this.ui.bots[i] = !this.ui.bots[i];
-    this.ui.roomNotice = this.ui.bots[i]
-      ? '席位 ' + (i + 1) + ' 将由机器人托管'
-      : '席位 ' + (i + 1) + ' 留给好友加入（未入席时由机器人代打）';
-    this.syncSeatToCloud(i);
-    this.refresh('');
-  },
-
-  /** 房主调整机器人席位时同步到云端，避免好友看到不一致的席位表 */
-  syncSeatToCloud(index) {
-    if (!R.hasCloud() || !this._cloudCode || !this.room || !this.room.seats[index]) return;
-    const that = this;
-    R.cloudPullRoom(this._cloudCode).then(function (pulled) {
-      if (!pulled.ok) return;
-      const seats = (pulled.room.seats || []).slice();
-      if (!seats[index]) return;
-      const isAI = !!that.ui.bots[index];
-      seats[index] = Object.assign({}, seats[index], {
-        isAI: isAI,
-        type: isAI ? 'bot' : 'remote',
-        joined: isAI,
-        name: isAI ? '机器人 ' + index : '等待加入',
-        nickname: ''
-      });
-      R.cloudUpdateSeats(that._cloudCode, seats, pulled.version).then(function (saved) {
-        if (!saved.ok) return;
-        that._roomVersion = saved.version;
-        that.room.seats = seats;
-        // 席位变化写进牌局快照，其他设备下一次轮询即可看到
-        if (that.state.players[index]) {
-          that.state.players[index].isAI = isAI;
-          that.state.players[index].joined = isAI;
-          that.state.players[index].type = isAI ? 'bot' : 'remote';
-        }
-        that.pushCloudState();
-      });
-    });
-  },
-  onStartRoom() {
-    const count = this.ui.playerCount;
-    const bots = this.ui.bots;
-    this.ui = freshUI({ playerCount: count, bots: bots });
-    this.startGame();
-    this.refresh(count + ' 人牌局已开始 · 房间 ' + this.room.code);
-  },
   onJoinCodeInput(event) {
     this.ui.joinCode = String((event.detail && event.detail.value) || '').toUpperCase();
-  },
-  onJoinRoom() {
-    if (R.hasCloud()) {
-      this.joinCloudRoom(this.ui.joinCode);
-      return;
-    }
-    const r = R.joinRoom(this.ui.joinCode, this.profile);
-    if (!r.ok) {
-      this.ui.roomNotice = r.error;
-      this.refresh('');
-      return;
-    }
-    this.room = r.room;
-    this.ui.showLobby = false;
-    this.ui.roomNotice = '';
-    this.refresh('已加入房间 ' + r.room.code + '（本机席位）');
   },
   onCopyRoomCode() {
     const code = this.room ? this.room.code : '';
@@ -1080,6 +1511,14 @@ Page({
   },
   /** 微信分享卡片带房间号；好友点击后由 onLoad 的 query.room 带入 */
   onShareAppMessage() {
+    // 只有「邀请好友」房间才带房间号；人机对战 / 首页分享只做普通落地页
+    if (!this.room || this.room.mode !== 'room') {
+      return {
+        title: '璀璨宝石 · 2–4 人文艺复兴珠宝商桌游',
+        path: '/pages/index/index',
+        imageUrl: ''
+      };
+    }
     return R.shareMessage(this.room, this.profile);
   },
 
@@ -1140,9 +1579,9 @@ Page({
       avatarUrl: d.avatarUrl || '',
       isWechat: !!d.isWechat
     });
-    // 同步本机席位的显示资料，不改动规则状态
+    // 同步本机席位的显示资料，不改动规则状态（首页 / 大厅阶段可能还没有牌局）
     const si = this.mySeat;
-    const me = this.state.players[si];
+    const me = this.state && this.state.players[si];
     if (me) {
       me.nickname = nickname;
       me.name = nickname;
@@ -1154,6 +1593,9 @@ Page({
         name: nickname, nickname: nickname,
         avatar: this.profile.avatar, avatarUrl: this.profile.avatarUrl
       });
+      if (R.hasCloud() && this.ui.screen === 'room') {
+        this.updateCloudRoom({ seats: this.room.seats });
+      }
     }
     this.ui.showProfile = false;
     this.ui.profileDraft = null;
@@ -1165,7 +1607,7 @@ Page({
 
   onTapPlayer(event) {
     const index = Number(event.currentTarget.dataset.index);
-    if (!this.state.players[index]) return;
+    if (!this.state || !this.state.players[index]) return;
     this.ui.detailSeat = index;
     this.ui.showPlayerDetail = true;
     this.refresh('');

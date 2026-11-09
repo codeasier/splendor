@@ -115,6 +115,11 @@ check('房间与资料适配层：创建 / 分享 / 校验', function () {
   assert.equal(room.code.length, 6);
   assert.equal(room.seats.length, 3);
   assert.equal(room.backend, 'local');
+  assert.equal(room.status, 'lobby', '新建房间应处于大厅态，等玩家准备');
+  assert.equal(room.seats[0].ready, true, '房主视为已准备');
+  assert.equal(room.seats[1].ready, false, '真人空席未准备');
+  const botSeats = R.makeSeats(3, { 2: true }, p);
+  assert.equal(botSeats[2].ready, true, '机器人席位恒定就绪');
   const share = R.shareMessage(room, p);
   assert.ok(share.path.indexOf('room=' + room.code) > 0, '分享路径应带房间号');
   assert.ok(share.title.indexOf('3 人') > 0);
@@ -212,40 +217,89 @@ async function cloudChecks() {
   const host = R.saveProfile({ nickname: '房主', avatar: 'a0' });
   const seats = R.makeSeats(3, { 1: false, 2: true }, host);
   const state = E.createGame({ playerCount: 3, seats: seats });
-  const room = R.createRoom({ playerCount: 3, seats: seats, profile: host });
-  assert.equal(room.backend, 'cloud', '云端模式下房间应标记 cloud');
 
-  const created = await R.cloudCreateRoom(room, state);
+  /* ---- A. 大厅 → 好友入席 → 准备 → 房主开局 ---- */
+  const lobbyRoom = R.createRoom({ playerCount: 3, seats: seats, profile: host }); // 默认 lobby
+  assert.equal(lobbyRoom.backend, 'cloud', '云端模式下房间应标记 cloud');
+  assert.equal(lobbyRoom.status, 'lobby', '新建房间应处于大厅态');
+
+  const created = await R.cloudCreateRoom(lobbyRoom, null);
   assert.ok(created.ok, '建房应成功：' + (created.error || ''));
   assert.equal(created.version, 1);
   assert.equal(mock._store.splendor_rooms.length, 1);
-  assert.equal(mock._store.splendor_games.length, 1);
+  assert.equal(mock._store.splendor_games.length, 0, '大厅阶段不写牌局快照');
 
-  const pulled = await R.cloudPullGame(room.code);
-  assert.ok(pulled.ok, '快照应能读回');
-  assert.equal(pulled.version, 1);
-  assert.deepEqual(pulled.state, state, '写入的牌局状态应能原样读回');
-
-  const pushed = await R.cloudPushState(room.code, state, 1);
-  assert.ok(pushed.ok, '当前版本提交应成功');
-  assert.equal(pushed.version, 2);
-  const stale = await R.cloudPushState(room.code, state, 1);
-  assert.equal(stale.ok, false);
-  assert.equal(stale.conflict, true, '旧版本提交应被乐观锁挡住');
+  const pulledRoom = await R.cloudPullRoom(lobbyRoom.code);
+  assert.ok(pulledRoom.ok);
+  assert.equal(pulledRoom.room.status, 'lobby');
+  assert.equal(pulledRoom.room.seats[0].ready, true, '房主席位应带就绪标记');
+  assert.equal(pulledRoom.room.seats[1].ready, false, '真人空席未准备');
 
   const guest = R.defaultProfile();
   guest.nickname = '好友';
   guest.uid = 'guest-uid-1';
-  const joined = await R.cloudJoinRoom(room.code, guest);
-  assert.ok(joined.ok, '好友入席应成功：' + (joined.error || ''));
+  const joined = await R.cloudJoinRoom(lobbyRoom.code, guest);
+  assert.ok(joined.ok, '大厅态好友应可入席：' + (joined.error || ''));
   assert.equal(joined.seat, 1, '应落到第一个空余真人席位');
+  assert.equal(joined.status, 'lobby');
+  assert.equal(joined.state, null, '大厅阶段没有牌局快照');
   assert.equal(joined.room.seats[1].nickname, '好友');
+  assert.equal(joined.room.seats[1].ready, false, '新入席默认未准备');
   assert.equal(joined.room.seats[2].isAI, true, '机器人席位不应被占用');
-  assert.equal(joined.version, 2, '应返回当前牌局版本');
 
-  const again = await R.cloudJoinRoom(room.code, guest);
+  const again = await R.cloudJoinRoom(lobbyRoom.code, guest);
   assert.ok(again.ok);
   assert.equal(again.seat, 1, '同一身份重复进入应复用原席位');
+
+  // 房主把机器人席也置为就绪（机器人恒定 ready），再让好友准备
+  const ready = await R.cloudSetSeat(lobbyRoom.code, 1, { ready: true });
+  assert.ok(ready.ok, '准备状态应能写入云端：' + (ready.error || ''));
+  assert.equal(ready.version, again.room.version + 1, '准备应推进房间版本');
+  assert.equal(ready.seats[1].ready, true);
+
+  const hostState = E.createGame({ playerCount: 3, seats: ready.seats });
+  const started = await R.cloudStartGame(lobbyRoom.code, hostState, ready.version, ready.seats);
+  assert.ok(started.ok, '房主开局应成功：' + (started.error || ''));
+  assert.equal(started.gameVersion, 1, '新一局快照版本从 1 起');
+  const roomRow = mock._store.splendor_rooms.filter(function (r) { return r.code === lobbyRoom.code; })[0];
+  assert.equal(roomRow.status, 'playing', '开局后房间应切到 playing');
+  const lobbyGame = await R.cloudPullGame(lobbyRoom.code);
+  assert.ok(lobbyGame.ok, '开局后牌局快照应可读');
+  assert.equal(lobbyGame.state.players.length, 3, '3 人牌局快照');
+
+  // 开局后不再接受新玩家，避免快照席位与实际人数不一致
+  const late = R.defaultProfile();
+  late.uid = 'late-guest';
+  const lateJoin = await R.cloudJoinRoom(lobbyRoom.code, late);
+  assert.equal(lateJoin.ok, false, '开局后不应接受新玩家');
+  assert.ok(lateJoin.error.indexOf('已经开始') >= 0, '应给出「牌局已开始」提示');
+
+  // 一局结束回大厅：房主重置准备状态，快照写成 lobby 标记
+  const resetSeats = ready.seats.map(function (s, i) {
+    return Object.assign({}, s, { index: i, ready: i === 0 || !!s.isAI });
+  });
+  const reset = await R.cloudResetRoom(lobbyRoom.code, resetSeats, started.version);
+  assert.ok(reset.ok, '回大厅应成功：' + (reset.error || ''));
+  const afterReset = await R.cloudPullGame(lobbyRoom.code);
+  assert.equal(afterReset.state.lobby, true, '重置后快照应带 lobby 标记，其他设备据此回大厅');
+
+  /* ---- B. 进行中牌局的快照 / 乐观锁 ---- */
+  const playingRoom = R.createRoom({ playerCount: 3, seats: seats, profile: host, status: 'playing' });
+  const createdPlaying = await R.cloudCreateRoom(playingRoom, state);
+  assert.ok(createdPlaying.ok, '建房应成功：' + (createdPlaying.error || ''));
+  assert.equal(mock._store.splendor_games.length, 2, '进行中的房间应写快照');
+
+  const pulled = await R.cloudPullGame(playingRoom.code);
+  assert.ok(pulled.ok, '快照应能读回');
+  assert.equal(pulled.version, 1);
+  assert.deepEqual(pulled.state, state, '写入的牌局状态应能原样读回');
+
+  const pushed = await R.cloudPushState(playingRoom.code, state, 1);
+  assert.ok(pushed.ok, '当前版本提交应成功');
+  assert.equal(pushed.version, 2);
+  const stale = await R.cloudPushState(playingRoom.code, state, 1);
+  assert.equal(stale.ok, false);
+  assert.equal(stale.conflict, true, '旧版本提交应被乐观锁挡住');
 
   const missing = await R.cloudJoinRoom('ZZZZZZ', guest);
   assert.equal(missing.ok, false);
@@ -255,10 +309,10 @@ async function cloudChecks() {
   // 还原为本地模式，避免影响同一进程内的其他测试
   R.attachCloud(null);
   assert.equal(R.hasCloud(), false);
-  assert.equal((await R.cloudPullGame(room.code)).offline, true);
+  assert.equal((await R.cloudPullGame(playingRoom.code)).offline, true);
   R.clear();
 
-  console.log('PASS  云端 RoomAdapter：离线降级 / 建房 / 快照 / 乐观锁 / 好友入席');
+  console.log('PASS  云端 RoomAdapter：离线降级 / 大厅入席 / 准备 / 开局 / 快照 / 乐观锁');
   console.log('ALL MULTIPLAYER CHECKS PASSED');
 }
 

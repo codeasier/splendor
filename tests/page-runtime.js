@@ -38,6 +38,16 @@ function assert(c, msg) { if (!c) throw new Error('FAIL: ' + msg); }
 page.onLoad();
 assert(page.data.stageScale > 0, 'stageScale 计算');
 assert(Math.abs(page.data.stageScale - Math.min(812 / 1080, 375 / 560)) < 1e-9, 'scale 为等比缩放');
+assert(page.data.screen === 'home', '默认进入首页入口界面');
+assert(page.data.home.soloCount === 2, '人机对战默认 2 人');
+assert(page.data.home.roomCount === 3, '邀请好友默认 3 人');
+assert(page.data.home.soloCounts.length === 3, '首页提供 2/3/4 人选项');
+assert(page.data.rows.length === 0, '首页不渲染牌桌');
+console.log('OK  入口界面 · 人机对战 / 邀请好友 / 加入房间');
+
+// 进入人机对战
+page.onStartSolo();
+assert(page.data.screen === 'game', '人机对战进入牌桌');
 assert(page.data.rows.length === 3, '3 行明牌');
 page.data.rows.forEach(function (r) { assert(r.cards.length === 4, '每行 4 张卡'); });
 assert(page.data.bankPiles.length === 6, '6 种筹码堆');
@@ -154,6 +164,42 @@ assert(page.state.gameOver, '完整对局能结束 (guard=' + guard + ')');
 assert(page.data.gameOver === true, '结算弹层状态');
 assert(page.data.resultTitle.length > 0, '结算标题');
 console.log('OK  完整对局跑通 · ' + page.data.resultTitle + ' · ' + page.data.resultDetail);
+
+/* ---------- 入口 → 房间 → 准备 → 房主开始 ---------- */
+page.onLeaveRoom();
+assert(page.data.screen === 'home', '离开牌局回到首页');
+
+page.onCreateRoom();
+assert(page.data.screen === 'room', '创建房间进入房间界面');
+assert(page.data.roomScreen.seats.length === 3, '默认 3 个席位');
+assert(page.data.roomScreen.joinedHumans === 1, '只有房主已加入');
+assert(page.data.roomScreen.canStart === false, '空席未就绪时房主不能开始');
+assert(page.data.roomScreen.isHost === true, '房主视角');
+
+tap('onRoomToggleBot', { index: 1 });
+tap('onRoomToggleBot', { index: 2 });
+assert(page.data.roomScreen.botCount === 2, '两个席位转为机器人');
+assert(page.data.roomScreen.canStart === true, '机器人席位就绪后房主可开始');
+assert(page.data.roomScreen.readyCount === 3, '全员就绪计数正确');
+
+// 未就绪时先撤掉一个机器人，验证开始被拦
+tap('onRoomToggleBot', { index: 2 });
+assert(page.data.roomScreen.canStart === false, '存在空席时不能开始');
+page.onRoomStart();
+assert(page.data.screen === 'room', '未就绪时开始被拦下');
+tap('onRoomToggleBot', { index: 2 });
+assert(page.data.roomScreen.canStart === true, '补回机器人后恢复可开始');
+
+page.onRoomStart();
+assert(page.data.screen === 'game', '房主开始后进入牌桌');
+assert(page.state.players.length === 3, '3 人牌局');
+assert(page.state.players[1].isAI === true, '机器人席位由 AI 托管');
+drain(80);
+console.log('OK  房间准备流 · 空席拦截 / 机器人就绪 / 房主开局');
+
+page.onLeaveRoom();
+assert(page.data.screen === 'home', '离开房间回到首页');
+assert(page.room === null, '房间引用已释放');
 
 page.onUnload();
 console.log('ALL RUNTIME CHECKS PASSED');
