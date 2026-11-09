@@ -32,6 +32,9 @@
 
 const ROOM_KEY = 'splendor.room.v1';
 const PROFILE_KEY = 'splendor.profile.v1';
+/* 断线重连会话：房间号 + 席位 + 所在界面。小程序被杀、切后台回来、
+ * 网络断开重试时都靠它回到原座位，不用再扫一次分享卡片。 */
+const SESSION_KEY = 'splendor.session.v1';
 
 /* 进程内共享存储：必须是模块级单例，否则每次 backend() 都新建对象，
  * Node 测试下 saveProfile() 写入的数据在下一次 getProfile() 中读不到。 */
@@ -121,8 +124,30 @@ function saveProfile(patch) {
   return next;
 }
 
-function avatarName(avatar) {
-  for (let i = 0; i < PRESET_AVATARS.length; i++) {
+/* ---------- 断线重连会话 ---------- */
+
+/** 记录「我还在哪个房间的哪一席」，供冷启动 / 切回前台时重连 */
+function saveSession(session) {
+  if (!session || !session.code) return null;
+  const next = {
+    code: String(session.code).toUpperCase(),
+    seat: session.seat === undefined ? 0 : session.seat,
+    screen: session.screen || 'room',
+    at: session.at || Date.now()
+  };
+  writeJSON(backend(), SESSION_KEY, next);
+  return next;
+}
+
+function getSession() {
+  const s = readJSON(backend(), SESSION_KEY);
+  if (!s || !s.code) return null;
+  return s;
+}
+
+function clearSession() { backend().removeStorageSync(SESSION_KEY); }
+
+function avatarName(avatar) {  for (let i = 0; i < PRESET_AVATARS.length; i++) {
     if (PRESET_AVATARS[i].key === avatar) return PRESET_AVATARS[i].name;
   }
   return '微信头像';
@@ -461,10 +486,17 @@ async function cloudJoinRoom(code, profile) {
 
     const seats = (pulled.room.seats || []).slice();
     const status = pulled.room.status || 'lobby';
+    if (status === 'ended') {
+      return { ok: false, error: '房间已结束，请让房主重新建房' };
+    }
     let slot = -1;
+    // 房主重连：0 号席恒为房主，按 uid 认回，否则房主被杀进程后回不来
+    if (seats[0] && seats[0].uid === p.uid) slot = 0;
     // 同一设备重复进入时复用原席位，不占用新位置
-    for (let i = 1; i < seats.length; i += 1) {
-      if (seats[i] && seats[i].uid === p.uid && !seats[i].isAI) { slot = i; break; }
+    if (slot !== 0) {
+      for (let i = 1; i < seats.length; i += 1) {
+        if (seats[i] && seats[i].uid === p.uid && !seats[i].isAI) { slot = i; break; }
+      }
     }
     const mine = slot >= 0;
     if (slot < 0) {
@@ -532,6 +564,9 @@ module.exports = {
   shareMessage: shareMessage,
   roomCode: roomCode,
   clear: clear,
+  saveSession: saveSession,
+  getSession: getSession,
+  clearSession: clearSession,
 
   attachCloud: attachCloud,
   hasCloud: hasCloud,

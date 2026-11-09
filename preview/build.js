@@ -123,7 +123,11 @@ function valueExpr(v, scope) {
   return parts.length === 1 ? parts[0] : '(' + parts.join(' + ') + ')';
 }
 
-const TAGMAP = { view: 'div', text: 'span', image: 'img', block: 'span' };
+/* 标签映射：<text> 保留同名标签而不是转成 <span>。
+ * WXSS 里有 `.cost-bubble text`、`.noble-req text` 这类元素选择器，
+ * 一旦转成 span 就会整批失效，预览里的数字会比真机大一圈（16px 兜底），
+ * 预览与真机对不上就没法用截图验收。未知标签在浏览器里同样是 inline，布局等价。 */
+const TAGMAP = { view: 'div', text: 'text', image: 'img', block: 'span' };
 const SKIP_ATTR = (name) => name.indexOf('wx:') === 0;
 
 function attrsOf(node) {

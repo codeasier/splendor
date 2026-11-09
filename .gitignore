@@ -22,3 +22,6 @@ assets/
 # 与 ../splendor-assets-preview/。其中总览 PNG ≈13MB、打印 PDF ≈11MB，
 # 一旦写回小程序工程目录，预览编译器会直接报「文件超过 2MB」。
 # tests/size-guard.js 已纳入回归，会在第一步拦截复发。
+
+# 预览面板自动截取的界面快照（首页 / 房间 / 牌桌），生成物不入库
+preview/shots/

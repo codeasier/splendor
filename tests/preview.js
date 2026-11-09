@@ -127,7 +127,8 @@ const roomHtml = a.host.innerHTML;
 assert(roomHtml.indexOf('房间号') > 0, '房间界面应显示房间号');
 assert(roomHtml.indexOf('已加入') > 0 && roomHtml.indexOf('已准备') > 0, '房间界面应显示加入与准备人数');
 assert(roomHtml.indexOf('等待玩家准备') > 0, '有未就绪席位时房主不可开始');
-assert(roomHtml.indexOf('data-tap="onRoomToggleBot"') > 0, '空席应可改成机器人');
+assert(roomHtml.indexOf('data-catchtap="onRoomToggleBot"') > 0, '空席应可改成机器人');
+assert(roomHtml.indexOf('data-tap="onRoomSeatTap"') > 0, '整张席位卡应可点选');
 
 // 4.1.1 好友入席但未点准备：人数 / 准备数 / 提示须实时反映
 const origSeat1 = a.page.room.seats[1];
@@ -141,7 +142,7 @@ assert(guestHtml.indexOf('还有 1 位玩家未准备') > 0, '应提示还有 1 
 assert(guestHtml.indexOf('未准备') > 0, '席位胶囊应显示「未准备」');
 assert(guestHtml.indexOf('群友乙') > 0, '席位应显示好友昵称');
 assert(guestHtml.indexOf('等待玩家准备') > 0, '有人未准备时开始按钮不可用');
-assert(guestHtml.indexOf('data-tap="onRoomToggleBot"') > 0, '剩余空席仍可改成机器人');
+assert(guestHtml.indexOf('data-catchtap="onRoomToggleBot"') > 0, '剩余空席仍可改成机器人');
 
 // 好友点准备后，房主端准备数 +1
 a.page.room.seats[1].ready = true;
@@ -163,6 +164,26 @@ click('onRoomStart');
 assert(a.page.data.screen === 'game', '房主开始后进入牌桌');
 assert(a.page.state.players.length === 3, '按房间人数开出 3 人局');
 console.log('房间流：空席→机器人→全就绪→房主开始 OK');
+
+// 4.2 3 人局：4 张贵族改双列，不再压到工作台下面
+assert(a.page.data.nobles.length === 4, '3 人局应有 4 张贵族');
+assert(a.page.data.noblesCompact === true, '贵族应切紧凑排布');
+assert(a.host.innerHTML.indexOf('is-compact') > 0, '渲染应带紧凑类名');
+
+// 4.3 预留卡详情：按桌面卡面渲染成本气泡与声望
+click('onTapCard', { lv: 0, index: 0 });
+click('onReserveFromDetail');
+assert(a.page.state.players[0].reserved.length === 1, '预留成功');
+a.page.ui.showPlayerDetail = true;
+a.page.ui.detailSeat = 0;
+a.page.refresh('');
+const pdHtml = a.host.innerHTML;
+assert(pdHtml.indexOf('pd-cards') > 0, '预留卡应以卡面形式渲染');
+assert(pdHtml.indexOf('卡面印刷成本') > 0, '应说明气泡为卡面印刷成本');
+assert(pdHtml.indexOf('cost-bubble') > 0, '卡面应带成本气泡');
+a.page.ui.showPlayerDetail = false;
+a.page.refresh('');
+console.log('牌桌：3 人局贵族双列 / 预留卡卡面详情 OK');
 
 // 4) 完整对局（直接驱动引擎 + AI，验证视图模型不崩）
 let steps = 0;

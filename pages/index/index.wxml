@@ -48,7 +48,8 @@
 
       <view class="turn-banner">
         <text class="turn-main">{{statusText}}</text>
-        <text class="turn-sub">{{turnText}} · {{logText}}</text>
+        <text wx:if="{{netNotice}}" class="turn-sub is-net">{{netNotice}}</text>
+        <text wx:else class="turn-sub">{{turnText}} · {{logText}}</text>
       </view>
 
       <view class="top-right">
@@ -126,7 +127,7 @@
         <text class="pile-tip">黄金仅可通过预留获得</text>
       </view>
 
-      <view class="noble-area">
+      <view class="noble-area {{noblesCompact ? 'is-compact' : ''}}">
         <text class="rail-title">贵族牌 · 各 3 声望</text>
         <view class="noble-row">
           <view wx:for="{{nobles}}" wx:key="id" class="noble">
@@ -294,13 +295,14 @@
 
       <view class="room-seat-row">
         <view wx:for="{{roomScreen.seats}}" wx:key="index"
-              class="room-seat {{item.ready ? 'is-ready' : ''}} {{item.empty ? 'is-empty' : ''}} {{item.isSelf ? 'is-self' : ''}}">
+              class="room-seat {{item.ready ? 'is-ready' : ''}} {{item.empty ? 'is-empty' : ''}} {{item.isSelf ? 'is-self' : ''}} {{item.tappable ? 'is-tappable' : ''}}"
+              bindtap="onRoomSeatTap" data-index="{{item.index}}">
           <view wx:if="{{item.avatarUrl}}" class="room-avatar">
             <image class="room-avatar-img" src="{{item.avatarUrl}}" mode="aspectFill"></image>
           </view>
-          <view wx:else class="room-avatar"
+          <view wx:else class="room-avatar {{item.empty ? 'is-empty' : ''}}"
                 style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);">
-            <text class="room-avatar-no">{{item.seatNo}}</text>
+            <text class="room-avatar-no">{{item.empty ? '+' : item.seatNo}}</text>
           </view>
           <text class="room-seat-label">{{item.label}}</text>
           <text class="room-seat-name">{{item.name}}</text>
@@ -308,7 +310,7 @@
             <text>{{item.stateText}}</text>
           </view>
           <view wx:if="{{item.canToggleBot}}" class="room-seat-action"
-                bindtap="onRoomToggleBot" data-index="{{item.index}}">设为机器人</view>
+                catchtap="onRoomToggleBot" data-index="{{item.index}}">{{item.seatAction}}</view>
         </view>
       </view>
 
@@ -422,11 +424,12 @@
           <text class="dialog-sub">{{playerCount}} 人对局 · 先达到 15 声望者胜 · 点击任意头像可查看详情</text>
         </view>
         <view class="rules-body">
-          <text class="rule-item">1. 支持 2 / 3 / 4 人：首页可开「人机对战」或「邀请好友」；房间内所有真人点「准备」、房主才可开始，空席可改成机器人。</text>
+          <text class="rule-item">1. 支持 2 / 3 / 4 人：首页可开「人机对战」或「邀请好友」；房间内所有真人点「准备」、房主才可开始。房间默认全是真人席位，房主点空席即可安排机器人，再点一次撤回。</text>
           <text class="rule-item">2. 每回合四选一：拿 3 枚不同色筹码（或同色 2 枚，该色需剩 ≥4）、预留 1 张卡并拿 1 枚黄金、购买 1 张桌面卡或预留卡。</text>
           <text class="rule-item">3. 卡牌左下角气泡是购买成本；每持有 1 张同色发展卡，该色成本自动减 1（宝石红利）。不足部分可用黄金补齐。</text>
           <text class="rule-item">4. 发展卡提供声望与永久红利；贵族牌在回合末自动判定，满足红利要求即 +3 声望。每人筹码上限 10 枚，预留卡上限 3 张。</text>
           <text class="rule-item">5. 有人达到 15 声望后，其余玩家各再行动一回合即结算；同分时发展卡少者胜。</text>
+          <text class="rule-item">6. 断线、切后台或重进小程序会自动回到原来的房间与座位；房主结束后房间失效，自动退回首页。</text>
           <text class="rule-note">本版为规则化生成的牌组（40/30/20 张），非官方逐张卡面复刻；卡面插画取自 Cleveland Museum of Art 开放获取（CC0）绘画，牌序每局随机。</text>
         </view>
         <view class="dialog-btns">
@@ -519,15 +522,25 @@
             </view>
           </view>
           <view class="player-right">
-            <text class="detail-section">预留卡（{{playerDetail.reservedCards.length}}/3）</text>
-            <view class="pd-list">
+            <text class="detail-section">预留卡（{{playerDetail.reservedCards.length}}/3）· 气泡为卡面印刷成本</text>
+            <view class="pd-cards">
               <view wx:for="{{playerDetail.reservedCards}}" wx:key="id" class="pd-card">
-                <view class="pd-card-art"><view class="card-photo {{item.photoClass}} {{item.artClass}}"></view></view>
-                <view class="pd-card-info">
-                  <text class="pd-card-name">{{item.name}}</text>
-                  <text class="pd-card-sub">第 {{item.level}} 级 · {{item.pointsText}} 声望 · {{item.gemLabel}}红利</text>
+                <view class="card">
+                  <view class="card-art">
+                    <view class="card-photo {{item.photoClass}} {{item.artClass}}"></view>
+                    <view class="art-glaze"></view>
+                    <text class="card-name">{{item.name}}</text>
+                  </view>
+                  <text wx:if="{{item.pointsText}}" class="card-points">{{item.pointsText}}</text>
+                  <view class="card-gem gem-icon {{item.gemClass}}"></view>
+                  <view class="card-foot">
+                    <view wx:for="{{item.costs}}" wx:for-item="cost" wx:key="key"
+                          class="cost-bubble gem-icon {{cost.gemClass}}">
+                      <text style="color:{{cost.ink}}">{{cost.display}}</text>
+                    </view>
+                  </view>
                 </view>
-                <view class="pd-card-gem gem-icon {{item.gemClass}}"></view>
+                <text class="pd-card-caption">第 {{item.level}} 级 · {{item.pointsLabel}} · {{item.gemLabel}}红利</text>
               </view>
               <text wx:if="{{playerDetail.emptyReserved}}" class="empty-tip">该玩家目前没有预留卡。</text>
             </view>

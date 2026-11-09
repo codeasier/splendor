@@ -274,6 +274,33 @@ async function cloudChecks() {
   assert.equal(lateJoin.ok, false, '开局后不应接受新玩家');
   assert.ok(lateJoin.error.indexOf('已经开始') >= 0, '应给出「牌局已开始」提示');
 
+  /* ---- 断线重连：原 uid 在牌局进行中重进 ---- */
+  const rejoin = await R.cloudJoinRoom(lobbyRoom.code, guest);
+  assert.ok(rejoin.ok, '开局后原玩家重连应成功：' + (rejoin.error || ''));
+  assert.equal(rejoin.seat, 1, '重连必须复用原席位');
+  assert.equal(rejoin.status, 'playing', '重连应回到进行中的牌局');
+  assert.ok(rejoin.state && rejoin.state.players.length === 3, '重连应带回牌局快照');
+  assert.equal(rejoin.version, 1, '快照版本随重连返回');
+  assert.deepEqual(rejoin.state.players[1].name, lobbyGame.state.players[1].name, '席位身份与快照一致');
+
+  const hostRejoin = await R.cloudJoinRoom(lobbyRoom.code, host);
+  assert.ok(hostRejoin.ok, '房主被杀进程后应能重连：' + (hostRejoin.error || ''));
+  assert.equal(hostRejoin.seat, 0, '房主重连回到 0 号席');
+  assert.equal(hostRejoin.status, 'playing', '房主重连回到进行中的牌局');
+  assert.ok(hostRejoin.state && hostRejoin.state.players.length === 3, '房主重连也拿到快照');
+
+  /* ---- 本地会话：记住房间号 / 席位 / 界面 ---- */
+  const savedSession = R.saveSession({ code: lobbyRoom.code.toLowerCase(), seat: 1, screen: 'game' });
+  assert.equal(savedSession.code, lobbyRoom.code, '会话房间号统一大写');
+  assert.equal(savedSession.seat, 1);
+  assert.equal(savedSession.screen, 'game');
+  const restoredSession = R.getSession();
+  assert.ok(restoredSession && restoredSession.code === lobbyRoom.code, '会话可读回');
+  assert.ok(restoredSession.at > 0, '会话带时间戳用于过期判断');
+  assert.equal(R.saveSession(null), null, '空会话不应写入');
+  R.clearSession();
+  assert.equal(R.getSession(), null, '清空后不再有会话');
+
   // 一局结束回大厅：房主重置准备状态，快照写成 lobby 标记
   const resetSeats = ready.seats.map(function (s, i) {
     return Object.assign({}, s, { index: i, ready: i === 0 || !!s.isAI });
@@ -282,6 +309,13 @@ async function cloudChecks() {
   assert.ok(reset.ok, '回大厅应成功：' + (reset.error || ''));
   const afterReset = await R.cloudPullGame(lobbyRoom.code);
   assert.equal(afterReset.state.lobby, true, '重置后快照应带 lobby 标记，其他设备据此回大厅');
+
+  // 房主离开 = 解散：置 ended 后重连与新入席都应被拒，避免对着僵尸房间空转
+  const ended = await R.cloudUpdateRoom(lobbyRoom.code, { status: 'ended' }, reset.version);
+  assert.ok(ended.ok, '解散房间应写入成功');
+  const afterEnd = await R.cloudJoinRoom(lobbyRoom.code, guest);
+  assert.equal(afterEnd.ok, false, '已解散房间不应接受入席');
+  assert.ok(afterEnd.error.indexOf('已结束') >= 0, '应明确提示房间已结束');
 
   /* ---- B. 进行中牌局的快照 / 乐观锁 ---- */
   const playingRoom = R.createRoom({ playerCount: 3, seats: seats, profile: host, status: 'playing' });
@@ -312,7 +346,7 @@ async function cloudChecks() {
   assert.equal((await R.cloudPullGame(playingRoom.code)).offline, true);
   R.clear();
 
-  console.log('PASS  云端 RoomAdapter：离线降级 / 大厅入席 / 准备 / 开局 / 快照 / 乐观锁');
+  console.log('PASS  云端 RoomAdapter：离线降级 / 大厅入席 / 准备 / 开局 / 快照 / 乐观锁 / 断线重连 / 解散');
   console.log('ALL MULTIPLAYER CHECKS PASSED');
 }
 

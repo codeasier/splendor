@@ -269,5 +269,87 @@ assert(page.state.players[2].isAI === true, '机器人席位 AI 托管');
 drain(80);
 console.log('OK  真人入席准备流 · 人数/准备实时变化 · 全员就绪房主才可开局');
 
+/* ---------- 3/4 人局贵族牌：改双列，避免被工作台挡住 ---------- */
+assert(page.data.nobles.length === 4, '3 人局应有 4 张贵族');
+assert(page.data.noblesCompact === true, '4 张贵族应切到紧凑双列');
+page.onLeaveRoom();
+page.onSelectSoloCount({ currentTarget: { dataset: { n: 2 } } });
+page.onStartSolo();
+assert(page.data.nobles.length === 3, '2 人局 3 张贵族');
+assert(page.data.noblesCompact === false, '3 张贵族仍用单列');
+console.log('OK  贵族牌排布 · 2 人单列 / 3-4 人紧凑双列');
+
+/* ---------- 预留卡详情：按卡面展示成本与声望 ---------- */
+tap('onTapCard', { lv: 0, index: 0 });
+page.onReserveFromDetail();
+assert(page.state.players[0].reserved.length === 1, '预留成功');
+page.ui.showPlayerDetail = true;
+page.ui.detailSeat = 0;
+page.refresh('');
+const pd = page.data.playerDetail;
+assert(pd.reservedCards.length === 1, '详情列出预留卡');
+const rc = pd.reservedCards[0];
+const rawCard = page.state.players[0].reserved[0];
+assert(rc.costs.length > 0, '预留卡应带成本气泡');
+assert(rc.costs.every(function (c) { return c.display === String(rawCard.cost[c.key]); }),
+  '气泡数量应等于卡面印刷成本');
+assert(rc.pointsLabel.indexOf('声望') >= 0, '预留卡应显示声望');
+assert(rc.name === rawCard.name, '预留卡名称一致');
+page.ui.showPlayerDetail = false;
+page.refresh('');
+console.log('OK  预留卡详情 · 卡面成本气泡 / 声望 / 名称');
+
+/* ---------- 房间默认无机器人；点空席即可安排 ---------- */
+page.onLeaveRoom();
+page.onCreateRoom();
+assert(page.data.roomScreen.botCount === 0, '新开的房间默认不加机器人');
+assert(page.data.roomScreen.seats[1].canToggleBot === true, '空席提供「设为机器人」');
+tap('onRoomSeatTap', { index: 2 });
+assert(page.data.roomScreen.botCount === 1, '点空席即可加入机器人');
+assert(page.data.roomScreen.seats[2].seatAction === '取消机器人', '机器人席位可撤回');
+tap('onRoomSeatTap', { index: 2 });
+assert(page.data.roomScreen.botCount === 0, '再点一次即撤回机器人');
+page.room.seats[1] = Object.assign({}, page.room.seats[1], {
+  joined: true, uid: 'guest-b', name: '好友乙', nickname: '好友乙'
+});
+page.refresh('');
+tap('onRoomSeatTap', { index: 1 });
+assert(page.data.roomScreen.botCount === 0, '已入席的好友不会被改成机器人');
+assert(page.data.roomScreen.notice.indexOf('已有好友') >= 0, '给出「已有好友」提示');
+page.onLeaveRoom();
+console.log('OK  席位交互 · 默认无机器人 / 点空席加入 / 再点撤回 / 好友席位保护');
+
+/* ---------- 断线提示进入视图模型 ---------- */
+page.ui.netNotice = '网络中断 · 正在重连…';
+page.refresh('');
+assert(page.data.netNotice.indexOf('网络中断') >= 0, '断线提示应进入视图模型');
+page.ui.netNotice = '';
+page.refresh('');
+assert(page.data.netNotice === '', '恢复后提示应清除');
+console.log('OK  断线重连提示 · 状态行可承载 / 可清除');
+
+/* ---------- 冷启动重连：有会话时 onShow 自动回到房间 ---------- */
+const RS = require(ROOT + '/utils/room.js');
+const origHasCloud = RS.hasCloud;
+const origJoin = RS.cloudJoinRoom;
+RS.hasCloud = function () { return true; };
+let joinCalls = 0;
+RS.cloudJoinRoom = function () { joinCalls += 1; return new Promise(function () {}); };
+RS.saveSession({ code: 'ABC123', seat: 1, screen: 'room', at: Date.now() });
+page.onShow();
+assert(joinCalls === 1, '有会话时 onShow 应自动发起一次入席');
+assert(page.ui.homeNotice.indexOf('ABC123') >= 0, '应提示正在回到原房间');
+assert(page._resuming === true, '重连过程中应处于 resuming 状态');
+// 无会话时不应打扰用户
+RS.clearSession();
+page._resuming = false;
+page._joining = false;
+joinCalls = 0;
+page.onShow();
+assert(joinCalls === 0, '没有会话时 onShow 不应发起入席');
+RS.cloudJoinRoom = origJoin;
+RS.hasCloud = origHasCloud;
+console.log('OK  冷启动重连 · 有会话自动入席 / 无会话静默');
+
 page.onUnload();
 console.log('ALL RUNTIME CHECKS PASSED');
