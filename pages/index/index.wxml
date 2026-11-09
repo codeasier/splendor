@@ -28,12 +28,15 @@
         <view wx:for="{{rivals}}" wx:key="index"
               class="seat-badge {{item.isCurrent ? 'is-current' : ''}} {{item.isBot ? 'is-bot' : ''}} {{item.empty ? 'is-empty' : ''}}"
               bindtap="onTapPlayer" data-index="{{item.index}}" hover-class="seat-hover">
-          <view wx:if="{{item.avatarUrl}}" class="seat-avatar">
-            <image class="seat-avatar-img" src="{{item.avatarUrl}}" mode="aspectFill"></image>
-          </view>
-          <view wx:else class="seat-avatar"
-                style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);">
-            <text class="seat-avatar-initial">{{item.index + 1}}</text>
+          <view class="seat-avatar-wrap">
+            <view wx:if="{{item.avatarUrl}}" class="seat-avatar">
+              <image class="seat-avatar-img" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+            </view>
+            <view wx:else class="seat-avatar"
+                  style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);">
+              <text class="seat-avatar-initial">{{item.initial}}</text>
+            </view>
+            <view class="seat-no {{item.isCurrent ? 'is-current' : ''}}"><text>{{item.seatNo}}</text></view>
           </view>
           <view class="seat-meta">
             <view class="seat-head">
@@ -50,9 +53,17 @@
       </view>
 
       <view class="turn-banner">
-        <text class="turn-main">{{statusText}}</text>
+        <view class="turn-line">
+          <text class="turn-main {{statusLong ? 'is-long' : ''}}">{{statusText}}</text>
+        </view>
         <text wx:if="{{netNotice}}" class="turn-sub is-net">{{netNotice}}</text>
         <text wx:else class="turn-sub">{{turnText}} · {{logText}}</text>
+        <view wx:if="{{turnClock.on}}" class="turn-clock {{turnClock.urgent ? 'is-urgent' : ''}} {{isMyTurn ? 'is-mine' : ''}}">
+          <view class="turn-clock-track">
+            <view class="turn-clock-fill" style="width:{{turnClock.pct}}%;"></view>
+          </view>
+          <text class="turn-clock-num">{{turnClock.text}}</text>
+        </view>
       </view>
 
       <view class="top-right">
@@ -64,6 +75,17 @@
         <view class="round-btn" bindtap="onOpenProfile"><text>☻</text></view>
         <view class="round-btn" bindtap="onShowRules"><text>?</text></view>
         <view class="round-btn" bindtap="onRestart"><text>↺</text></view>
+      </view>
+    </view>
+
+    <!-- ========== 换手全屏提醒：进入 / 离开自己的回合各一次 ==========
+         只在换手瞬间出现 1.7s，不占常态版面；人机局只在轮到自己时弹。 -->
+    <view wx:if="{{turnFlash}}" class="turn-flash is-{{turnFlash.tone}}">
+      <view class="turn-flash-veil"></view>
+      <view class="turn-flash-band">
+        <text class="turn-flash-seat">{{turnFlash.seatLabel}}</text>
+        <text class="turn-flash-title">{{turnFlash.title}}</text>
+        <text class="turn-flash-sub">{{turnFlash.sub}}</text>
       </view>
     </view>
 
@@ -194,6 +216,7 @@
         <view class="portrait-frame" bindtap="onTapMyPortrait" hover-class="portrait-hover">
           <view class="portrait"></view>
           <view class="portrait-gem"></view>
+          <view class="portrait-seat"><text>{{meSeatLabel}}</text></view>
         </view>
         <view class="player-badges">
           <view class="score-disc">
@@ -423,6 +446,14 @@
                     class="count-chip {{item.active ? 'is-active' : ''}}"
                     bindtap="onSelectRoomCount" data-n="{{item.n}}">{{item.label}}</view>
             </view>
+            <view class="choice-timer">
+              <text class="choice-timer-label">回合计时</text>
+              <view class="timer-chips">
+                <view wx:for="{{home.turnLimits}}" wx:key="value"
+                      class="timer-chip {{item.active ? 'is-active' : ''}}"
+                      bindtap="onSelectTurnLimit" data-value="{{item.value}}">{{item.label}}</view>
+              </view>
+            </view>
             <view class="btn btn-primary choice-btn" bindtap="onCreateRoom">创建房间</view>
           </view>
         </view>
@@ -450,7 +481,7 @@
         </view>
         <view class="room-status-block">
           <text class="room-status-main">{{roomScreen.statusText}}</text>
-          <text class="room-status-sub">{{roomScreen.backendHint}}</text>
+          <text class="room-status-sub">回合计时 {{roomScreen.turnLimitText}} · {{roomScreen.backendHint}}</text>
         </view>
         <view class="btn room-leave" bindtap="onLeaveRoom">离开房间</view>
       </view>
@@ -464,7 +495,7 @@
           </view>
           <view wx:else class="room-avatar {{item.empty ? 'is-empty' : ''}}"
                 style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);">
-            <text class="room-avatar-no">{{item.empty ? '+' : item.seatNo}}</text>
+            <text class="room-avatar-no">{{item.empty ? '+' : item.initial}}</text>
           </view>
           <text class="room-seat-label">{{item.label}}</text>
           <text class="room-seat-name">{{item.name}}</text>
@@ -489,6 +520,12 @@
           <view wx:for="{{roomScreen.counts}}" wx:key="n"
                 class="count-chip {{item.active ? 'is-active' : ''}}"
                 bindtap="onRoomCount" data-n="{{item.n}}">{{item.label}}</view>
+        </view>
+        <view wx:if="{{roomScreen.isHost}}" class="room-counts">
+          <text class="room-counts-label">回合计时</text>
+          <view wx:for="{{roomScreen.turnLimits}}" wx:key="value"
+                class="count-chip {{item.active ? 'is-active' : ''}}"
+                bindtap="onRoomTurnLimit" data-value="{{item.value}}">{{item.label}}</view>
         </view>
         <text wx:if="{{roomScreen.notice}}" class="room-notice">{{roomScreen.notice}}</text>
       </view>
@@ -641,6 +678,7 @@
           <text class="rule-item">4. 发展卡提供声望与永久红利；贵族牌在回合末自动判定，满足红利要求即 +3 声望。每人筹码上限 10 枚，预留卡上限 3 张。已预留的卡就铺在桌面左侧，随时可点开购买。</text>
           <text class="rule-item">5. 有人达到 15 声望后，其余玩家各再行动一回合即结算；同分时发展卡少者胜。</text>
           <text class="rule-item">6. 断线、切后台或重进小程序会自动回到原来的房间与座位；房主结束后房间失效，自动退回首页。</text>
+          <text class="rule-item">7. 房间可按 60 / 90 / 120 秒或不限时对局；超时的回合会由 AI 代打一手——自己超时本机代打，别人超时由房主在宽限 12 秒后接管。</text>
           <text class="rule-note">牌组为官方 90 张逐张对应（一级 40 / 二级 30 / 三级 20），贵族 10 张；卡面插画取自 Cleveland Museum of Art 开放获取（CC0）绘画，牌序每局随机。</text>
         </view>
         <view class="dialog-btns">

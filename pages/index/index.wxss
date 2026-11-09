@@ -162,8 +162,8 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 
 /* 皇家回合铭牌：中央悬浮鎏金横幅 */
 .turn-banner {
-  position: absolute; left: 366px; top: 8px; width: 348px;
-  padding: 5px 18px 8px;
+  position: absolute; left: 350px; top: 8px; width: 380px;
+  padding: 5px 72px 8px 18px;
   border-radius: 22px;
   border: 1px solid rgba(243, 212, 139, .38);
   background:
@@ -172,14 +172,55 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     inset 0 1px 0 rgba(255, 242, 204, .28),
     inset 0 -2px 6px rgba(0, 0, 0, .55),
     0 6px 18px rgba(0, 0, 0, .58);
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  /* 状态行降到小字号时会矮 4px，固定下限避免换手时整块铭牌抖动 */
+  min-height: 56px;
+}
+/* 回合计时：嵌在回合铭牌右侧，剩余时间 + 进度条，最后 10 秒转红并呼吸 */
+.turn-clock {
+  position: absolute; right: 8px; top: 50%; width: 56px;
+  transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.turn-clock-num {
+  font-family: Georgia, serif; font-size: 17px; font-weight: 700; letter-spacing: .5px;
+  color: #ffe9bb; text-shadow: 0 2px 6px rgba(0, 0, 0, .9);
+  line-height: 1;
+}
+.turn-clock-track {
+  width: 46px; height: 5px; border-radius: 3px; overflow: hidden;
+  background: rgba(14, 5, 10, .82);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .85), 0 0 0 1px rgba(243, 212, 139, .34);
+}
+.turn-clock-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, #6fd7a4, #d7f0b4);
+  transition: width .4s linear;
+}
+.turn-clock.is-urgent .turn-clock-num { color: #ff9a86; animation: clockPulse .9s ease-in-out infinite; }
+.turn-clock.is-urgent .turn-clock-fill { background: linear-gradient(90deg, #ff7a5c, #ffbf6b); }
+.turn-clock.is-mine .turn-clock-num { color: #b9f4ff; }
+.turn-clock.is-mine.is-urgent .turn-clock-num { color: #ff9a86; }
+@keyframes clockPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.12); opacity: .82; }
+}
+/* 状态行单行显示：别人的昵称长度不可控，超长就靠 is-long 收字号，再长才省略
+   铭牌里还嵌着 56px 的计时块，所以可用宽度只有 100% - 18 - 72 */
+.turn-line {
+  max-width: 100%; display: flex; justify-content: center;
 }
 .turn-main {
   font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
   font-size: 23px; font-weight: 700; letter-spacing: 5px; line-height: 1.15;
   color: #ffebb8;
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   text-shadow: 0 2px 8px rgba(0, 0, 0, .92), 0 0 16px rgba(243, 198, 108, .32);
   animation: turnBreath 3.2s ease-in-out infinite;
+}
+/* 「3 号位 · 某某某 的回合」比「你的回合 · 2 号位」长一截，降一档字号保住单行 */
+.turn-main.is-long {
+  font-size: 19px; letter-spacing: 3px;
 }
 .turn-sub {
   font-size: 10px; color: #edd0a8; letter-spacing: .6px;
@@ -744,6 +785,18 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   content: ''; position: absolute; left: 22%; top: 18%; width: 56%; height: 44%;
   border-radius: 50%; background: rgba(255, 255, 255, .45);
 }
+/* 自己的工作台也要标号位：牌桌上方席位条只列对手，自己是靠这块牌认位的 */
+.portrait-seat {
+  position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%);
+  padding: 1px 7px; border-radius: 8px; white-space: nowrap;
+  border: 1px solid rgba(255, 244, 205, .92);
+  background: linear-gradient(160deg, #ffeaad, #c8952f 62%, #8d5f16);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+.portrait-seat text {
+  font-family: Georgia, serif; font-size: 10px; font-weight: 700; color: #2c1405;
+  letter-spacing: .5px; line-height: 1.25;
+}
 .player-badges { display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px; }
 .score-disc, .vault-total {
   border-radius: 50%;
@@ -1110,6 +1163,75 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   box-shadow: 0 3px 8px rgba(0, 0, 0, .72);
 }
 
+/* ---------- 换手全屏提醒：进/出回合的一次性大提示 ----------
+   1.7s 自隐，不拦点击（pointer-events: none），不参与常态布局。 */
+.turn-flash {
+  position: absolute; left: 0; top: 0; width: 1080px; height: 560px;
+  z-index: 15; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  animation: turnFlashLife 1700ms ease-out both;
+}
+.turn-flash-veil {
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  background: radial-gradient(ellipse 66% 58% at 50% 50%, rgba(10, 3, 8, 0) 0%, rgba(10, 3, 8, .74) 82%);
+  animation: turnFlashVeil 1700ms ease-out both;
+}
+.turn-flash-band {
+  position: relative;
+  min-width: 470px; padding: 16px 56px 18px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  border-top: 2px solid rgba(243, 212, 139, .88);
+  border-bottom: 2px solid rgba(243, 212, 139, .88);
+  background: linear-gradient(90deg,
+    rgba(34, 10, 22, 0) 0%, rgba(40, 13, 27, .9) 16%,
+    rgba(40, 13, 27, .92) 84%, rgba(34, 10, 22, 0) 100%);
+  box-shadow: 0 0 46px rgba(0, 0, 0, .55);
+  animation: turnFlashBand 1700ms cubic-bezier(.2, .9, .25, 1) both;
+}
+.turn-flash-seat {
+  font-size: 11px; letter-spacing: 5px; color: #e9c384;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .9);
+}
+.turn-flash-title {
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
+  font-size: 38px; font-weight: 700; letter-spacing: 7px; line-height: 1.1;
+  color: #ffeec2;
+  text-shadow: 0 3px 14px rgba(0, 0, 0, .95), 0 0 26px rgba(243, 198, 108, .45);
+}
+.turn-flash-sub {
+  font-size: 11px; letter-spacing: 1.2px; color: #e8cbab;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .9);
+}
+/* 轮到自己：青蓝调，与席位条的「当前回合」同色系，形成一致语义 */
+.turn-flash.is-mine .turn-flash-band {
+  border-color: rgba(140, 232, 250, .92);
+  background: linear-gradient(90deg,
+    rgba(8, 32, 40, 0) 0%, rgba(8, 40, 50, .9) 16%,
+    rgba(8, 40, 50, .92) 84%, rgba(8, 32, 40, 0) 100%);
+  box-shadow: 0 0 54px rgba(60, 190, 220, .28);
+}
+.turn-flash.is-mine .turn-flash-title { color: #d9fbff; text-shadow: 0 3px 14px rgba(0, 0, 0, .95), 0 0 28px rgba(120, 224, 250, .55); }
+.turn-flash.is-mine .turn-flash-seat { color: #9fe6f6; }
+/* 机器人托管：低调一点，避免每一步都像在喊人 */
+.turn-flash.is-bot .turn-flash-band { opacity: .92; }
+.turn-flash.is-bot .turn-flash-title { font-size: 32px; }
+
+@keyframes turnFlashLife {
+  0%, 96% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+@keyframes turnFlashVeil {
+  0% { opacity: 0; }
+  10%, 74% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes turnFlashBand {
+  0% { opacity: 0; transform: scaleX(.72) translateY(10px); }
+  12% { opacity: 1; transform: scaleX(1) translateY(0); }
+  78% { opacity: 1; transform: scaleX(1) translateY(0); }
+  100% { opacity: 0; transform: scaleX(1.04) translateY(-7px); }
+}
+
 @keyframes showcaseLifecycle {
   0%, 96% { opacity: 1; visibility: visible; }
   100% { opacity: 0; visibility: hidden; }
@@ -1225,6 +1347,26 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .seat-avatar-img { width: 100%; height: 100%; }
 .seat-avatar-initial { font-family: Georgia, serif; font-size: 15px; font-weight: 700; color: #fff1d5; text-shadow: 0 1px 3px #1a0d14; }
+/* 号位徽章：压在头像左下角，任何情况下都能对上是第几号位 */
+.seat-avatar-wrap { position: relative; width: 34px; height: 40px; flex-shrink: 0; }
+.seat-no {
+  position: absolute; left: -6px; top: -6px;
+  min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(226, 180, 102, .9);
+  background: linear-gradient(160deg, #f6d794, #9c6524);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .75), inset 0 1px 0 rgba(255, 252, 236, .8);
+}
+.seat-no text {
+  font-family: Georgia, serif; font-size: 10px; font-weight: 700;
+  color: #2a1408; line-height: 1;
+}
+.seat-no.is-current {
+  border-color: #8ff0ff;
+  background: linear-gradient(160deg, #d8fbff, #2f9fc4);
+  box-shadow: 0 0 8px rgba(124, 226, 247, .8), 0 2px 5px rgba(0, 0, 0, .7);
+}
+.seat-no.is-current text { color: #052028; }
 .seat-meta { flex: 1; min-width: 0; height: 44px; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; }
 .seat-head { display: flex; align-items: center; justify-content: space-between; gap: 3px; }
 .seat-name {
@@ -1689,14 +1831,36 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .count-chip {
   flex: 1; min-width: 58px; padding: 7px 10px; border-radius: 6px; text-align: center;
   font-size: 12px; font-weight: 600; color: #edd4b4;
+  white-space: nowrap;
   border: 1px solid rgba(214, 166, 86, .52);
   background: linear-gradient(180deg, #4f2b3c, #23111c);
   box-shadow: inset 0 1px 0 rgba(255, 240, 200, .2), 0 2px 5px rgba(0, 0, 0, .48);
 }
+/* 回合计时行有 4 个选项，比人数行更挤一档：收窄内边距，保证「120 秒」不换行 */
+.room-counts .count-chip { min-width: 50px; padding: 7px 7px; }
 .count-chip.is-active {
   color: #261204; font-weight: 700; border-color: #fff0be;
   background: linear-gradient(180deg, #ffeaad 0%, #e4ae4e 55%, #b87b1e 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .75), 0 0 10px rgba(243, 198, 108, .35), 0 3px 6px rgba(0, 0, 0, .55);
+}
+/* 建房时的回合计时选择：比人数更细一档，避免把卡片撑太高 */
+.choice-timer { width: 100%; display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+.choice-timer-label {
+  flex-shrink: 0; font-size: 10px; font-weight: 600; letter-spacing: 1px;
+  color: #e8c69a; text-shadow: 0 1px 2px #000;
+}
+.timer-chips { flex: 1; display: flex; gap: 5px; }
+.timer-chip {
+  flex: 1; padding: 4px 0; border-radius: 5px; text-align: center;
+  font-size: 10.5px; font-weight: 600; color: #e4c8a8;
+  border: 1px solid rgba(214, 166, 86, .4);
+  background: rgba(30, 14, 24, .72);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .14);
+}
+.timer-chip.is-active {
+  color: #261204; border-color: #fff0be;
+  background: linear-gradient(180deg, #ffe9a6 0%, #dda94a 58%, #b0761c 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 0 8px rgba(243, 198, 108, .3);
 }
 .choice-btn {
   margin-top: 12px; width: 100%; box-sizing: border-box;

@@ -24,6 +24,8 @@ function tick() { return new Promise(function (r) { setTimeout(r, 0); }); }
 /* ---------- 最小 PostgREST mock：只实现 user.js 用到的 upsert / select ---------- */
 function mockCloud() {
   const store = { splendor_players: [], splendor_records: [] };
+  // 记录每次查询用过的过滤条件，用于断言「不是整表拉」
+  const meta = { queries: [] };
   function from(table) {
     if (!store[table]) store[table] = [];
     const filters = [];
@@ -32,6 +34,11 @@ function mockCloud() {
     function rows() {
       let list = store[table].slice();
       filters.forEach(function (f) {
+        if (f && f.in) {
+          const want = f.in.map(String);
+          list = list.filter(function (r) { return want.indexOf(String(r[f.k])) >= 0; });
+          return;
+        }
         list = list.filter(function (r) { return String(r[f[0]]) === String(f[1]); });
       });
       return list;
@@ -39,12 +46,19 @@ function mockCloud() {
     q.upsert = function (row) { writeRow = row; return q; };
     q.select = function () { return q; };
     q.eq = function (k, v) { filters.push([k, v]); return q; };
+    q.in = function (k, list) { filters.push({ k: k, in: list }); return q; };
     q.maybeSingle = function () {
       const r = rows()[0];
       return Promise.resolve({ data: r || null, error: null });
     };
     q.then = function (resolve, reject) {
       try {
+        meta.queries.push({
+          table: table,
+          filters: filters.map(function (f) {
+            return f && f.in ? { k: f.k, in: f.in.slice() } : { k: f[0], v: f[1] };
+          })
+        });
         if (writeRow) {
           const field = writeRow.uid ? 'uid' : 'id';
           const key = String(writeRow[field]);
@@ -59,7 +73,7 @@ function mockCloud() {
     };
     return q;
   }
-  return { database: { from: from }, _store: store };
+  return { database: { from: from }, _store: store, _meta: meta };
 }
 
 async function run() {
@@ -174,6 +188,48 @@ async function run() {
   check('头像持久化：无文件系统时原样返回', function () {
     assert.equal(U.persistAvatar('http://tmp/avatar.jpg'), 'http://tmp/avatar.jpg');
     assert.equal(U.persistAvatar(''), '');
+  });
+
+  await checkAsync('头像：无 wx 时压不出 data URI，但本机路径照旧', async function () {
+    const av = await U.prepareAvatar('http://tmp/a.jpg', 'u-test');
+    assert.equal(av.avatarUrl, 'http://tmp/a.jpg', '本机路径原样保留');
+    assert.equal(av.avatarData, '', '没有 wx.compressImage 时不给 data URI，上层回落到预设头像');
+  });
+
+  await checkAsync('联机头像：按 uid 取回别人的缩略图并缓存', async function () {
+    const mock = mockCloud();
+    mock._store.splendor_players.push(
+      { uid: 'p-a', nickname: '甲', avatar: 'a2', avatar_url: 'data:image/jpeg;base64,AAA' },
+      { uid: 'p-b', nickname: '乙', avatar: 'a3', avatar_url: 'data:image/jpeg;base64,BBB' },
+      { uid: 'p-c', nickname: '丙', avatar: 'a5', avatar_url: '' }
+    );
+    R.attachCloud(mock);
+    const res = await U.fetchProfiles(['p-a', 'p-b', 'p-c', 'p-a']);
+    assert.ok(res.ok, '取资料应成功：' + (res.error || ''));
+    assert.equal(res.map['p-a'].avatarUrl, 'data:image/jpeg;base64,AAA', '拿得到别人的头像缩略图');
+    assert.equal(res.map['p-b'].nickname, '乙', '昵称一起回来');
+    assert.equal(res.map['p-c'].avatarUrl, '', '没设头像的返回空串，由预设头像兜底');
+    // 只查在场 uid：整表 select('*') 会把所有人的头像一起拉下来
+    const pq = mock._meta.queries.filter(function (q) { return q.table === 'splendor_players'; }).pop();
+    const inF = pq && pq.filters.filter(function (f) { return f.in; })[0];
+    assert.ok(inF && inF.k === 'uid', '资料查询要按 uid 过滤');
+    assert.equal(inF.in.length, 3, '只查未命中缓存的 uid：' + JSON.stringify(inF.in));
+    assert.equal(inF.in.indexOf('p-a'), 0, '去重后按传入顺序查询');
+
+    // 第二次命中本地缓存，不再打云端
+    let calls = 0;
+    const wrap = mock.database.from;
+    mock.database.from = function (t) { calls += 1; return wrap(t); };
+    const cached = await U.fetchProfiles(['p-a', 'p-b', 'p-c']);
+    assert.equal(calls, 0, '同一 uid 集合应命中缓存，不再请求资料表');
+    assert.equal(cached.map['p-a'].avatarUrl, 'data:image/jpeg;base64,AAA');
+
+    // 资料上云写的是缩略图，而不是本机文件路径
+    const p = R.saveProfile({ nickname: '甲', avatar: 'a2', avatarUrl: 'wxfile://local/avatar.jpg', avatarData: 'data:image/jpeg;base64,CCC' });
+    await U.syncProfile(p);
+    const row = mock._store.splendor_players.filter(function (r) { return r.uid === p.uid; })[0];
+    assert.equal(row.avatar_url, 'data:image/jpeg;base64,CCC', '云端只存 data URI：本机路径对别人无意义');
+    assert.equal(row.avatar_url.indexOf('wxfile'), -1, '不能把本机文件路径写进云端');
   });
 
   console.log('ALL USER CHECKS PASSED');

@@ -64,6 +64,10 @@ assert(homeHtml.indexOf('class="lobby-stats"') > 0, '大厅应有战绩三格');
 assert(homeHtml.indexOf('玩家档案') > 0, '大厅应有玩家档案区');
 assert(homeHtml.indexOf('本机账号') > 0, '大厅应显示账号类型');
 assert(homeHtml.indexOf('全部战绩') > 0, '大厅应有战绩入口');
+assert(homeHtml.indexOf('class="choice-timer"') > 0, '邀请好友卡应有回合计时选择');
+assert(homeHtml.indexOf('回合计时') > 0, '回合计时要带标签');
+assert(homeHtml.indexOf('timer-chip') > 0 && homeHtml.indexOf('60 秒') > 0, '应提供 60 秒选项');
+assert(homeHtml.indexOf('不限时') > 0, '应提供不限时选项');
 assert(homeHtml.indexOf('undefined') < 0, '入口界面含 undefined');
 assert(homeHtml.indexOf('{{') < 0, '入口界面存在未求值的模板表达式');
 assert(homeHtml.indexOf('wx:') < 0, '入口界面残留 wx: 指令');
@@ -136,6 +140,12 @@ assert(optHtml.indexOf('reserved-rail') > 0, '桌面最左侧应有预留区');
 assert(optHtml.indexOf('reserved-tag') > 0, '预留区应有竖排「预留」标签');
 assert((optHtml.match(/vault-cell/g) || []).length >= 11, '工作台应有 5 个红利格 + 6 个筹码格');
 assert(optHtml.indexOf('尚无永久红利') < 0, '红利行应固定 5 色，不再用文字占位');
+// 号位标注 + 换手全屏提醒
+assert(optHtml.indexOf('class="seat-no') > 0, '席位条应带号位徽章');
+assert(optHtml.indexOf('portrait-seat') > 0, '本机工作台应标出自己的号位');
+assert((optHtml.match(/号位/g) || []).length >= 3, '号位文案应出现在席位 / 工作台 / 状态行');
+assert(optHtml.indexOf('turn-flash') > 0, '轮到自己时应弹全屏换手提醒');
+assert(optHtml.indexOf('轮到你出牌') > 0, '换手提醒应写明「轮到你出牌」');
 
 const giveGem = GEM_KEYS.filter(function (g) { return printedCost[g] > 0; })[0];
 p3.state.players[0].tokens[giveGem] -= 1;

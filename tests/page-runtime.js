@@ -459,5 +459,136 @@ RS.cloudJoinRoom = origJoin;
 RS.hasCloud = origHasCloud;
 console.log('OK  冷启动重连 · 有会话自动入席 / 无会话静默');
 
+/* ---------- 号位标注：牌桌每个席位都要能对上是几号 ---------- */
+page.mode = 'room';
+page.mySeat = 0;
+page.openRoom();
+page.room.seats[0] = Object.assign({}, page.room.seats[0], { name: '房主甲', nickname: '房主甲', uid: 'host-a' });
+page.room.seats[1] = Object.assign({}, page.room.seats[1], {
+  joined: true, uid: 'guest-b', name: '好友乙', nickname: '好友乙', ready: true
+});
+page.room.seats[2] = Object.assign({}, page.room.seats[2], {
+  joined: true, uid: 'guest-c', name: '好友丙', nickname: '好友丙', ready: true
+});
+// 以 2 号位（好友视角）看大厅
+page.mySeat = 1;
+page.refresh('');
+assert(page.data.roomScreen.seats[0].seatNo === 1 && page.data.roomScreen.seats[2].seatNo === 3, '大厅席位要带号位序号');
+assert(page.data.roomScreen.seats[0].initial === '房', '无头像时用昵称首字占位，而不是号位数字');
+page.onRoomStart();   // 非房主不能开局，先切回房主
+assert(page.ui.screen === 'room', '非房主不能开局');
+page.mySeat = 0;
+page.refresh('');
+page.onRoomStart();
+assert(page.ui.screen === 'game', '全员就绪后房主可开局');
+assert(page.data.meSeatLabel === '1 号位', '本机工作台标注自己的号位');
+assert(page.data.rivals.length === 2, '其余席位进入顶部条');
+assert(page.data.rivals[0].seatNo === 2 && page.data.rivals[1].seatNo === 3, '对手席位条带号位');
+assert(page.data.rivals[0].seatLabel === '2 号位', '副标题用「n 号位」表述');
+assert(page.data.statusText.indexOf('你的回合 · 1 号位') === 0, '回合状态行含号位：' + page.data.statusText);
+assert(page.data.statusLong === false, '自己的状态行用大字号，不降档');
+page.mySeat = 1;
+page.refresh('');
+assert(page.data.statusText.indexOf('1 号位') >= 0, '看别人回合时也标号位：' + page.data.statusText);
+assert(page.data.statusLong === true, '别人的状态行更长，降档保住单行：' + page.data.statusText);
+page.mySeat = 0;
+page.refresh('');
+console.log('OK  号位标注 · 席位条 / 工作台 / 状态行同一口径');
+
+/* ---------- 回合计时：建房选定 / 大厅可改 / 超时托管 ---------- */
+page.onLeaveRoom();
+page.mode = 'room';
+page.mySeat = 0;
+page.ui.turnLimit = 90;
+page.openRoom();
+assert(page.room.turnLimit === 90, '建房时带上的计时应写入房间');
+assert(page.data.roomScreen.turnLimitText === '90 秒', '大厅显示当前计时');
+page.onRoomTurnLimit({ currentTarget: { dataset: { value: '120' } } });
+assert(page.room.turnLimit === 120, '房主可在大厅改计时');
+page.onRoomTurnLimit({ currentTarget: { dataset: { value: '45' } } });
+assert(page.room.turnLimit === 120, '非法计时值应被忽略（0/60/90/120 之外）');
+page.onRoomTurnLimit({ currentTarget: { dataset: { value: '0' } } });
+assert(page.room.turnLimit === 0 && page.data.roomScreen.turnLimitText === '不限时', '可切到不限时');
+page.onRoomTurnLimit({ currentTarget: { dataset: { value: '60' } } });
+
+page.beginRoomGame();
+assert(page.state.turnLimit === 60, '开局快照要带上限时，其他设备据此显示');
+assert(page.data.turnClock.on === true, '限时局应显示倒计时');
+assert(page.data.turnClock.text === '1:00', '开局显示满额：' + page.data.turnClock.text);
+assert(page.data.turnClock.pct === 100, '进度条从满格开始');
+assert(page.data.turnFlash && page.data.turnFlash.mine === true, '轮到自己时弹全屏提醒');
+assert(page.data.turnFlash.title.indexOf('轮到你') === 0, '提醒文案：' + page.data.turnFlash.title);
+
+// 时钟推进：把 Date.now 拨到 45 秒后，剩余应同步下降
+const realNow = Date.now;
+let fakeNow = realNow();
+Date.now = function () { return fakeNow; };
+fakeNow += 50000;
+// 倒计时只推 turnClock 这一块：整页 setData 每秒一次会把 250+ 字段全量重推
+const origSetData = page.setData;
+let tickKeys = null;
+page.setData = function (obj) { tickKeys = Object.keys(obj); origSetData(obj); };
+page.tickClock();
+page.setData = origSetData;
+assert(tickKeys && tickKeys.length === 1 && tickKeys[0] === 'turnClock', '倒计时只 setData 计时块，不整页重推：' + JSON.stringify(tickKeys));
+assert(page.data.turnClock.text === '0:10', '50 秒后应剩 10 秒：' + page.data.turnClock.text);
+assert(page.data.turnClock.urgent === true, '最后 10 秒内转紧急态');
+// 再多 16 秒：超时托管，牌局必须继续推进
+const beforeTurn = page.state.turnCount;
+fakeNow += 16000;
+page.tickClock();
+assert(page.state.turnCount > beforeTurn, '超时后应自动代打一手，牌局不卡死');
+assert(page.state.current !== 0 || page.state.turnCount > beforeTurn, '代打后换手');
+Date.now = realNow;
+
+// 不限时局不跑倒计时
+page.onRoomTurnLimit({ currentTarget: { dataset: { value: '0' } } });
+page.beginRoomGame();
+assert(page.data.turnClock.on === false, '不限时局不显示倒计时');
+assert(page.data.turnClock.text === '—', '不限时显示占位符');
+console.log('OK  回合计时 · 60/90/120/不限时 + 超时托管');
+
+/* ---------- 对手动作回放：把 action 写进快照，其他设备重放 ---------- */
+page.onLeaveRoom();
+page.startLocalGame();
+const st0 = page.state;
+const movedCard = st0.board[2][0];
+st0.board[2][0] = null;
+const fakeAction = {
+  id: 'a1-test', seat: 1, type: 'buyBoard', lv: 2, index: 0,
+  card: { id: movedCard.id, level: movedCard.level, gem: movedCard.gem, points: movedCard.points, cost: movedCard.cost, name: movedCard.name, art: movedCard.art }
+};
+st0.lastAction = fakeAction;
+page.mySeat = 0;
+page.ui.showcase = null;
+page._seenActionId = '';
+page.replayRemoteAction(st0);
+assert(page.ui.showcase && page.ui.showcase.mode === 'buy', '对手购卡要能重放展演');
+assert(page.ui.showcase.card.name === movedCard.name, '重放用的是快照里的卡面，不依赖当前牌桌：' + page.ui.showcase.card.name);
+assert(page.ui.showcase.remote === true, '重放的展演带 remote 标记');
+page.ui.showcase = null;
+page.replayRemoteAction(st0);
+assert(page.ui.showcase === null, '同一快照只播一次');
+st0.lastAction = { id: 'a1-blind', seat: 1, type: 'reserveDeck', lv: 0 };
+page.replayRemoteAction(st0);
+assert(page.ui.showcase && page.ui.showcase.blindBack === true, '盲抽预留对别人只显示牌背，不泄露牌面');
+page.mySeat = 1;
+st0.lastAction = { id: 'a0-own', seat: 0, type: 'take', gems: ['red', 'blue', 'white'] };
+page._seenActionId = '';
+page.ui.showcase = null;
+page.replayRemoteAction(st0);
+assert(page.ui.showcase && page.ui.showcase.mode === 'take', '取筹码动作也能重放');
+
+// 自己做完动作时写进快照，供别人回放
+page.mySeat = 1;
+st0.current = 1;
+st0.pendingDiscard = 0;
+page.applyPlayerAction({ type: 'take', gems: ['red', 'blue', 'white'] });
+assert(st0.lastAction && st0.lastAction.type === 'take', '本机动作也要写进快照');
+assert(st0.lastAction.seat === 1, 'lastAction 记录发生座位');
+assert(st0.lastAction.id === page._seenActionId, '自己的动作不该再被自己的轮询重放');
+page.mySeat = 0;
+console.log('OK  联机动作回放 · 购卡 / 盲抽 / 拿筹码 + 本机动作不重放');
+
 page.onUnload();
 console.log('ALL RUNTIME CHECKS PASSED');

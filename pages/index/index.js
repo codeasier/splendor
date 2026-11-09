@@ -181,16 +181,30 @@ function avatarHue(key) {
   return '#8a6bb0';
 }
 
-/** 单个席位的紧凑状态，供顶部席位条与详情弹层共用 */
-function seatVM(state, index, room, selfSeat) {
+/**
+ * 单个席位的紧凑状态，供顶部席位条与详情弹层共用。
+ *
+ * 头像只按 uid 从 avatars 映射里取，绝不读 state/room 里的 avatarUrl：
+ * 那是「某台设备本地文件」的路径，推到云端后别人的设备一定加载失败。
+ * 这就是上一版「只能看到自己的头像」的根因。
+ */
+function seatVM(state, index, room, selfSeat, avatars) {
   const p = state.players[index];
   const s = (room && room.seats && room.seats[index]) || {};
+  const uid = p.uid || s.uid || '';
   const avatar = p.avatar || s.avatar || 'a0';
   const isSelf = index === (selfSeat || 0);
   const type = p.type || (p.isAI ? 'bot' : 'human');
+  const seatNo = index + 1;
+  const name = p.nickname || p.name || ('玩家 ' + seatNo);
   return {
     index: index,
-    name: p.nickname || p.name,
+    seatNo: seatNo,
+    seatLabel: seatNo + ' 号位',
+    name: name,
+    // 没有头像图片时用昵称首字占位：一眼能认出是谁，也给号位徽章留出位置
+    initial: String(name).slice(0, 1),
+    // 号位由头像上的徽章表达，副标题只留身份，避免窄卡里被截断
     subtitle: isSelf ? '本机玩家' : (type === 'bot' ? '机器人托管' : (p.joined ? '真人席位' : '等待加入')),
     type: type,
     isSelf: isSelf,
@@ -203,7 +217,7 @@ function seatVM(state, index, room, selfSeat) {
     reservedCount: p.reserved.length,
     nobleCount: p.nobles.length,
     avatar: avatar,
-    avatarUrl: p.avatarUrl || s.avatarUrl || '',
+    avatarUrl: (uid && avatars && avatars[uid]) || '',
     avatarHue: avatarHue(avatar),
     tokens: tokensVM(p, GEMS)
   };
@@ -239,10 +253,10 @@ function printedCosts(card) {
 }
 
 /** 点击玩家头像后的详情：预留卡 / 贵族到访 / 永久红利 / 持有筹码 / 声望构成 */
-function playerDetailVM(state, index, room, selfSeat) {
+function playerDetailVM(state, index, room, selfSeat, avatars) {
   const p = state.players[index];
   if (!p) return null;
-  const seat = seatVM(state, index, room, selfSeat);
+  const seat = seatVM(state, index, room, selfSeat, avatars);
   let cardPoints = 0;
   for (let i = 0; i < p.cards.length; i++) cardPoints += p.cards[i].points;
   let noblePoints = 0;
@@ -267,7 +281,9 @@ function playerDetailVM(state, index, room, selfSeat) {
   });
   return {
     index: index,
-    title: seat.name + ' · 玩家详情',
+    seatNo: seat.seatNo,
+    seatLabel: seat.seatLabel,
+    title: seat.seatLabel + ' · ' + seat.name,
     subtitle: seat.subtitle + '　|　' + (seat.isCurrent ? '当前回合' : '等待中'),
     avatar: seat.avatar,
     avatarUrl: seat.avatarUrl,
@@ -292,6 +308,22 @@ function playerDetailVM(state, index, room, selfSeat) {
   };
 }
 
+/** 回合计时选项：0 = 不限时；建房时选定，开局后随快照下发给所有设备 */
+function turnLimitVM(active, disabled) {
+  const cur = R.normTurnLimit(active);
+  const list = R.TURN_LIMITS.map(function (m) {
+    return {
+      value: m.value,
+      label: m.label,
+      active: cur === m.value,
+      locked: !!disabled
+    };
+  });
+  let text = '不限时';
+  for (let i = 0; i < list.length; i++) if (list[i].active) text = list[i].label;
+  return { list: list, value: cur, text: text };
+}
+
 /**
  * 游戏大厅：玩家档案（身份 / 称号 / 战绩三格 / 最近对局）+ 模式选择 + 两条入口。
  * 首页不再只是「两个按钮」，而是玩家每次回来的落地页，所以统计信息必须一眼可见。
@@ -308,6 +340,7 @@ function lobbyVM(ui, profile) {
   const stats = U.statsOf();
   const identity = U.getIdentity();
   const activeMode = ui.lobbyMode || 'standard';
+  const timer = turnLimitVM(ui.turnLimit, false);
   const recent = U.recordList(4).map(function (r) {
     return {
       id: r.id,
@@ -339,6 +372,9 @@ function lobbyVM(ui, profile) {
     roomCount: room,
     soloCounts: counts(solo, 'solo'),
     roomCounts: counts(room, 'room'),
+    turnLimits: timer.list,
+    turnLimit: timer.value,
+    turnLimitText: timer.text,
     cloud: cloud,
     cloudText: cloud
       ? '云端已连接 · 可微信邀请好友跨设备加入'
@@ -364,7 +400,7 @@ function recordsVM(ui) {
  * 房间界面：加入人数 / 准备状态 / 房主开始条件。
  * 房主创建房间即视为就绪，机器人恒定就绪，真人入席后必须自己点「准备」。
  */
-function roomScreenVM(ui, room, profile, mySeat) {
+function roomScreenVM(ui, room, profile, mySeat, avatars) {
   const self = mySeat || 0;
   const amHost = self === 0;
   const raw = (room && room.seats) || [];
@@ -400,10 +436,13 @@ function roomScreenVM(ui, room, profile, mySeat) {
       name: isSelf
         ? ((profile && profile.nickname) || '珠宝商')
         : (s.nickname || s.name || (isBot ? '机器人 ' + (i + 1) : '等待好友')),
+      initial: String(isSelf
+        ? ((profile && profile.nickname) || '珠宝商')
+        : (s.nickname || s.name || (isBot ? '机器人' : '+'))).slice(0, 1),
       avatarHue: avatarHue(isSelf
         ? ((profile && profile.avatar) || 'a0')
         : (s.avatar || R.PRESET_AVATARS[i % R.PRESET_AVATARS.length].key)),
-      avatarUrl: isSelf ? ((profile && profile.avatarUrl) || '') : (s.avatarUrl || ''),
+      avatarUrl: (s.uid && avatars && avatars[s.uid]) || '',
       stateText: isBot ? '已就绪'
         : (isHost ? '房主 · 已就绪'
           : (ready ? '已准备' : (joined ? '未准备' : '空席'))),
@@ -423,6 +462,7 @@ function roomScreenVM(ui, room, profile, mySeat) {
   });
   const cloud = !!(room && room.backend === 'cloud');
   const mySeatData = raw[self] || {};
+  const timer = turnLimitVM(room ? room.turnLimit : 0, !amHost);
 
   return {
     code: room ? room.code : '',
@@ -452,6 +492,9 @@ function roomScreenVM(ui, room, profile, mySeat) {
         return { n: n, label: n + ' 人', active: total === n };
       });
     })(),
+    turnLimits: timer.list,
+    turnLimit: timer.value,
+    turnLimitText: timer.text,
     backend: cloud ? '云端同步' : '本机房间',
     backendHint: cloud
       ? '席位与准备状态实时同步，好友进房后会出现在空席上。'
@@ -546,8 +589,11 @@ function detailVM(state, ui, seat) {
  *   1) 从桌面对应卡槽 / 牌库 / 筹码堆位置翻起升空；
  *   2) 在桌面中央向所有玩家悬停展示 ~1.2s；
  *   3) 飞入当前行动玩家的工作台（本机玩家飞入底部工作台，对手飞入左上席位铭牌）。
+ *
+ * cardOverride：联机时其他设备拿到的是「动作之后」的快照，桌面上那张卡已经没了。
+ * 由动作发起方把卡面一起写进 lastAction，接收方用快照回放，才能看到同一段展演。
  */
-function buildActionShowcase(state, action, actorSeat, mySeat, seq) {
+function buildActionShowcase(state, action, actorSeat, mySeat, seq, cardOverride) {
   if (!state || !action || !action.type) return null;
   const p = state.players[actorSeat];
   if (!p) return null;
@@ -566,9 +612,9 @@ function buildActionShowcase(state, action, actorSeat, mySeat, seq) {
 
   if (action.type === 'buyBoard' || action.type === 'buyReserved') {
     const isBoard = action.type === 'buyBoard';
-    const card = isBoard
+    const card = cardOverride || (isBoard
       ? (state.board[action.lv] && state.board[action.lv][action.index])
-      : (p.reserved && p.reserved[action.index]);
+      : (p.reserved && p.reserved[action.index]));
     if (!card) return null;
     const r = isBoard ? (2 - action.lv) : 0;
     const c = isBoard ? action.index : 0;
@@ -600,9 +646,9 @@ function buildActionShowcase(state, action, actorSeat, mySeat, seq) {
     const fromDeck = action.type === 'reserveDeck';
     const lv = action.lv;
     const deck = state.decks[lv];
-    const card = fromDeck
+    const card = cardOverride || (fromDeck
       ? (deck && deck.length ? deck[deck.length - 1] : null)
-      : (state.board[lv] && state.board[lv][action.index]);
+      : (state.board[lv] && state.board[lv][action.index]));
     if (!card) return null;
     const r = 2 - lv;
     const fromX = fromDeck ? -378 : (-246 + action.index * 148);
@@ -671,10 +717,32 @@ function buildActionShowcase(state, action, actorSeat, mySeat, seq) {
   return null;
 }
 
+/**
+ * 回合计时的显示模型。
+ * 单独抽出来是为了让倒计时只 setData 这一小块——
+ * 整页 setData 每秒一次会把 250 多个字段全推一遍，中低端机上纯属浪费。
+ */
+function clockVM(state, ui) {
+  if (!state) return { on: false, left: 0, total: 0, text: '—', pct: 0, urgent: false };
+  const limit = Number(state.turnLimit) || 0;
+  const left = typeof ui.turnLeft === 'number' && ui.turnLeft >= 0 ? Math.max(0, ui.turnLeft) : limit;
+  const on = limit > 0 && !state.gameOver;
+  return {
+    on: on,
+    left: left,
+    total: limit,
+    text: on ? (Math.floor(left / 60) + ':' + (left % 60 < 10 ? '0' : '') + (left % 60)) : '—',
+    pct: on ? Math.round(Math.max(0, Math.min(1, left / (limit || 1))) * 100) : 0,
+    urgent: on && left <= 10
+  };
+}
+
 function buildViewModel(state, ui, layout, ctx) {
   const context = ctx || {};
   const room = context.room || null;
   const profile = context.profile || null;
+  // uid → 头像（data URI 或本机文件路径）。席位与快照里只有 uid，图片在这里补齐
+  const avatars = context.avatars || {};
   // 联机后本机可能是 1/2/3 号席；所有「我的」视角都由 mySeat 驱动
   const seat = context.mySeat === undefined ? 0 : context.mySeat;
   // 入口界面 / 房间大厅 / 牌桌 三态；无牌局状态时自动落到首页
@@ -688,7 +756,7 @@ function buildViewModel(state, ui, layout, ctx) {
       stageRotate: layout.rotate,
       screen: screen,
       home: lobbyVM(ui, profile),
-      roomScreen: roomScreenVM(ui, room, profile, seat),
+      roomScreen: roomScreenVM(ui, room, profile, seat, avatars),
       profileDialog: profileVM(ui, profile),
       records: recordsVM(ui),
       showRecords: !!ui.showRecords,
@@ -724,6 +792,7 @@ function buildViewModel(state, ui, layout, ctx) {
       canConfirm: false,
       confirmLabel: '确认拿取',
       statusText: '',
+      statusLong: false,
       turnText: '',
       logText: '',
       netNotice: (ui && ui.netNotice) || '',
@@ -733,6 +802,10 @@ function buildViewModel(state, ui, layout, ctx) {
       resultTitle: '',
       resultDetail: '',
       showcaseList: [],
+      turnFlash: null,
+      turnClock: { on: false, text: '', left: 0, total: 0, pct: 0, urgent: false },
+      meSeatNo: seat + 1,
+      meSeatLabel: (seat + 1) + ' 号位',
       me: { name: '', points: 0, totalTokens: 0, reservedCount: 0, tokens: [], discounts: [], discountCells: [] },
       rival: { name: '', points: 0, cardCount: 0, reservedCount: 0, tokens: [] }
     };
@@ -748,7 +821,7 @@ function buildViewModel(state, ui, layout, ctx) {
   const rivals = [];
   const seats = [];
   for (let si = 0; si < state.players.length; si++) {
-    const vm = seatVM(state, si, room, seat);
+    const vm = seatVM(state, si, room, seat, avatars);
     seats.push(vm);
     if (si !== seat) rivals.push(vm);
   }
@@ -875,8 +948,9 @@ function buildViewModel(state, ui, layout, ctx) {
   let statusText;
   if (state.gameOver) statusText = '对局结束';
   else if (needDiscard) statusText = '请退还筹码';
-  else if (isMyTurn) statusText = '你的回合';
-  else statusText = (state.players[state.current].nickname || state.players[state.current].name) + ' 的回合';
+  else if (isMyTurn) statusText = '你的回合 · ' + (seat + 1) + ' 号位';
+  else statusText = (state.current + 1) + ' 号位 · ' +
+    (state.players[state.current].nickname || state.players[state.current].name) + ' 的回合';
 
   let resultTitle = '';
   let resultDetail = '';
@@ -900,7 +974,7 @@ function buildViewModel(state, ui, layout, ctx) {
     stageRotate: layout.rotate,
     screen: 'game',
     home: lobbyVM(ui, profile),
-    roomScreen: roomScreenVM(ui, room, profile, seat),
+    roomScreen: roomScreenVM(ui, room, profile, seat, avatars),
     // 战绩只在入口 / 房间层可开；牌桌层保留占位避免 WXML 根变量缺声明
     records: null,
     showRecords: false,
@@ -919,7 +993,7 @@ function buildViewModel(state, ui, layout, ctx) {
     roomMode: !!(room && room.mode === 'room'),
     roomBackend: room && room.backend === 'cloud' ? '云端同步' : '本机房间',
     profileDialog: profileVM(ui, profile),
-    playerDetail: ui.showPlayerDetail ? playerDetailVM(state, ui.detailSeat, room, seat) : null,
+    playerDetail: ui.showPlayerDetail ? playerDetailVM(state, ui.detailSeat, room, seat, avatars) : null,
     showLobby: !!ui.showLobby,
     showPlayerDetail: !!ui.showPlayerDetail,
     showProfile: !!ui.showProfile,
@@ -947,6 +1021,8 @@ function buildViewModel(state, ui, layout, ctx) {
     emptyReservedSlots: emptyReservedSlots,
     mySeat: seat,
     statusText: statusText,
+    // 铭牌宽度固定且右侧让位给计时块，长状态行（别人的昵称）降一档字号
+    statusLong: statusText.length > 12,
     turnText: '第 ' + (Math.floor(state.turnCount / state.players.length) + 1) + ' 轮',
     logText: state.log.length ? state.log[state.log.length - 1] : '',
     // 断线时用状态行提示重连进度，不额外占版面
@@ -964,7 +1040,12 @@ function buildViewModel(state, ui, layout, ctx) {
     gameOver: state.gameOver,
     resultTitle: resultTitle,
     resultDetail: resultDetail,
-    showcaseList: ui.showcase ? [ui.showcase] : []
+    showcaseList: ui.showcase ? [ui.showcase] : [],
+    // 回合切换的全屏提醒：进入 / 离开自己的回合各一次
+    turnFlash: ui.turnFlash || null,
+    turnClock: clockVM(state, ui),
+    meSeatNo: seat + 1,
+    meSeatLabel: (seat + 1) + ' 号位'
   };
 }
 
@@ -997,6 +1078,8 @@ function freshUI(config) {
     // 入口界面的两种模式人数
     soloCount: c.soloCount || 2,
     roomCount: c.roomCount || 3,
+    // 回合计时（秒）：0 = 不限时；建房时选定
+    turnLimit: R.normTurnLimit(c.turnLimit),
     homeNotice: '',
     // 房间配置：重开一局时保留人数与机器人席位
     playerCount: c.playerCount || 2,
@@ -1010,7 +1093,12 @@ function freshUI(config) {
     joinCode: '',
     roomNotice: '',
     netNotice: '',
-    showcase: null
+    showcase: null,
+    // 回合剩余秒数（本地倒计时，每台设备按自己看到的那次换手重新计时，
+    // 不依赖系统时钟对齐）
+    turnLeft: -1,
+    // 换手全屏提醒
+    turnFlash: null
   };
 }
 
@@ -1042,6 +1130,17 @@ Page({
     this.mode = 'solo';
     this.mySeat = 0;
     this.profile = R.getProfile();
+    // uid → 头像映射；席位与快照里只有 uid，图片在这里补齐
+    this._avatars = this.avatarSeed();
+    this._avatarSig = '';
+    // 上一次已经在本地播过的动作 id，避免自己的动作被自己的轮询重放一遍
+    this._seenActionId = '';
+    // 回合计时：_turnKey 标记「哪一手」，换手即重置
+    this._clockTimer = null;
+    this._turnKey = '';
+    this._turnStartAt = 0;
+    this._timeoutFired = false;
+    this._flashTimer = null;
     // 用户系统：确认本机身份（uid 持久化）；云端可用时把资料与战绩对齐一次
     U.ensureIdentity();
     if (R.hasCloud()) {
@@ -1086,11 +1185,14 @@ Page({
     const profile = this.profile || R.getProfile();
     const seats = R.makeSeats(this.ui.playerCount, this.ui.bots, profile);
     this.state = E.createGame({ playerCount: this.ui.playerCount, seats: seats });
+    // 人机局不计时：单人对着 AI 看倒计时没有意义
+    this.state.turnLimit = 0;
     this.room = R.createRoom({
       playerCount: this.ui.playerCount,
       seats: seats,
       profile: profile,
-      status: 'playing'
+      status: 'playing',
+      turnLimit: 0
     });
     this.room.mode = 'solo';
     this.ui.screen = 'game';
@@ -1103,6 +1205,7 @@ Page({
     // 上一屏（如「已离开房间」）的提示不该被带进新一局
     this.ui.toast = '';
     this._resultRecorded = false;
+    this.resetTurnUI();
     this.refresh('');
     this.maybeRunAi({ ended: true });
   },
@@ -1127,11 +1230,13 @@ Page({
 
   onHide() {
     this.clearTimer();
+    this.stopClock();
     this.stopCloudPolling();
   },
 
   onUnload() {
     this.clearTimer();
+    this.stopClock();
     this.stopCloudPolling();
   },
 
@@ -1148,6 +1253,10 @@ Page({
     if (this._aiTimer) {
       clearTimeout(this._aiTimer);
       this._aiTimer = null;
+    }
+    if (this._flashTimer) {
+      clearTimeout(this._flashTimer);
+      this._flashTimer = null;
     }
   },
 
@@ -1197,10 +1306,181 @@ Page({
     if (!this.ui) return;
     // 先记账再渲染，保证回到大厅时战绩已是新的（addRecord 只写存储，不会递归）
     this.maybeRecordResult();
+    // 换手检测要在渲染前做：全屏提醒与倒计时都由它重置
+    this.syncTurnWatch();
     if (toast) this.ui.toast = toast;
     this.setData(buildViewModel(this.state, this.ui, this._layout, {
-      room: this.room, profile: this.profile, mySeat: this.mySeat
+      room: this.room, profile: this.profile, mySeat: this.mySeat,
+      avatars: this._avatars || {}
     }));
+    // 席位里只有 uid：新面孔入席时补一次头像，能命中缓存就不发请求
+    this.syncAvatars();
+    this.startClock();
+  },
+
+  /* ---------- 头像：按 uid 补齐，跨设备可见 ---------- */
+
+  /** 自己的头像优先用本机文件（清晰、离线可用），其余席位靠资料表补齐 */
+  avatarSeed() {
+    const p = this.profile || {};
+    const map = {};
+    if (p.uid && (p.avatarUrl || p.avatarData)) map[p.uid] = p.avatarUrl || p.avatarData;
+    return map;
+  },
+
+  /**
+   * 席位 / 快照里只放 uid，头像靠这一步补。
+   * 用「uid 集合签名」去重：refresh 每 0.5~1.6s 跑一次，不加这个判断会变成轮询个人资料表。
+   */
+  syncAvatars() {
+    const that = this;
+    if (!this._avatars) this._avatars = this.avatarSeed();
+    const uids = [];
+    function add(u) { if (u && uids.indexOf(u) < 0) uids.push(u); }
+    ((this.room && this.room.seats) || []).forEach(function (s) { add(s && s.uid); });
+    ((this.state && this.state.players) || []).forEach(function (p) { add(p && p.uid); });
+    if (!uids.length) return;
+    uids.sort();
+    const sig = uids.join(',');
+    if (sig === this._avatarSig) return;
+    this._avatarSig = sig;
+    U.fetchProfiles(uids).then(function (res) {
+      if (!res || !res.map || !that.ui) return;
+      let changed = false;
+      Object.keys(res.map).forEach(function (uid) {
+        const av = res.map[uid] && res.map[uid].avatarUrl;
+        if (!av) return;
+        if (that._avatars[uid] !== av) { that._avatars[uid] = av; changed = true; }
+      });
+      if (changed) that.refresh('');
+    });
+  },
+
+  /* ---------- 回合：号位提醒 + 限时 ---------- */
+
+  turnKeyOf(state) {
+    if (!state) return '';
+    return state.turnCount + ':' + state.current + ':' + (state.pendingDiscard > 0 ? 'd' : '');
+  },
+
+  /** 换手时重置倒计时并弹一次全屏提醒；由 refresh 与倒计时循环调用，本身不触发渲染 */
+  syncTurnWatch() {
+    const st = this.state;
+    if (!st || this.ui.screen !== 'game') {
+      this._turnKey = '';
+      this.ui.turnLeft = -1;
+      return;
+    }
+    const key = this.turnKeyOf(st);
+    if (key === this._turnKey) return;
+    this._turnKey = key;
+    this._turnStartAt = Date.now();
+    this._timeoutFired = false;
+    const limit = Number(st.turnLimit) || 0;
+    this.ui.turnLeft = limit;
+    this.showTurnFlash(st, limit);
+  },
+
+  /**
+   * 全屏换手提醒。
+   * 人机局只在轮到自己时弹：每一步 AI 都弹会把牌桌刷成红绿灯。
+   */
+  showTurnFlash(state, limit) {
+    if (!state || state.gameOver) { this.ui.turnFlash = null; return; }
+    const seat = this.mySeat || 0;
+    const mine = state.current === seat;
+    const isRoom = this.mode === 'room';
+    if (!mine && !isRoom) { this.ui.turnFlash = null; return; }
+    const p = state.players[state.current] || {};
+    const seatNo = state.current + 1;
+    const name = p.nickname || p.name || ('玩家 ' + seatNo);
+    const limitText = limit > 0 ? '限时 ' + limit + ' 秒' : '不限时';
+    this.ui.turnFlash = {
+      id: this._turnKey + '-' + (mine ? 'me' : 'other'),
+      mine: mine,
+      other: !mine,
+      seatNo: seatNo,
+      seatLabel: seatNo + ' 号位',
+      name: name,
+      // 号位已经在上一行徽标里，标题不再重复，避免「2 号位 / 2 号位 · xx」叠字
+      title: mine ? '轮到你出牌' : name,
+      sub: mine ? limitText + ' · 拿筹码 / 预留 / 购买任选其一'
+        : '轮到对方 · ' + limitText,
+      tone: mine ? 'mine' : (p.isAI ? 'bot' : 'other')
+    };
+    const that = this;
+    if (this._flashTimer) clearTimeout(this._flashTimer);
+    this._flashTimer = setTimeout(function () {
+      that._flashTimer = null;
+      if (!that.ui) return;
+      that.ui.turnFlash = null;
+      that.refresh('');
+    }, 1700);
+  },
+
+  /** 限时倒计时：每台设备按「自己看到换手的那一刻」起算，不依赖系统时钟对齐 */
+  startClock() {
+    if (this._clockTimer) return;
+    if (this.ui.screen !== 'game') return;
+    const st = this.state;
+    if (!st || st.gameOver || !(Number(st.turnLimit) > 0)) return;
+    const that = this;
+    this._clockTimer = setInterval(function () { that.tickClock(); }, 500);
+  },
+
+  stopClock() {
+    if (this._clockTimer) {
+      clearInterval(this._clockTimer);
+      this._clockTimer = null;
+    }
+  },
+
+  /** 开新局 / 回大厅 / 离开房间：清掉上一局残留的计时与提醒 */
+  resetTurnUI() {
+    this.stopClock();
+    this._turnKey = '';
+    this._turnStartAt = 0;
+    this._timeoutFired = false;
+    this.ui.turnLeft = -1;
+    this.ui.turnFlash = null;
+  },
+
+  tickClock() {
+    const st = this.state;
+    if (!st || st.gameOver || this.ui.screen !== 'game') { this.stopClock(); return; }
+    const limit = Number(st.turnLimit) || 0;
+    if (limit <= 0) { this.stopClock(); return; }
+    if (this.turnKeyOf(st) !== this._turnKey) { this.syncTurnWatch(); this.refresh(''); return; }
+    const elapsed = Math.floor((Date.now() - (this._turnStartAt || Date.now())) / 1000);
+    const left = Math.max(0, limit - elapsed);
+    if (left !== this.ui.turnLeft) {
+      this.ui.turnLeft = left;
+      // 只推计时块，不整页 refresh：250+ 字段每秒全量推一遍在中低端机上会掉帧
+      this.setData({ turnClock: clockVM(st, this.ui) });
+    }
+    if (left <= 0) this.onTurnTimeout();
+  },
+
+  /**
+   * 超时托管。
+   * 自己的回合：本机立刻代打，别让牌局卡在等一个人上。
+   * 别人的回合：只有房主在宽限 12 秒后接管，避免两台设备同时替同一个人出牌。
+   */
+  onTurnTimeout() {
+    if (this._timeoutFired) return;
+    const st = this.state;
+    if (!st || st.gameOver) return;
+    const seat = this.mySeat || 0;
+    const mine = st.current === seat;
+    const actor = st.players[st.current] || {};
+    if (!mine) {
+      if (!R.hasCloud() || this.mySeat !== 0) return;
+      if (actor.isAI) return;                        // AI 由房主正常托管，不走超时路径
+      const over = Math.floor((Date.now() - (this._turnStartAt || Date.now())) / 1000) - (Number(st.turnLimit) || 0);
+      if (over < 12) return;
+    }
+    this._timeoutFired = true;
+    this.runAi(true, mine ? '超时 · 本回合已自动托管' : (actor.nickname || actor.name) + ' 超时 · 房主代为托管');
   },
 
   /* ---------- 断线重连 ---------- */
@@ -1339,18 +1619,19 @@ Page({
       that._roomVersion = res.room.version || 1;
       that._cloudVersion = res.version || 0;
       that.ui.playerCount = res.room.playerCount;
+      that.ui.turnLimit = R.normTurnLimit(res.room.turnLimit);
       that._netFails = 0;
       that._netDown = false;
       that.ui.netNotice = '';
 
       if (res.status === 'playing' && res.state) {
         that.state = res.state;
+        if (res.state.lastAction) that._seenActionId = res.state.lastAction.id;
         const p = that.state.players[that.mySeat];
         if (p) {
           p.nickname = that.profile.nickname;
           p.name = that.profile.nickname;
           p.avatar = that.profile.avatar;
-          p.avatarUrl = that.profile.avatarUrl || '';
           p.joined = true;
         }
         that.ui.screen = 'game';
@@ -1389,11 +1670,14 @@ Page({
       if (!res.ok) return;         // 快照还没写完，下一轮轮询再试
       that.state = res.state;
       that._cloudVersion = res.version;
+      // 进场不重放上一手：重连回来先看清牌面，再看别人下一步怎么走
+      if (res.state && res.state.lastAction) that._seenActionId = res.state.lastAction.id;
       that.ui.screen = 'game';
       that.ui.playerCount = res.state.players.length;
       that.ui.detail = null;
       that.ui.selectedGems = [];
       that._resultRecorded = false;
+      that.resetTurnUI();
       that.refresh('牌局开始');
       that.saveSession();
       that.maybeRunAi({ ended: true });
@@ -1497,6 +1781,8 @@ Page({
       that.state = res.state;
       that.ui.detail = null;
       that.ui.selectedGems = [];
+      // 别人刚做的动作：在本地按同一份卡面数据重放（这是「看不到对手动画」的修法）
+      that.replayRemoteAction(that.state);
       that.refresh('');
       that.maybeRunAi({ ended: true });
     });
@@ -1520,35 +1806,40 @@ Page({
     }, waitMs);
   },
 
-  runAi() {
+  runAi(force, message) {
     const s = this.state;
-    if (s.gameOver || !needsAutoPlay(s, this.aiContext())) return;
+    if (!s || s.gameOver) return;
+    if (!force && !needsAutoPlay(s, this.aiContext())) return;
     const actorSeat = s.current;
     const actor = s.players[actorSeat].nickname || s.players[actorSeat].name;
     const aiAction = AI.chooseAction(s);
+    const card = this.actionCard(aiAction, actorSeat);
     const nextSeq = (this._showcaseSeq = (this._showcaseSeq || 0) + 1);
-    const preShowcase = buildActionShowcase(s, aiAction, actorSeat, this.mySeat, nextSeq);
+    const preShowcase = buildActionShowcase(s, aiAction, actorSeat, this.mySeat, nextSeq, card);
     let result = E.performAction(s, aiAction);
     if (!result.ok) {
       result = E.performAction(s, { type: 'pass' });
     } else if (preShowcase) {
       this.ui.showcase = preShowcase;
     }
-    this.refresh(result.ok ? actor + ' · ' + result.message : result.error);
+    this.stampAction(aiAction, card, actorSeat);
+    this.refresh(message || (result.ok ? actor + ' · ' + result.message : result.error));
     if (result.ok) this.pushCloudState();
     if (!s.gameOver && needsAutoPlay(s, this.aiContext())) this.scheduleAi();
   },
 
   applyPlayerAction(action, successMessage) {
     const actorSeat = this.state ? this.state.current : 0;
+    const card = this.actionCard(action, actorSeat);
     const nextSeq = (this._showcaseSeq = (this._showcaseSeq || 0) + 1);
-    const preShowcase = buildActionShowcase(this.state, action, actorSeat, this.mySeat, nextSeq);
+    const preShowcase = buildActionShowcase(this.state, action, actorSeat, this.mySeat, nextSeq, card);
     const result = E.performAction(this.state, action);
     if (!result.ok) {
       this.refresh(result.error);
       return false;
     }
     if (preShowcase) this.ui.showcase = preShowcase;
+    this.stampAction(action, card, actorSeat);
     this.ui.selectedGems = [];
     this.ui.detail = null;
     this.ui.showReserved = false;
@@ -1556,6 +1847,61 @@ Page({
     this.pushCloudState();
     this.maybeRunAi(result);
     return true;
+  },
+
+  /* ---------- 联机同步：把动作本身也传出去，其他玩家才能看到动画 ---------- */
+
+  /** 动作涉及的卡（购买 / 预留），用于在别人屏幕上重放同一段展演 */
+  actionCard(action, actorSeat) {
+    const st = this.state;
+    if (!st || !action) return null;
+    if (action.type === 'buyBoard' || action.type === 'reserveBoard') {
+      return (st.board[action.lv] && st.board[action.lv][action.index]) || null;
+    }
+    if (action.type === 'buyReserved') {
+      const p = st.players[actorSeat];
+      return (p && p.reserved && p.reserved[action.index]) || null;
+    }
+    // 盲抽预留不能把牌面发出去，否则等于公开牌库顶
+    return null;
+  },
+
+  /**
+   * 把这一步写进快照，供其他设备回放。
+   * 只带最少信息（座位 / 动作 / 涉及卡面），牌局主体仍由 state 表达。
+   */
+  stampAction(action, card, actorSeat) {
+    const st = this.state;
+    if (!st || !action) return;
+    const id = 'a' + actorSeat + '-' + (st.turnCount || 0) + '-' + Date.now().toString(36) +
+      '-' + Math.random().toString(36).slice(2, 6);
+    st.lastAction = {
+      id: id,
+      seat: actorSeat,
+      type: action.type,
+      lv: action.lv,
+      index: action.index,
+      gems: action.gems ? action.gems.slice() : null,
+      card: (action.type === 'reserveDeck' || !card) ? null : {
+        id: card.id, level: card.level, gem: card.gem, points: card.points,
+        cost: card.cost, name: card.name, art: card.art
+      }
+    };
+    this._seenActionId = id;
+  },
+
+  /** 收到新快照时回放别人的动作；自己的动作本地已经演过，不重复 */
+  replayRemoteAction(st) {
+    const la = st && st.lastAction;
+    if (!la || !la.id || la.id === this._seenActionId) return;
+    this._seenActionId = la.id;
+    if (la.seat === (this.mySeat || 0)) return;
+    const seq = (this._showcaseSeq = (this._showcaseSeq || 0) + 1);
+    const sh = buildActionShowcase(st, la, la.seat, this.mySeat, seq, la.card || null);
+    if (sh) {
+      sh.remote = true;
+      this.ui.showcase = sh;
+    }
   },
 
   /** 点选宝石筹码：支持 1~3 枚不同色，或同色 2 枚 */
@@ -1754,6 +2100,14 @@ Page({
     this.refresh('');
   },
 
+  /** 建房前选回合计时：60 / 90 / 120 秒，或不限时 */
+  onSelectTurnLimit(event) {
+    const raw = Number(event.currentTarget.dataset.value);
+    if (!R.TURN_LIMITS.some(function (m) { return m.value === raw; })) return;
+    this.ui.turnLimit = raw;
+    this.refresh(raw > 0 ? '回合计时：' + raw + ' 秒' : '回合计时：不限时');
+  },
+
   /* ---------- 大厅：模式选择 / 战绩 ---------- */
 
   /** 当前只开放标准模式，其余模式点一下给出明确说明，不做假入口 */
@@ -1839,10 +2193,12 @@ Page({
       playerCount: this.ui.playerCount,
       seats: seats,
       profile: profile,
-      status: 'lobby'
+      status: 'lobby',
+      turnLimit: this.ui.turnLimit
     });
     this.room.mode = 'room';
     this._cloudCode = this.room.code;
+    this.ui.turnLimit = this.room.turnLimit;
     this.state = null;
     this.ui.screen = 'room';
     this.ui.showLobby = false;
@@ -1889,6 +2245,19 @@ Page({
     this.room.playerCount = n;
     this.refresh('人数已改为 ' + n + ' 人');
     if (R.hasCloud()) this.updateCloudRoom({ player_count: n, seats: seats });
+  },
+
+  /** 大厅里也能改回合计时：房主改完全房间生效 */
+  onRoomTurnLimit(event) {
+    if (this.mySeat !== 0) return;
+    const raw = Number(event.currentTarget.dataset.value);
+    // 只接受 0 / 60 / 90 / 120：非法值直接忽略，不要静默降级成「不限时」
+    if (!R.TURN_LIMITS.some(function (m) { return m.value === raw; })) return;
+    if (raw === this.room.turnLimit) return;
+    this.room.turnLimit = raw;
+    this.ui.turnLimit = raw;
+    this.refresh(raw > 0 ? '回合计时已改为 ' + raw + ' 秒' : '回合计时已改为不限时');
+    if (R.hasCloud()) this.updateCloudRoom({ turn_limit: raw });
   },
 
   /** 真人准备 / 取消准备；房主视为已就绪，不参与准备开关 */
@@ -1977,7 +2346,7 @@ Page({
       this.refresh('');
       return;
     }
-    const vm = roomScreenVM(this.ui, this.room, this.profile, this.mySeat);
+    const vm = roomScreenVM(this.ui, this.room, this.profile, this.mySeat, this._avatars || {});
     if (!vm.canStart) {
       this.ui.roomNotice = vm.waitingReady > 0
         ? '还有 ' + vm.waitingReady + ' 位玩家未准备'
@@ -1996,6 +2365,8 @@ Page({
       return Object.assign({}, s, { index: i, ready: true });
     });
     this.state = E.createGame({ playerCount: seats.length, seats: seats });
+    // 回合计时随房间配置下发，所有设备看到同一份限时
+    this.state.turnLimit = R.normTurnLimit(this.room.turnLimit);
     this.room.seats = seats;
     this.room.status = 'playing';
     this.room.playerCount = seats.length;
@@ -2006,6 +2377,7 @@ Page({
     this.ui.showLobby = false;
     this.ui.roomNotice = '';
     this._resultRecorded = false;
+    this.resetTurnUI();
     this.refresh('牌局开始 · ' + seats.length + ' 人');
     this.saveSession();
     if (!R.hasCloud()) {
@@ -2029,8 +2401,9 @@ Page({
   /** 一局结束后回大厅：房主重置房间，其他人等房主重开 */
   backToLobby() {
     this.clearTimer();
+    this.resetTurnUI();
     if (this.mySeat !== 0) {
-      const vm = roomScreenVM(this.ui, this.room, this.profile, this.mySeat);
+      const vm = roomScreenVM(this.ui, this.room, this.profile, this.mySeat, this._avatars || {});
       this.ui.roomNotice = '等房主回到房间并重新开局（' + vm.joinedHumans + ' 人已加入）';
       this.refresh('');
       return;
@@ -2063,6 +2436,7 @@ Page({
   /** 离开房间 / 退出当前牌局，统一回到首页 */
   onLeaveRoom() {
     this.clearTimer();
+    this.resetTurnUI();
     this.stopCloudPolling();
     // 房主离开即解散：云上置 ended，其他设备轮询到就直接回首页，
     // 不会对着一个永远不会开始的房间一直等
@@ -2176,38 +2550,49 @@ Page({
       this.refresh('');
       return;
     }
-    // 微信头像是临时路径，先落成本地文件，否则重启后又变回预设头像
-    const avatarUrl = d.avatarUrl ? U.persistAvatar(d.avatarUrl, this.profile.uid) : '';
-    this.profile = R.saveProfile({
-      nickname: nickname,
-      avatar: d.avatar || this.profile.avatar,
-      avatarUrl: avatarUrl,
-      isWechat: !!d.isWechat
-    });
-    // 资料上云：失败不影响本机使用，只影响换设备后的可恢复性
-    U.syncProfile(this.profile);
-    // 同步本机席位的显示资料，不改动规则状态（首页 / 大厅阶段可能还没有牌局）
-    const si = this.mySeat;
-    const me = this.state && this.state.players[si];
-    if (me) {
-      me.nickname = nickname;
-      me.name = nickname;
-      me.avatar = this.profile.avatar;
-      me.avatarUrl = this.profile.avatarUrl;
-    }
-    if (this.room && this.room.seats[si]) {
-      this.room.seats[si] = Object.assign({}, this.room.seats[si], {
-        name: nickname, nickname: nickname,
-        avatar: this.profile.avatar, avatarUrl: this.profile.avatarUrl
+    const hasNewAvatar = !!d.avatarUrl;
+    // 换过头像才需要压缩：prepareAvatar 同时给出「本机文件路径」与「可上云的缩略图」，
+    // 后者才是好友能看到的那个（本机路径发出去必然加载失败）。
+    const ready = hasNewAvatar
+      ? U.prepareAvatar(d.avatarUrl, this.profile.uid)
+      : Promise.resolve({ avatarUrl: this.profile.avatarUrl || '', avatarData: this.profile.avatarData || '' });
+
+    const that = this;
+    ready.then(function (av) {
+      that.profile = R.saveProfile({
+        nickname: nickname,
+        avatar: d.avatar || that.profile.avatar,
+        avatarUrl: av.avatarUrl,
+        avatarData: av.avatarData,
+        isWechat: !!d.isWechat
       });
-      if (R.hasCloud() && this.ui.screen === 'room') {
-        this.updateCloudRoom({ seats: this.room.seats });
+      // 自己的头像也进映射：席位条 / 工作台都从同一份数据取，避免两处不一致
+      if (that.profile.uid) {
+        that._avatars[that.profile.uid] = that.profile.avatarUrl || that.profile.avatarData || '';
       }
-    }
-    this.ui.showProfile = false;
-    this.ui.profileDraft = null;
-    this.refresh('资料已保存 · ' + nickname);
-    this.pushCloudState();
+      // 资料上云：失败不影响本机使用，只影响换设备后的可恢复性
+      U.syncProfile(that.profile);
+      // 同步本机席位的显示资料，不改动规则状态（首页 / 大厅阶段可能还没有牌局）
+      const si = that.mySeat;
+      const me = that.state && that.state.players[si];
+      if (me) {
+        me.nickname = nickname;
+        me.name = nickname;
+        me.avatar = that.profile.avatar;
+      }
+      if (that.room && that.room.seats[si]) {
+        that.room.seats[si] = Object.assign({}, that.room.seats[si], {
+          name: nickname, nickname: nickname,
+          avatar: that.profile.avatar
+        });
+        if (R.hasCloud() && that.ui.screen === 'room') {
+          that.updateCloudRoom({ seats: that.room.seats });
+        }
+      }
+      that.ui.showProfile = false;
+      that.ui.profileDraft = null;
+      that.refresh('资料已保存 · ' + nickname);
+    });
   },
 
   /* ---------- 点击玩家头像查看详情 ---------- */

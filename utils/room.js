@@ -92,12 +92,29 @@ const PRESET_AVATARS = [
   { key: 'a7', name: '紫晶使节', hue: '#8a6bb0' }
 ];
 
+/* 回合计时：0 表示不限时。存进房间行，开局时随快照下发。 */
+const TURN_LIMITS = [
+  { value: 60, label: '60 秒' },
+  { value: 90, label: '90 秒' },
+  { value: 120, label: '120 秒' },
+  { value: 0, label: '不限时' }
+];
+
+function normTurnLimit(v) {
+  const n = Number(v) || 0;
+  for (let i = 0; i < TURN_LIMITS.length; i++) if (TURN_LIMITS[i].value === n) return n;
+  return 0;
+}
+
 function defaultProfile() {
   return {
     uid: uid(),
     nickname: '珠宝商',
     avatar: 'a0',
+    // 本机文件路径，只给自己看
     avatarUrl: '',
+    // 压到 120px 的 data URI，随资料上云，别人的设备靠它显示
+    avatarData: '',
     isWechat: false,
     // 是否被用户主动改过：false 时入席要引导取昵称，否则同一房间会撞成一片「珠宝商」
     customized: false,
@@ -174,7 +191,9 @@ function makeSeats(playerCount, bots, profile) {
       name: i === 0 ? profile.nickname : (isAI ? '机器人 ' + i : '等待加入'),
       nickname: i === 0 ? profile.nickname : '',
       avatar: i === 0 ? profile.avatar : (isAI ? PRESET_AVATARS[i % PRESET_AVATARS.length].key : ''),
-      avatarUrl: i === 0 ? (profile.avatarUrl || '') : '',
+      // 席位里不放头像图片：房间行每 1.2s 轮询一次，塞 data URI 会把同步流量放大十几倍。
+      // 头像由 uid 单独查资料表补齐（见 utils/user.js 的 fetchProfiles）。
+      avatarUrl: '',
       isAI: isAI,
       type: i === 0 ? 'self' : (isAI ? 'bot' : 'remote'),
       joined: i === 0 || isAI,
@@ -196,6 +215,8 @@ function createRoom(config) {
     createdAt: Date.now(),
     // 大厅态：等人入席 / 等准备；开局后由页面写入 playing
     status: cfg.status || 'lobby',
+    // 回合计时（秒）：0 = 不限时。开局时随快照下发给所有设备
+    turnLimit: normTurnLimit(cfg.turnLimit),
     backend: hasCloud() ? 'cloud' : 'local',
     seats: cfg.seats || makeSeats(playerCount, cfg.bots || {}, profile)
   };
@@ -230,7 +251,7 @@ function joinRoom(code, profile) {
     if (!s.joined && !s.isAI) {
       room.seats[i] = Object.assign({}, s, {
         uid: p.uid, name: p.nickname, nickname: p.nickname,
-        avatar: p.avatar, avatarUrl: p.avatarUrl || '',
+        avatar: p.avatar, avatarUrl: '',
         type: 'remote', joined: true
       });
       placed = true;
@@ -305,6 +326,7 @@ async function cloudCreateRoom(room, state) {
       code: room.code,
       host_uid: room.hostUid,
       player_count: room.playerCount,
+      turn_limit: normTurnLimit(room.turnLimit),
       seats: room.seats,
       status: room.status || 'lobby',
       version: 1,
@@ -340,6 +362,7 @@ async function cloudPullRoom(code) {
         playerCount: row.player_count,
         hostUid: row.host_uid,
         status: row.status,
+        turnLimit: normTurnLimit(row.turn_limit),
         backend: 'cloud',
         createdAt: Date.now(),
         seats: row.seats || []
@@ -559,6 +582,8 @@ async function cloudJoinRoom(code, profile) {
 
 module.exports = {
   PRESET_AVATARS: PRESET_AVATARS,
+  TURN_LIMITS: TURN_LIMITS,
+  normTurnLimit: normTurnLimit,
   avatarName: avatarName,
   defaultProfile: defaultProfile,
   getProfile: getProfile,
