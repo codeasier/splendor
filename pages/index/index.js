@@ -38,6 +38,29 @@ function calcLayout(w, h) {
   return { scale: Math.min(h / DESIGN_W, w / DESIGN_H), rotate: 90 };
 }
 
+/**
+ * 微信胶囊按钮（右上角「…」/ 退出）避让：真机横屏时胶囊悬浮在屏幕右上，
+ * 正好压住舞台右上角的操作区（黄金 + 大厅 / 资料 / 规则 / 重开圆钮）。
+ * 返回 .top-right 应使用的 top 值（舞台 px）：
+ * 取「胶囊底边 + 8px 间隙」换算进舞台坐标系，与原值取大。
+ * 开发者工具的竖屏旋转模式（rotate 90）与 H5 预览（无 wx）保持原位。
+ */
+function topRightOffset(w, h, rotate) {
+  const BASE = 10;
+  if (rotate !== 0 || typeof wx === 'undefined' || !wx.getMenuButtonBoundingClientRect) return BASE;
+  let r = null;
+  try { r = wx.getMenuButtonBoundingClientRect(); } catch (e) { r = null; }
+  if (!r || !r.height) return BASE;
+  const scale = Math.min(w / DESIGN_W, h / DESIGN_H);
+  const stageTop = (h - DESIGN_H * scale) / 2;
+  const stageLeft = (w - DESIGN_W * scale) / 2;
+  const stageRight = stageLeft + DESIGN_W * scale;
+  // 胶囊与舞台没有横向交叠时无需避让
+  if (r.right <= stageLeft + 1 || r.left >= stageRight - 1) return BASE;
+  const need = Math.ceil((r.bottom - stageTop) / scale) + 8;
+  return Math.max(BASE, need);
+}
+
 function countIn(list, key) {
   let n = 0;
   for (let i = 0; i < list.length; i++) if (list[i] === key) n += 1;
@@ -815,6 +838,7 @@ function buildViewModel(state, ui, layout, ctx) {
     return {
       stageScale: layout.scale,
       stageRotate: layout.rotate,
+      topRightTop: layout.topRight || 10,
       screen: screen,
       home: lobbyVM(ui, profile),
       roomScreen: roomScreenVM(ui, room, profile, seat, avatars),
@@ -1075,6 +1099,7 @@ function buildViewModel(state, ui, layout, ctx) {
   return {
     stageScale: layout.scale,
     stageRotate: layout.rotate,
+    topRightTop: layout.topRight || 10,
     screen: 'game',
     home: lobbyVM(ui, profile),
     roomScreen: roomScreenVM(ui, room, profile, seat, avatars),
@@ -1209,12 +1234,14 @@ function freshUI(config) {
 Page({
   data: {
     stageScale: 1,
-    stageRotate: 0
+    stageRotate: 0,
+    topRightTop: 10
   },
 
   onLoad(options) {
     const size = readWindowSize();
     this._layout = calcLayout(size.w, size.h);
+    this._layout.topRight = topRightOffset(size.w, size.h, this._layout.rotate);
     this._aiTimer = null;
     this._pollTimer = null;
     this._cloudCode = '';
@@ -1347,9 +1374,11 @@ Page({
   onResize() {
     const size = readWindowSize();
     this._layout = calcLayout(size.w, size.h);
+    this._layout.topRight = topRightOffset(size.w, size.h, this._layout.rotate);
     this.setData({
       stageScale: this._layout.scale,
-      stageRotate: this._layout.rotate
+      stageRotate: this._layout.rotate,
+      topRightTop: this._layout.topRight
     });
   },
 

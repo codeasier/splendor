@@ -76,7 +76,8 @@
         </view>
       </view>
 
-      <view class="top-right">
+      <!-- top 由胶囊避让计算（topRightOffset），真机横屏时下移到胶囊下方 -->
+      <view class="top-right" style="top:{{topRightTop}}px;">
         <view class="gold-box">
           <view class="gold-coin coin-face coin-gold"><view class="pile-gem gem-icon gem-gold"></view></view>
           <text class="gold-label">黄金 {{goldCount}}</text>
