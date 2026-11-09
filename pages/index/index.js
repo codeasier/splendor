@@ -210,6 +210,40 @@ function miniTokensVM(p) {
   });
 }
 
+/**
+ * 对手席位卡概览：6 列分组（白/蓝/绿/红/黑/金），每列上下两格严格对齐——
+ * 上格红利（方块）、下格持有筹码（圆章），同一列同一色，可直接逐色相加。
+ * 旧实现用两套独立循环（红利 5 格带标签 / 筹码 6 格不带），列起点与格宽都
+ * 不同，视觉上永远对不齐。黄金没有红利，该格留给预购数（VM 标记 isGold）。
+ * 数字由 VM 给 show 布尔，零值只留淡色块不渲染 "0"，减少视觉噪声。
+ */
+function seatColumnsVM(state, idx, reservedCount) {
+  const p = state.players[idx];
+  const disc = E.getDiscounts(state, idx);
+  return ALL.map(function (g) {
+    const bonus = g === 'gold' ? 0 : (disc[g] || 0);
+    const tok = p.tokens[g] || 0;
+    return {
+      key: g,
+      label: META[g] ? META[g].label : '黄金',
+      gemClass: 'gem-' + g,
+      isGold: g === 'gold',
+      // 白宝石章底色浅，数字必须用深色墨（与卡面成本气泡同一约定）
+      light: g === 'white',
+      // 预购数随黄金列一起下发：嵌套 wx:for 里引用外层 item 在预览编译器
+      // 作用域下会丢失，列数据必须自洽
+      res: String(reservedCount),
+      // 黄金没有红利：席位卡该格改放预购数，详情弹层显示破折号
+      bonus: g === 'gold' ? '—' : String(bonus),
+      bonusShow: bonus > 0,
+      bonusWide: bonus >= 10,
+      token: String(tok),
+      tokenShow: tok > 0,
+      tokenWide: tok >= 10
+    };
+  });
+}
+
 /** 贵族肖像槽位：按官方牌池顺序（n1~n10）取模，同一张贵族永远同一张脸 */
 function nobleSlot(noble) {
   let at = -1;
@@ -266,7 +300,8 @@ function seatVM(state, index, room, selfSeat, avatars) {
     avatar: avatar,
     avatarUrl: (uid && avatars && avatars[uid]) || '',
     avatarHue: avatarHue(avatar),
-    // 对手概览：红利（流派）+ 持有筹码（含黄金）+ 预购数，一眼读懂对手局面
+    // 对手概览：6 列分组，上红利下筹码逐色对齐；旧的两套格子保留给详情/测试
+    columns: seatColumnsVM(state, index, p.reserved.length),
     bonusCells: discountCellsVM(state, index),
     tokenCells: miniTokensVM(p),
     tokens: tokensVM(p, GEMS)
@@ -348,6 +383,8 @@ function playerDetailVM(state, index, room, selfSeat, avatars) {
       { label: '贵族到访', value: noblePoints },
       { label: '当前合计', value: p.points }
     ],
+    // 详情弹层同口径 6 列分组，字号放大到 18px，作为席位卡看不清时的精确查阅
+    columns: seatColumnsVM(state, index, p.reserved.length),
     discounts: discountsVM(state, index),
     discountCells: discountCellsVM(state, index),
     tokens: tokensVM(p, ALL),

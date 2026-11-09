@@ -146,10 +146,13 @@ assert(optHtml.indexOf('portrait-seat') > 0, '本机工作台应标出自己的�
 assert((optHtml.match(/号位/g) || []).length >= 3, '号位文案应出现在席位 / 工作台 / 状态行');
 assert(optHtml.indexOf('turn-flash') > 0, '轮到自己时应弹全屏换手提醒');
 assert(optHtml.indexOf('轮到你出牌') > 0, '换手提醒应写明「轮到你出牌」');
-// 对手席位卡概览：红利 / 筹码 / 预购（ solo 2 人局只有 1 个对手，但结构必须渲染 ）
+// 对手席位卡概览：6 列分组（红利在上 / 筹码在下，逐色对齐）+ 黄金列放预购数
+assert(optHtml.indexOf('seat-grid') > 0, '席位卡应有 6 列分组网格');
 assert(optHtml.indexOf('seat-mini-disc') > 0, '席位卡应有红利格');
 assert(optHtml.indexOf('seat-mini-coin') > 0, '席位卡应有筹码格');
-assert(optHtml.indexOf('seat-mini-res') > 0, '席位卡应有预购数');
+assert((optHtml.match(/class="seat-col"/g) || []).length === 6, '单个对手应渲染 6 列');
+assert(optHtml.indexOf('seat-tags') > 0, '两行应带「红 / 筹」行标');
+assert(optHtml.indexOf('is-res') > 0 && optHtml.indexOf('seat-res-num') > 0, '黄金列应显示预购数');
 
 const giveGem = GEM_KEYS.filter(function (g) { return printedCost[g] > 0; })[0];
 p3.state.players[0].tokens[giveGem] -= 1;
@@ -311,6 +314,9 @@ const pdHtml = a.host.innerHTML;
 assert(pdHtml.indexOf('pd-cards') > 0, '预留卡应以卡面形式渲染');
 assert(pdHtml.indexOf('卡面印刷成本') > 0, '应说明气泡为卡面印刷成本');
 assert(pdHtml.indexOf('cost-bubble') > 0, '卡面应带成本气泡');
+assert(pdHtml.indexOf('pd-grid') > 0, '详情弹层应渲染 6 列分组');
+assert((pdHtml.match(/class="pd-chip/g) || []).length === 12, '6 列 × 上下两格应渲染 12 个大字章');
+assert(pdHtml.indexOf('逐色对齐') > 0, '应标明红利/筹码逐色对齐');
 a.page.ui.showPlayerDetail = false;
 a.page.refresh('');
 console.log('牌桌：3 人局贵族双列 / 预留卡卡面详情 OK');

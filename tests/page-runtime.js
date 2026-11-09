@@ -403,6 +403,12 @@ assert(rc.costs.every(function (c) { return c.display === String(rawCard.cost[c.
   '气泡数量应等于卡面印刷成本');
 assert(rc.pointsLabel.indexOf('声望') >= 0, '预留卡应显示声望');
 assert(rc.name === rawCard.name, '预留卡名称一致');
+assert(pd.columns.length === 6, '详情弹层也应固定 6 列分组');
+assert(pd.columns[5].bonus === '—' && pd.columns[5].token === String(page.state.players[0].tokens.gold || 0),
+  '黄金列无红利但有筹码');
+pd.columns.forEach(function (c) {
+  assert(c.token === String(page.state.players[0].tokens[c.key] || 0), '详情筹码列应与持有量一致: ' + c.key);
+});
 page.ui.showPlayerDetail = false;
 page.refresh('');
 console.log('OK  预留卡详情 · 卡面成本气泡 / 声望 / 名称');
@@ -612,6 +618,26 @@ page.data.rivals.forEach(function (r, i) {
 });
 assert(page.data.rivals[0].bonusCells[0].zero === true, '开局零红利应淡显');
 console.log('OK  对手席位卡 · 红利 / 筹码 / 预购概览与真实状态一致');
+
+/* ---------- 6 列分组网格：红利/筹码逐色上下对齐、零值不显示数字、两位数降档 ---------- */
+const gridState = page.state;
+gridState.players[1].cards = [];
+for (let ci = 0; ci < 12; ci++) {
+  gridState.players[1].cards.push({ gem: 'white', points: 0, cost: {}, name: 'x', level: 1, art: ci });
+}
+gridState.players[1].tokens = { white: 10, blue: 0, green: 3, red: 0, black: 1, gold: 2 };
+page.refresh('');
+const cols = page.data.rivals[0].columns;
+assert(cols.length === 6, '每位对手应固定 6 列分组');
+assert(cols[0].key === 'white' && cols[5].key === 'gold', '列顺序应为白蓝绿红黑 + 黄金');
+assert(cols[0].light === true && cols[1].light === false, '白宝石列应标记为浅底（深色墨）');
+assert(cols[0].bonus === '12' && cols[0].bonusShow === true, '红利列应显示 12');
+assert(cols[0].bonusWide === true, '红利两位数应降一档字号');
+assert(cols[0].token === '10' && cols[0].tokenWide === true, '筹码两位数应降一档字号');
+assert(cols[5].isGold === true && cols[5].bonusShow === false, '黄金列没有红利');
+assert(cols[1].token === '0' && cols[1].tokenShow === false, '零值只留色块不渲染 0');
+assert(cols[2].bonusShow === false && cols[2].token === '3', '同一列红利/筹码互不串色');
+console.log('OK  席位卡 6 列分组 · 上下对齐 / 零值留白 / 两位数降档');
 
 /* ---------- 多贵族同时满足：挂起挑选 / 门禁 / 选择后结算 / 远端重放 ---------- */
 page.startLocalGame();

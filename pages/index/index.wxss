@@ -1383,7 +1383,7 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 /* 席位卡三行结构：头像+名字+积分 / 红利 5 格（流派）/ 筹码 6 格+预购（购买力） */
 .seat-badge {
   position: relative; flex: 1 1 0; max-width: 164px; min-width: 108px; height: 64px;
-  display: flex; flex-direction: column; gap: 2px; padding: 3px 6px;
+  display: flex; flex-direction: column; gap: 1px; padding: 2px 4px 2px 11px;
   border-radius: 8px; overflow: hidden;
   border: 1px solid rgba(226, 180, 102, .68);
   background: linear-gradient(155deg, #64364a 0%, #311726 60%, #1c0c16 100%);
@@ -1403,9 +1403,9 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .seat-badge.is-bot { opacity: .96; }
 .seat-badge.is-empty { opacity: .62; }
 .seat-hover { transform: translateY(1px); }
-.seat-top { display: flex; align-items: center; gap: 5px; height: 28px; }
+.seat-top { display: flex; align-items: center; gap: 4px; height: 26px; }
 .seat-avatar {
-  width: 24px; height: 28px; flex-shrink: 0; border-radius: 3px;
+  width: 22px; height: 24px; flex-shrink: 0; border-radius: 3px;
   border: 1.5px solid #deb062; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   box-shadow: inset 0 0 0 1px rgba(255, 240, 200, .35), 0 2px 6px rgba(0, 0, 0, .65);
@@ -1413,7 +1413,7 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .seat-avatar-img { width: 100%; height: 100%; }
 .seat-avatar-initial { font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #fff1d5; text-shadow: 0 1px 3px #1a0d14; }
 /* 号位徽章：压在头像左上角，任何情况下都能对上是第几号位 */
-.seat-avatar-wrap { position: relative; width: 24px; height: 28px; flex-shrink: 0; }
+.seat-avatar-wrap { position: relative; width: 22px; height: 24px; flex-shrink: 0; }
 .seat-no {
   position: absolute; left: -3px; top: -2px; z-index: 4;
   min-width: 14px; height: 14px; padding: 0 2px; border-radius: 7px;
@@ -1451,33 +1451,65 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   font-family: Georgia, serif; font-size: 10px; font-weight: 700; line-height: 1;
   color: #2b1504;
 }
-/* 红利行：方块章（与工作台红利同语言）；零值淡显，流派一眼可读 */
-.seat-mini-row { display: flex; align-items: center; gap: 2px; height: 13px; }
-.seat-mini-row.is-tokens { height: 12px; gap: 1px; }
-.seat-mini-label {
-  flex-shrink: 0; margin-right: 1px;
-  font-size: 7px; letter-spacing: 1px; color: #d8b596;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, .85);
+/* 6 列分组网格：每列上红利(方块)、下持有筹码(圆章)，同一列同一色严格对齐。
+   卡片只有 64px 高（下方 6px 就是市场卡），放大数字靠的是去掉行标签列、
+   让 6 列等分占满整卡宽度，而不是加高。 */
+.seat-grid { display: flex; flex: 1; min-width: 0; align-items: center; }
+.seat-col {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
 }
 .seat-mini-disc {
-  width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0;
+  width: 15px; height: 15px; border-radius: 3px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: inset 0 0 0 1px rgba(10, 4, 8, .55), 0 1px 2px rgba(0, 0, 0, .6);
+  box-shadow: inset 0 0 0 1px rgba(10, 4, 8, .75), 0 1px 2px rgba(0, 0, 0, .6);
 }
 .seat-mini-coin {
-  width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
+  width: 15px; height: 15px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, .22), inset 0 0 0 1px rgba(10, 4, 8, .5), 0 1px 2px rgba(0, 0, 0, .6);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, .18), inset 0 0 0 1px rgba(10, 4, 8, .75), 0 1px 2px rgba(0, 0, 0, .6);
 }
 .seat-mini-disc text, .seat-mini-coin text {
-  font-family: Georgia, serif; font-size: 8px; font-weight: 700; line-height: 1;
-  color: #fff; text-shadow: 0 1px 2px #000, 0 0 3px rgba(0, 0, 0, .9);
+  font-family: Georgia, serif; font-size: 12px; font-weight: 700; line-height: 1;
+  color: #fff;
+  text-shadow: 0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 0 4px rgba(0, 0, 0, .95);
 }
-.seat-mini-disc.is-zero, .seat-mini-coin.is-zero { opacity: .26; }
-.seat-mini-res {
-  margin-left: auto; flex-shrink: 0;
-  font-family: Georgia, serif; font-size: 8px; font-weight: 700;
-  color: #ffd9a0; text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+/* 两位数降一档，避免 15px 的章里数字顶到边 */
+.seat-mini-disc.is-wide text, .seat-mini-coin.is-wide text { font-size: 10px; }
+/* 白宝石底色浅：深色墨 + 浅色描边，否则白字在浅底上糊成一团 */
+.seat-mini-disc.is-light text, .seat-mini-coin.is-light text {
+  color: #101c28;
+  text-shadow:
+    1px 0 0 rgba(255, 255, 255, .9), -1px 0 0 rgba(255, 255, 255, .9),
+    0 1px 0 rgba(255, 255, 255, .9), 0 -1px 0 rgba(255, 255, 255, .9),
+    0 0 4px rgba(255, 255, 255, .8);
+}
+/* 零值只留淡色块，不渲染 0，非零数字更醒目 */
+.seat-mini-disc.is-zero, .seat-mini-coin.is-zero { opacity: .3; }
+/* 黄金没有红利：这一格改放预购数，虚线琥珀框与实心宝石章明显区分 */
+.seat-mini-disc.is-res {
+  position: relative;
+  border: 1px dashed rgba(255, 205, 130, .8);
+  background: rgba(255, 190, 110, .12);
+  box-shadow: none;
+}
+/* 选择器要压过上面的 `.seat-mini-disc text`（0,1,1），故带父级类名限定 */
+.seat-mini-disc.is-res .seat-res-tag {
+  position: absolute; top: -4px; left: -2px;
+  font-size: 6px; font-weight: 400; color: #ffd9a0; text-shadow: 0 1px 2px #000;
+}
+.seat-mini-disc.is-res .seat-res-num {
+  font-family: Georgia, serif; font-size: 11px; font-weight: 700;
+  color: #ffe0ac; text-shadow: 0 1px 2px #000, 0 0 3px rgba(0, 0, 0, .9);
+}
+/* 两行的行标压在左内边距里，不占网格列宽 */
+.seat-tags {
+  position: absolute; left: 1px; top: 29px; width: 10px; height: 31px;
+  display: flex; flex-direction: column;
+}
+.seat-tags text {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: 8px; color: #d8b596; text-shadow: 0 1px 2px rgba(0, 0, 0, .85);
 }
 .room-btn { font-size: 15px; }
 .portrait-hover { transform: translateY(2px); }
@@ -1558,6 +1590,38 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .player-chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .player-chips .disc-chip.is-zero { opacity: .35; }
+/* 详情弹层：6 列大字号分组（上红利 / 下筹码），与席位卡同一套列数据 */
+.pd-grid { display: flex; gap: 4px; align-items: flex-start; }
+.pd-tags {
+  width: 26px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.pd-tags text {
+  height: 34px; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: #d8b596; text-shadow: 0 1px 2px #000;
+}
+.pd-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pd-chip {
+  width: 34px; height: 34px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 230, 172, .78);
+  box-shadow: inset 0 0 0 1px rgba(10, 4, 8, .6), 0 2px 5px rgba(0, 0, 0, .6);
+}
+.pd-chip.is-coin { border-radius: 50%; }
+.pd-chip text {
+  font-family: Georgia, serif; font-size: 18px; font-weight: 700; line-height: 1;
+  color: #fff;
+  text-shadow: 0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 0 5px rgba(0, 0, 0, .95);
+}
+.pd-chip.is-wide text { font-size: 14px; }
+.pd-chip.is-light text {
+  color: #101c28;
+  text-shadow:
+    1px 0 0 rgba(255, 255, 255, .9), -1px 0 0 rgba(255, 255, 255, .9),
+    0 1px 0 rgba(255, 255, 255, .9), 0 -1px 0 rgba(255, 255, 255, .9),
+    0 0 5px rgba(255, 255, 255, .85);
+}
+.pd-chip.is-zero { opacity: .32; }
 .pd-list { display: flex; flex-direction: column; gap: 6px; }
 .pd-cards { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
 .pd-card { display: flex; flex-direction: column; gap: 4px; width: 88px; }

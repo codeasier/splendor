@@ -44,21 +44,23 @@
               <view class="seat-score-pill"><text>{{item.points}}</text></view>
             </view>
           </view>
-          <!-- 红利（方块章）= 流派；筹码（圆章，含黄金，与工作台同语言）= 购买力；右侧预购数 -->
-          <view class="seat-mini-row">
-            <text class="seat-mini-label">红利</text>
-            <view wx:for="{{item.bonusCells}}" wx:for-item="cell" wx:key="key"
-                  class="seat-mini-disc gem-icon {{cell.gemClass}} {{cell.zero ? 'is-zero' : ''}}">
-              <text>{{cell.num}}</text>
+          <!-- 6 列分组：同一列上方红利(方块)、下方持有筹码(圆章)，逐色严格对齐；
+               黄金没有红利，该格改放预购数；零值只留淡色块，不显示 0 -->
+          <view class="seat-grid">
+            <view wx:for="{{item.columns}}" wx:for-item="cell" wx:key="key" class="seat-col">
+              <view wx:if="{{cell.isGold}}" class="seat-mini-disc is-res">
+                <text class="seat-res-tag">预</text>
+                <text class="seat-res-num">{{cell.res}}</text>
+              </view>
+              <view wx:else class="seat-mini-disc gem-icon {{cell.gemClass}} {{cell.bonusShow ? '' : 'is-zero'}} {{cell.bonusWide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}}">
+                <text wx:if="{{cell.bonusShow}}">{{cell.bonus}}</text>
+              </view>
+              <view class="seat-mini-coin gem-icon {{cell.gemClass}} {{cell.tokenShow ? '' : 'is-zero'}} {{cell.tokenWide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}}">
+                <text wx:if="{{cell.tokenShow}}">{{cell.token}}</text>
+              </view>
             </view>
           </view>
-          <view class="seat-mini-row is-tokens">
-            <view wx:for="{{item.tokenCells}}" wx:for-item="cell" wx:key="key"
-                  class="seat-mini-coin gem-icon {{cell.gemClass}} {{cell.zero ? 'is-zero' : ''}}">
-              <text>{{cell.num}}</text>
-            </view>
-            <view class="seat-mini-res"><text>预 {{item.reservedCount}}</text></view>
-          </view>
+          <view class="seat-tags"><text>红</text><text>筹</text></view>
         </view>
       </view>
 
@@ -816,13 +818,13 @@
             <view wx:for="{{playerDetail.scoreLines}}" wx:key="label" class="score-line">
               <text>{{item.label}}</text><text>{{item.value}}</text>
             </view>
-            <text class="detail-section">永久红利</text>
-            <view class="player-chips">
-              <view wx:for="{{playerDetail.discountCells}}" wx:key="key" class="disc-chip gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}}"><text>{{item.num}}</text></view>
-            </view>
-            <text class="detail-section">持有筹码</text>
-            <view class="player-chips">
-              <view wx:for="{{playerDetail.tokens}}" wx:key="key" class="disc-chip gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}}"><text>{{item.count}}</text></view>
+            <text class="detail-section">永久红利 / 持有筹码 · 逐色对齐</text>
+            <view class="pd-grid">
+              <view class="pd-tags"><text>红利</text><text>筹码</text></view>
+              <view wx:for="{{playerDetail.columns}}" wx:for-item="cell" wx:key="key" class="pd-col">
+                <view class="pd-chip gem-icon {{cell.gemClass}} {{cell.bonusShow ? '' : 'is-zero'}} {{cell.bonusWide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}}"><text>{{cell.bonus}}</text></view>
+                <view class="pd-chip is-coin gem-icon {{cell.gemClass}} {{cell.tokenShow ? '' : 'is-zero'}} {{cell.tokenWide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}}"><text>{{cell.token}}</text></view>
+              </view>
             </view>
           </view>
           <view class="player-right">
