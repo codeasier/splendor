@@ -146,6 +146,10 @@ assert(optHtml.indexOf('portrait-seat') > 0, '本机工作台应标出自己的�
 assert((optHtml.match(/号位/g) || []).length >= 3, '号位文案应出现在席位 / 工作台 / 状态行');
 assert(optHtml.indexOf('turn-flash') > 0, '轮到自己时应弹全屏换手提醒');
 assert(optHtml.indexOf('轮到你出牌') > 0, '换手提醒应写明「轮到你出牌」');
+// 对手席位卡概览：红利 / 筹码 / 预购（ solo 2 人局只有 1 个对手，但结构必须渲染 ）
+assert(optHtml.indexOf('seat-mini-disc') > 0, '席位卡应有红利格');
+assert(optHtml.indexOf('seat-mini-coin') > 0, '席位卡应有筹码格');
+assert(optHtml.indexOf('seat-mini-res') > 0, '席位卡应有预购数');
 
 const giveGem = GEM_KEYS.filter(function (g) { return printedCost[g] > 0; })[0];
 p3.state.players[0].tokens[giveGem] -= 1;
@@ -254,6 +258,47 @@ console.log('房间流：空席→机器人→全就绪→房主开始 OK');
 assert(a.page.data.nobles.length === 4, '3 人局应有 4 张贵族');
 assert(a.page.data.noblesCompact === true, '贵族应切紧凑排布');
 assert(a.host.innerHTML.indexOf('is-compact') > 0, '渲染应带紧凑类名');
+
+// 4.2.1 多贵族挑选弹层：本机席位挂起时渲染选择卡；别人挑选时渲染等待横幅
+const pnState = a.page.state;
+pnState.current = 0;
+pnState.players[0].cards = [];
+['white', 'blue', 'black'].forEach(function (g) {
+  for (let i = 0; i < 4; i++) pnState.players[0].cards.push({ gem: g, points: 0, cost: {}, name: 'x', level: 1, art: i });
+});
+pnState.players[0].points = 0;
+pnState.nobles = [
+  { id: 'n1', title: '霜港勋爵', points: 3, claimedBy: -1, req: { white: 4, blue: 4, green: 0, red: 0, black: 0 } },
+  { id: 'n2', title: '铸币大臣', points: 3, claimedBy: -1, req: { white: 4, blue: 0, green: 0, red: 0, black: 4 } }
+];
+pnState.pendingDiscard = 0;
+a.page.mySeat = 0;
+a.page.applyPlayerAction({ type: 'pass' });
+assert(pnState.pendingNoble && pnState.pendingNoble.seat === 0, '3 人局本机满足多贵族应挂起');
+const pickHtml = a.host.innerHTML;
+assert(pickHtml.indexOf('noble-pick-row') > 0, '应渲染贵族挑选弹层');
+assert((pickHtml.match(/noble noble-pick/g) || []).length >= 2, '弹层应列出两张可选贵族');
+assert(pickHtml.indexOf('贵族到访 · 挑选 1 张') > 0, '弹层标题应说明规则');
+assert(pickHtml.indexOf('undefined') < 0, '挑选弹层不得含 undefined');
+// 点击其中一张完成选择
+const pickId = pnState.pendingNoble.options[1];
+a.page.onChooseNoble({ currentTarget: { dataset: { id: pickId } } });
+assert(pnState.pendingNoble === null, '点击后挂起应解除');
+assert(pnState.players[0].points === 3, '点击后 +3 声望');
+assert(a.host.innerHTML.indexOf('noble-pick-row') < 0, '选择完成弹层应关闭');
+// 别人挑选：等待横幅
+pnState.current = 1;
+pnState.turnCount += 1;
+pnState.pendingNoble = { seat: 1, options: ['n1'] };
+a.page.refresh('');
+const waitHtml = a.host.innerHTML;
+assert(waitHtml.indexOf('noble-waiting') > 0, '别人挑选时应渲染等待横幅');
+assert(waitHtml.indexOf('正在挑选贵族') > 0, '横幅应写明谁在挑');
+assert(waitHtml.indexOf('noble-pick-row') < 0, '别人挑选时不应弹选择卡');
+pnState.pendingNoble = null;
+pnState.current = 0;
+pnState.pendingDiscard = 0;
+a.page.refresh('');
 
 // 4.3 预留卡详情：按桌面卡面渲染成本气泡与声望
 click('onTapCard', { lv: 0, index: 0 });

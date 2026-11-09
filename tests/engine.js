@@ -128,6 +128,94 @@ assert(r.ok && r.ended, '两种不同色可拿');
 checkConservation(s0);
 console.log('规则边界校验通过');
 
+// 多贵族同时满足：真人席位必须挂起选择，选定后才推进回合
+{
+  const sn = E.createGame({ playerCount: 2, seats: [{ name: '甲' }, { isAI: true, name: '乙' }] });
+  sn.nobles = [
+    { id: 'n1', title: '霜港勋爵', points: 3, claimedBy: -1, req: { white: 4, blue: 4, green: 0, red: 0, black: 0 } },
+    { id: 'n2', title: '铸币大臣', points: 3, claimedBy: -1, req: { white: 4, blue: 0, green: 0, red: 0, black: 4 } }
+  ];
+  const human = sn.players[0];
+  // 直接注入发展卡制造「白 4 蓝 4 黑 4」红利，n1 / n2 同时满足
+  human.cards = [
+    { gem: 'white', points: 0, cost: {}, name: 'x', level: 1, art: 0 },
+    { gem: 'white', points: 0, cost: {}, name: 'x', level: 1, art: 1 },
+    { gem: 'white', points: 0, cost: {}, name: 'x', level: 1, art: 2 },
+    { gem: 'white', points: 0, cost: {}, name: 'x', level: 1, art: 3 },
+    { gem: 'blue', points: 0, cost: {}, name: 'x', level: 1, art: 0 },
+    { gem: 'blue', points: 0, cost: {}, name: 'x', level: 1, art: 1 },
+    { gem: 'blue', points: 0, cost: {}, name: 'x', level: 1, art: 2 },
+    { gem: 'blue', points: 0, cost: {}, name: 'x', level: 1, art: 3 },
+    { gem: 'black', points: 0, cost: {}, name: 'x', level: 1, art: 0 },
+    { gem: 'black', points: 0, cost: {}, name: 'x', level: 1, art: 1 },
+    { gem: 'black', points: 0, cost: {}, name: 'x', level: 1, art: 2 },
+    { gem: 'black', points: 0, cost: {}, name: 'x', level: 1, art: 3 }
+  ];
+  human.points = 0;
+  const before = { current: sn.current, turnCount: sn.turnCount, nobles: sn.nobles.length };
+  assert(E.eligibleNobles(sn, 0).length === 2, '应同时满足 2 张贵族');
+  const rn = E.performAction(sn, { type: 'pass' });
+  assert(rn.ok && rn.waitingNoble && !rn.ended, '真人满足多贵族应挂起等待选择');
+  assert(sn.pendingNoble && sn.pendingNoble.seat === 0, 'pendingNoble 应记录席位');
+  assert(JSON.stringify(sn.pendingNoble.options) === JSON.stringify(['n1', 'n2']), 'options 应含两张贵族 id');
+  assert(sn.current === before.current && sn.turnCount === before.turnCount, '挂起期间回合不推进');
+  assert(human.points === 0, '挂起期间不计分');
+  assert(sn.nobles.length === before.nobles, '挂起期间贵族牌不离桌');
+
+  // 未选择贵族前不允许做其他动作
+  const blocked = E.performAction(sn, { type: 'take', gems: ['white'] });
+  assert(!blocked.ok, '挂起期间其他动作应被拒绝');
+
+  // 非法 id / 非 options 内的 id 应被拒绝
+  assert(!E.performAction(sn, { type: 'chooseNoble', id: 'n9' }).ok, 'options 外的贵族应被拒绝');
+
+  // 正式选择：获得贵族、计分、清挂起、推进回合
+  const pick = E.performAction(sn, { type: 'chooseNoble', id: 'n2' });
+  assert(pick.ok, 'chooseNoble 应成功: ' + pick.error);
+  assert(human.nobles.length === 1 && human.nobles[0].id === 'n2', '应获得选中的贵族');
+  assert(human.points === 3, '贵族 +3 声望');
+  assert(sn.pendingNoble === null, '选择后清除挂起');
+  assert(sn.nobles.length === before.nobles - 1, '贵族牌离桌');
+  assert(sn.current !== before.current || sn.turnCount === before.turnCount + 1, '选择后回合推进');
+  console.log('多贵族选择（真人挂起 / 门禁 / 结算）校验通过');
+}
+
+// 只满足 1 张时不应挂起；机器人满足多张时自动挑选第一张
+{
+  const s1 = E.createGame({ playerCount: 2, seats: [{ name: '甲' }, { isAI: true, name: '乙' }] });
+  s1.nobles = [
+    { id: 'n1', title: '霜港勋爵', points: 3, claimedBy: -1, req: { white: 4, blue: 4, green: 0, red: 0, black: 0 } },
+    { id: 'n2', title: '铸币大臣', points: 3, claimedBy: -1, req: { white: 4, blue: 0, green: 0, red: 0, black: 4 } }
+  ];
+  const human1 = s1.players[0];
+  human1.cards = [];
+  for (let i = 0; i < 4; i++) human1.cards.push({ gem: 'white', points: 0, cost: {}, name: 'x', level: 1, art: i });
+  for (let i = 0; i < 4; i++) human1.cards.push({ gem: 'blue', points: 0, cost: {}, name: 'x', level: 1, art: i });
+  const r1 = E.performAction(s1, { type: 'pass' });
+  assert(r1.ok && r1.ended && !r1.waitingNoble, '只满足 1 张应自动获得不挂起');
+  assert(human1.nobles.length === 1 && human1.nobles[0].id === 'n1', '自动获得第一张满足的贵族');
+  assert(!s1.pendingNoble, '不产生挂起');
+
+  const s2 = E.createGame({ playerCount: 2, seats: [{ name: '甲' }, { name: '乙', isAI: true }] });
+  s2.nobles = s1.nobles.slice();
+  s2.current = 1;
+  const bot = s2.players[1];
+  for (let i = 0; i < 4; i++) bot.cards.push({ gem: 'white', points: 0, cost: {}, name: 'x', level: 1, art: i });
+  for (let i = 0; i < 4; i++) bot.cards.push({ gem: 'blue', points: 0, cost: {}, name: 'x', level: 1, art: i });
+  for (let i = 0; i < 4; i++) bot.cards.push({ gem: 'black', points: 0, cost: {}, name: 'x', level: 1, art: i });
+  const aiAct = AI.chooseAction(s2);
+  assert(aiAct.type !== 'chooseNoble', '机器人不需要显式选择动作');
+  const r2 = E.performAction(s2, aiAct.type === 'pass' ? { type: 'pass' } : aiAct);
+  if (!r2.ok) E.performAction(s2, { type: 'pass' });
+  // 机器人回合结束时应已自动获得贵族（无论本步动作是什么，只要回合结束）
+  if (s2.current !== 1) {
+    assert(bot.nobles.length === 1, '机器人满足多贵族应自动获得一张');
+    assert(!s2.pendingNoble, '机器人不挂起');
+  }
+  console.log('单贵族自动获得 / 机器人自动挑选校验通过');
+}
+
+
 // 多局 AI 自动对战（用可复现随机源覆盖不同牌序）
 let finished = 0, minSteps = Infinity, maxSteps = 0, totalSteps = 0, maxPoints = 0;
 let stalemates = 0;

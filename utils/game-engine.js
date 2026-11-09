@@ -67,6 +67,8 @@ function createGame(playerCount, rand) {
     gameOver: false,
     winner: -1,
     pendingDiscard: 0,
+    // 同时满足多张贵族时挂起等待该玩家挑选：{ seat, options: [nobleId...] }
+    pendingNoble: null,
     // 连续无人购入发展卡的回合数；筹码池枯竭时用于提前结算，避免死局
     idleTurns: 0,
     boughtThisTurn: false,
@@ -148,9 +150,10 @@ function computePoints(state, idx) {
   p.points = pts;
 }
 
-/** 回合末贵族结算：满足需求时获得 1 张（每回合至多 1 张） */
-function applyNobles(state, idx) {
+/** 当前玩家满足需求的所有贵族牌（官方规则：一回合最多得 1 张） */
+function eligibleNobles(state, idx) {
   const disc = getDiscounts(state, idx);
+  const out = [];
   for (let i = 0; i < state.nobles.length; i++) {
     const noble = state.nobles[i];
     let ok = true;
@@ -158,14 +161,24 @@ function applyNobles(state, idx) {
       const g = GEMS[j];
       if ((noble.req[g] || 0) > (disc[g] || 0)) { ok = false; break; }
     }
-    if (ok) {
-      state.players[idx].nobles.push(noble);
-      state.nobles.splice(i, 1);
-      pushLog(state, state.players[idx].name + ' 获得贵族「' + noble.title + '」 +3 声望');
-      return noble;
-    }
+    if (ok) out.push(noble);
   }
-  return null;
+  return out;
+}
+
+function grantNoble(state, idx, noble) {
+  const at = state.nobles.indexOf(noble);
+  if (at >= 0) state.nobles.splice(at, 1);
+  state.players[idx].nobles.push(noble);
+  pushLog(state, state.players[idx].name + ' 获得贵族「' + noble.title + '」 +3 声望');
+}
+
+/** 旧接口：自动获得第一张满足需求的贵族（保留给既有调用方） */
+function applyNobles(state, idx) {
+  const choices = eligibleNobles(state, idx);
+  if (choices.length === 0) return null;
+  grantNoble(state, idx, choices[0]);
+  return choices[0];
 }
 
 function computeWinner(state) {
@@ -199,7 +212,26 @@ function finishGame(state) {
 /** 结束当前回合并切换到下一位玩家 */
 function endTurn(state) {
   const idx = state.current;
-  applyNobles(state, idx);
+  const choices = eligibleNobles(state, idx);
+  if (choices.length > 1) {
+    // 同时满足多张：机器人自动挑第一张；真人席位挂起，等他的设备上报选择
+    if (!state.players[idx].isAI) {
+      state.pendingNoble = {
+        seat: idx,
+        options: choices.map(function (n) { return n.id; })
+      };
+      return { ended: false, waitingNoble: true, gameOver: false };
+    }
+    grantNoble(state, idx, choices[0]);
+  } else if (choices.length === 1) {
+    grantNoble(state, idx, choices[0]);
+  }
+  return finishTurn(state);
+}
+
+/** 贵族归属落定后的回合收尾：计分 / 回合推进 / 终局判定 */
+function finishTurn(state) {
+  const idx = state.current;
   computePoints(state, idx);
   state.turnCount += 1;
 
@@ -242,8 +274,9 @@ function afterAction(state, message) {
     message: message,
     needDiscard: false,
     discardCount: 0,
-    ended: true,
-    gameOver: r.gameOver
+    ended: !r.waitingNoble,
+    waitingNoble: !!r.waitingNoble,
+    gameOver: !!r.gameOver
   };
 }
 
@@ -371,7 +404,14 @@ function performAction(state, action) {
       };
     }
     const r = endTurn(state);
-    return { ok: true, message: '已退还筹码', needDiscard: false, ended: true, gameOver: r.gameOver };
+    return {
+      ok: true, message: '已退还筹码', needDiscard: false,
+      ended: !r.waitingNoble, waitingNoble: !!r.waitingNoble, gameOver: !!r.gameOver
+    };
+  }
+
+  if (state.pendingNoble) {
+    if (action.type !== 'chooseNoble') return fail('同时满足多张贵族，请先挑选 1 张');
   }
 
   switch (action.type) {
@@ -381,6 +421,28 @@ function performAction(state, action) {
     // 无筹码可拿、无卡可买且无法预留时的合法行动，避免死局
     case 'pass':
       return afterAction(state, '跳过本回合');
+
+    // 多贵族同时满足时，由该玩家在其设备上挑选 1 张
+    case 'chooseNoble': {
+      const pn = state.pendingNoble;
+      if (!pn) return fail('当前没有待挑选的贵族');
+      if (pn.seat !== state.current) return fail('尚未轮到挑选贵族的席位');
+      let noble = null;
+      for (let i = 0; i < state.nobles.length; i++) {
+        if (state.nobles[i].id === action.id && pn.options.indexOf(action.id) >= 0) {
+          noble = state.nobles[i];
+          break;
+        }
+      }
+      if (!noble) return fail('请从可选的贵族中挑选一张');
+      state.pendingNoble = null;
+      grantNoble(state, state.current, noble);
+      const r = finishTurn(state);
+      return {
+        ok: true, message: '获得贵族「' + noble.title + '」 +3 声望',
+        needDiscard: false, ended: true, gameOver: !!r.gameOver
+      };
+    }
 
     case 'reserveBoard': {
       const lv = action.lv;
@@ -442,6 +504,7 @@ module.exports = {
   getPayment: getPayment,
   canBuy: canBuy,
   computePoints: computePoints,
+  eligibleNobles: eligibleNobles,
   applyNobles: applyNobles,
   computeWinner: computeWinner,
   endTurn: endTurn,

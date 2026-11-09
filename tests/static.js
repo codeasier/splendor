@@ -70,7 +70,7 @@ ok('WXML 事件处理函数全部存在 (' + handlers.size + ' 个)');
 const vm = read('pages/index/index.js');
 const vmSection = vm.slice(vm.indexOf('function buildViewModel'));
 const returnSection = vmSection.slice(vmSection.indexOf('return {'));
-const declaredFields = new Set(['item', 'index', 'card', 'cost', 'row', 'req', 'ri', 'ci', 'true', 'false']);
+const declaredFields = new Set(['item', 'index', 'card', 'cost', 'row', 'req', 'cell', 'ri', 'ci', 'true', 'false']);
 let dm;
 const fieldRe = /^\s{4}([A-Za-z_$][\w$]*)\s*:/gm;
 while ((dm = fieldRe.exec(returnSection)) !== null) declaredFields.add(dm[1]);

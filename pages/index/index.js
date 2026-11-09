@@ -173,6 +173,30 @@ function discountsVM(state, idx) {
   return list;
 }
 
+/** 对手席位卡用的轻量筹码格：5 宝石 + 黄金，各一格，不渲染筹码叠层 */
+function miniTokensVM(p) {
+  return ALL.map(function (g) {
+    const num = p.tokens[g] || 0;
+    return {
+      key: g,
+      num: num,
+      zero: num === 0,
+      isGold: g === 'gold',
+      gemClass: 'gem-' + g
+    };
+  });
+}
+
+/** 贵族肖像槽位：按官方牌池顺序（n1~n10）取模，同一张贵族永远同一张脸 */
+function nobleSlot(noble) {
+  let at = -1;
+  for (let i = 0; i < D.NOBLE_POOL.length; i++) {
+    if (D.NOBLE_POOL[i].id === noble.id) { at = i; break; }
+  }
+  if (at < 0) at = 0;
+  return { photoClass: 'noble-photo-' + (at % 10), artClass: 'noble-art-' + (at % 3) };
+}
+
 /* ---------- 多人房间 / 玩家详情视图模型 ---------- */
 
 function avatarHue(key) {
@@ -219,6 +243,9 @@ function seatVM(state, index, room, selfSeat, avatars) {
     avatar: avatar,
     avatarUrl: (uid && avatars && avatars[uid]) || '',
     avatarHue: avatarHue(avatar),
+    // 对手概览：红利（流派）+ 持有筹码（含黄金）+ 预购数，一眼读懂对手局面
+    bonusCells: discountCellsVM(state, index),
+    tokenCells: miniTokensVM(p),
     tokens: tokensVM(p, GEMS)
   };
 }
@@ -678,6 +705,40 @@ function buildActionShowcase(state, action, actorSeat, mySeat, seq, cardOverride
     };
   }
 
+  // 贵族到访：选定贵族后全桌展示（联机时其他设备用快照里的 noble 数据重放）
+  if (action.type === 'chooseNoble' && action.noble) {
+    const noble = action.noble;
+    const slot = nobleSlot(noble);
+    const fromX = 92;
+    const fromY = -170;
+    const toX = isSelf ? -42 : rivalX;
+    const toY = isSelf ? 214 : rivalY;
+    return {
+      seq: seq,
+      kind: 'noble',
+      mode: 'noble',
+      isSelf: isSelf,
+      actorName: actorName,
+      badgeText: '✦ 贵族到访 ✦',
+      title: actorName + ' 迎来贵族「' + noble.title + '」',
+      subtitle: '声望 +3 · 贵族牌离开桌面',
+      card: null,
+      nobleVM: {
+        title: noble.title,
+        points: noble.points,
+        photoClass: slot.photoClass,
+        artClass: slot.artClass,
+        reqs: nobleReqs(noble)
+      },
+      gotGold: false,
+      blindBack: false,
+      deckArtClass: '',
+      deckLabel: '',
+      coins: [],
+      motionStyle: '--from-x:' + fromX + 'px;--from-y:' + fromY + 'px;--to-x:' + toX + 'px;--to-y:' + toY + 'px;--flip-from:0deg;'
+    };
+  }
+
   if (action.type === 'take' && action.gems && action.gems.length) {
     const slotYMap = { gold: -126, red: -72, blue: -18, white: 36, green: 90, black: 144 };
     const toX = isSelf ? 32 : rivalX;
@@ -804,6 +865,7 @@ function buildViewModel(state, ui, layout, ctx) {
       showcaseList: [],
       turnFlash: null,
       turnClock: { on: false, text: '', left: 0, total: 0, pct: 0, urgent: false },
+      nobleChoice: null,
       meSeatNo: seat + 1,
       meSeatLabel: (seat + 1) + ' 号位',
       me: { name: '', points: 0, totalTokens: 0, reservedCount: 0, tokens: [], discounts: [], discountCells: [] },
@@ -934,8 +996,45 @@ function buildViewModel(state, ui, layout, ctx) {
     selectedText += (i > 0 ? ' + ' : '') + META[sel[i]].label;
   }
 
+  // 多贵族挑选：本机席位弹选择卡，其他席位显示等待横幅
+  let nobleChoice = null;
+  if (state.pendingNoble && !state.gameOver) {
+    const pn = state.pendingNoble;
+    const pnSeat = pn.seat + 1;
+    const pnActor = state.players[pn.seat] || {};
+    const options = [];
+    for (let oi = 0; oi < pn.options.length; oi++) {
+      for (let ni = 0; ni < state.nobles.length; ni++) {
+        const n = state.nobles[ni];
+        if (n.id !== pn.options[oi]) continue;
+        const slot = nobleSlot(n);
+        options.push({
+          id: n.id,
+          title: n.title,
+          points: n.points,
+          reqs: nobleReqs(n),
+          photoClass: slot.photoClass,
+          artClass: slot.artClass
+        });
+        break;
+      }
+    }
+    nobleChoice = {
+      mine: pn.seat === seat,
+      waiting: pn.seat !== seat,
+      seatNo: pnSeat,
+      seatLabel: pnSeat + ' 号位',
+      name: pnActor.nickname || pnActor.name || ('玩家 ' + pnSeat),
+      options: options
+    };
+  }
+
   let hint;
-  if (needDiscard) {
+  if (nobleChoice && nobleChoice.mine) {
+    hint = '同时满足多张贵族 · 点击弹层中的贵族牌挑选 1 张（+3 声望）';
+  } else if (nobleChoice && nobleChoice.waiting) {
+    hint = nobleChoice.seatLabel + ' · ' + nobleChoice.name + ' 正在挑选贵族';
+  } else if (needDiscard) {
     hint = '筹码超过 10 枚 · 点击底部自己的筹码，退还 ' + state.pendingDiscard + ' 枚';
   } else if (sel.length > 0) {
     hint = '已选 ' + selectedText + ' · 点「确认拿取」完成行动';
@@ -947,7 +1046,11 @@ function buildViewModel(state, ui, layout, ctx) {
 
   let statusText;
   if (state.gameOver) statusText = '对局结束';
-  else if (needDiscard) statusText = '请退还筹码';
+  else if (state.pendingNoble) {
+    statusText = state.pendingNoble.seat === seat
+      ? '请挑选 1 张贵族'
+      : (state.pendingNoble.seat + 1) + ' 号位 · 正在挑选贵族';
+  } else if (needDiscard) statusText = '请退还筹码';
   else if (isMyTurn) statusText = '你的回合 · ' + (seat + 1) + ' 号位';
   else statusText = (state.current + 1) + ' 号位 · ' +
     (state.players[state.current].nickname || state.players[state.current].name) + ' 的回合';
@@ -1044,6 +1147,7 @@ function buildViewModel(state, ui, layout, ctx) {
     // 回合切换的全屏提醒：进入 / 离开自己的回合各一次
     turnFlash: ui.turnFlash || null,
     turnClock: clockVM(state, ui),
+    nobleChoice: nobleChoice,
     meSeatNo: seat + 1,
     meSeatLabel: (seat + 1) + ' 号位'
   };
@@ -1885,7 +1989,12 @@ Page({
       card: (action.type === 'reserveDeck' || !card) ? null : {
         id: card.id, level: card.level, gem: card.gem, points: card.points,
         cost: card.cost, name: card.name, art: card.art
-      }
+      },
+      // 选贵族：贵族是公开信息，把整张牌随快照带出去供对端重放
+      noble: (action.type === 'chooseNoble' && action.noble) ? {
+        id: action.noble.id, title: action.noble.title,
+        points: action.noble.points, req: action.noble.req
+      } : null
     };
     this._seenActionId = id;
   },
@@ -1960,6 +2069,28 @@ Page({
   onPass() {
     if (this.state.current !== this.mySeat || this.state.gameOver || this.state.pendingDiscard > 0) return;
     this.applyPlayerAction({ type: 'pass' }, '跳过本回合');
+  },
+
+  /** 多贵族同时满足：本机席位挑选 1 张（点击弹层里的贵族牌） */
+  onChooseNoble(event) {
+    const s = this.state;
+    if (!s || !s.pendingNoble || s.gameOver) return;
+    if (s.pendingNoble.seat !== this.mySeat) return;
+    const id = event.currentTarget.dataset.id;
+    if (!id || s.pendingNoble.options.indexOf(id) < 0) {
+      this.refresh('请从可选的贵族中挑选');
+      return;
+    }
+    let noble = null;
+    for (let i = 0; i < s.nobles.length; i++) {
+      if (s.nobles[i].id === id) { noble = s.nobles[i]; break; }
+    }
+    if (!noble) return;
+    this.applyPlayerAction({
+      type: 'chooseNoble',
+      id: id,
+      noble: { id: noble.id, title: noble.title, points: noble.points, req: noble.req }
+    });
   },
 
   /** 退还模式下点击自己的筹码，逐枚退还 */

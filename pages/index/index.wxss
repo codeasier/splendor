@@ -738,6 +738,65 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .noble-area.is-compact .noble-req { width: 14px; height: 15px; }
 .noble-area.is-compact .noble-req text { font-size: 8px; }
 
+/* ---------- 7.1 多贵族挑选弹层 / 等待横幅 / 贵族展演 ---------- */
+.noble-dialog { width: 460px; padding: 14px 18px 12px; }
+.noble-pick-row { display: flex; gap: 14px; justify-content: center; margin-top: 10px; }
+.noble-pick {
+  width: 112px; height: 124px; cursor: pointer;
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+.noble-pick .noble-title {
+  display: block; position: absolute; left: 5px; top: 4px; z-index: 3;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #fff3d6;
+  text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, .9);
+}
+.noble-pick .noble-points { font-size: 18px; right: 5px; bottom: 3px; }
+.noble-pick .noble-reqs { flex-direction: row; left: 5px; bottom: 5px; gap: 3px; }
+.noble-pick .noble-req { width: 15px; height: 16px; }
+.noble-pick-hover {
+  transform: translateY(-4px) scale(1.04);
+  border-color: #ffe9b0;
+  box-shadow:
+    0 2.5px 0 #c99c52,
+    0 5px 0 #5e3d16,
+    0 0 18px rgba(255, 224, 150, .55),
+    6px 12px 18px rgba(6, 2, 6, .85),
+    inset 0 0 0 1px rgba(255, 240, 200, .5);
+}
+.noble-pick-tip {
+  display: block; margin-top: 10px; text-align: center;
+  font-size: 10px; color: #cfa87c; letter-spacing: .5px;
+}
+/* 别人在挑：顶部非阻断横幅，不挡牌桌操作 */
+.noble-waiting {
+  position: absolute; left: 50%; top: 84px; transform: translateX(-50%);
+  z-index: 12; pointer-events: none;
+  padding: 6px 16px; border-radius: 16px;
+  border: 1px solid rgba(243, 212, 139, .5);
+  background: linear-gradient(160deg, rgba(84, 40, 60, .92), rgba(24, 10, 19, .94));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 242, 204, .25);
+  animation: fadeIn 160ms ease-out both;
+}
+.noble-waiting-text {
+  font-size: 12px; font-weight: 700; color: #ffe9bb; letter-spacing: 1px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .9);
+}
+/* 贵族到访展演：与购买卡同框架，只是主角换成贵族牌 */
+.showcase-noble { position: relative; z-index: 2; }
+.noble-showcase {
+  width: 132px; height: 146px;
+  border-width: 2px;
+  animation: nobleIn 420ms ease-out both, showcaseGlow 1.2s ease-in-out infinite;
+}
+.noble-showcase .noble-title {
+  display: block; position: absolute; left: 6px; top: 5px; z-index: 3;
+  font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #fff3d6;
+  text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, .9);
+}
+.noble-showcase .noble-points { font-size: 24px; }
+.noble-showcase .noble-reqs { flex-direction: row; left: 6px; bottom: 6px; gap: 3px; }
+.noble-showcase .noble-req { width: 17px; height: 18px; }
+
 /* ---------- 8. 底部玩家皇家工作台 ---------- */
 .tray { position: absolute; left: 84px; top: 430px; width: 950px; height: 130px; z-index: 9; }
 .tray-rim {
@@ -1303,6 +1362,10 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   0% { opacity: 0; }
   100% { opacity: 1; }
 }
+@keyframes showcaseGlow {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 224, 150, .35); }
+  50% { box-shadow: 0 0 22px rgba(255, 224, 150, .75); }
+}
 @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes dialogIn {
   0% { opacity: 0; transform: translateY(10px) scale(.98); }
@@ -1317,9 +1380,10 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 
 /* ---------- 11. 多人房间版：顶部对手席位铭牌 / 大厅 / 玩家详情 / 资料 ---------- */
 .seat-strip { position: absolute; left: 18px; top: 8px; width: 342px; display: flex; gap: 6px; }
+/* 席位卡三行结构：头像+名字+积分 / 红利 5 格（流派）/ 筹码 6 格+预购（购买力） */
 .seat-badge {
-  position: relative; flex: 1 1 0; max-width: 164px; min-width: 108px; height: 56px;
-  display: flex; align-items: center; gap: 7px; padding: 4px 7px;
+  position: relative; flex: 1 1 0; max-width: 164px; min-width: 108px; height: 64px;
+  display: flex; flex-direction: column; gap: 2px; padding: 3px 6px;
   border-radius: 8px; overflow: hidden;
   border: 1px solid rgba(226, 180, 102, .68);
   background: linear-gradient(155deg, #64364a 0%, #311726 60%, #1c0c16 100%);
@@ -1339,26 +1403,27 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .seat-badge.is-bot { opacity: .96; }
 .seat-badge.is-empty { opacity: .62; }
 .seat-hover { transform: translateY(1px); }
+.seat-top { display: flex; align-items: center; gap: 5px; height: 28px; }
 .seat-avatar {
-  width: 34px; height: 40px; flex-shrink: 0; border-radius: 4px;
+  width: 24px; height: 28px; flex-shrink: 0; border-radius: 3px;
   border: 1.5px solid #deb062; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   box-shadow: inset 0 0 0 1px rgba(255, 240, 200, .35), 0 2px 6px rgba(0, 0, 0, .65);
 }
 .seat-avatar-img { width: 100%; height: 100%; }
-.seat-avatar-initial { font-family: Georgia, serif; font-size: 15px; font-weight: 700; color: #fff1d5; text-shadow: 0 1px 3px #1a0d14; }
-/* 号位徽章：压在头像左下角，任何情况下都能对上是第几号位 */
-.seat-avatar-wrap { position: relative; width: 34px; height: 40px; flex-shrink: 0; }
+.seat-avatar-initial { font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #fff1d5; text-shadow: 0 1px 3px #1a0d14; }
+/* 号位徽章：压在头像左上角，任何情况下都能对上是第几号位 */
+.seat-avatar-wrap { position: relative; width: 24px; height: 28px; flex-shrink: 0; }
 .seat-no {
-  position: absolute; left: -6px; top: -6px;
-  min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px;
+  position: absolute; left: -3px; top: -2px; z-index: 4;
+  min-width: 14px; height: 14px; padding: 0 2px; border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid rgba(226, 180, 102, .9);
   background: linear-gradient(160deg, #f6d794, #9c6524);
   box-shadow: 0 2px 5px rgba(0, 0, 0, .75), inset 0 1px 0 rgba(255, 252, 236, .8);
 }
 .seat-no text {
-  font-family: Georgia, serif; font-size: 10px; font-weight: 700;
+  font-family: Georgia, serif; font-size: 9px; font-weight: 700;
   color: #2a1408; line-height: 1;
 }
 .seat-no.is-current {
@@ -1367,14 +1432,14 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   box-shadow: 0 0 8px rgba(124, 226, 247, .8), 0 2px 5px rgba(0, 0, 0, .7);
 }
 .seat-no.is-current text { color: #052028; }
-.seat-meta { flex: 1; min-width: 0; height: 44px; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; }
-.seat-head { display: flex; align-items: center; justify-content: space-between; gap: 3px; }
+.seat-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: 3px; }
 .seat-name {
+  flex: 1; min-width: 0;
   font-size: 11px; font-weight: 700; color: #fff3d6; letter-spacing: .3px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .seat-score-pill {
-  position: absolute; left: 25px; bottom: 5px; z-index: 3;
+  flex-shrink: 0; margin-left: auto;
   min-width: 17px; height: 15px; padding: 0 4px;
   border-radius: 8px;
   border: 1px solid rgba(255, 242, 198, .92);
@@ -1386,8 +1451,34 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   font-family: Georgia, serif; font-size: 10px; font-weight: 700; line-height: 1;
   color: #2b1504;
 }
-.seat-sub { font-size: 8px; color: #e8c79e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.seat-stats { position: absolute; right: 6px; bottom: 3px; display: flex; gap: 5px; font-size: 8px; color: #d4b29c; }
+/* 红利行：方块章（与工作台红利同语言）；零值淡显，流派一眼可读 */
+.seat-mini-row { display: flex; align-items: center; gap: 2px; height: 13px; }
+.seat-mini-row.is-tokens { height: 12px; gap: 1px; }
+.seat-mini-label {
+  flex-shrink: 0; margin-right: 1px;
+  font-size: 7px; letter-spacing: 1px; color: #d8b596;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .85);
+}
+.seat-mini-disc {
+  width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 0 0 1px rgba(10, 4, 8, .55), 0 1px 2px rgba(0, 0, 0, .6);
+}
+.seat-mini-coin {
+  width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, .22), inset 0 0 0 1px rgba(10, 4, 8, .5), 0 1px 2px rgba(0, 0, 0, .6);
+}
+.seat-mini-disc text, .seat-mini-coin text {
+  font-family: Georgia, serif; font-size: 8px; font-weight: 700; line-height: 1;
+  color: #fff; text-shadow: 0 1px 2px #000, 0 0 3px rgba(0, 0, 0, .9);
+}
+.seat-mini-disc.is-zero, .seat-mini-coin.is-zero { opacity: .26; }
+.seat-mini-res {
+  margin-left: auto; flex-shrink: 0;
+  font-family: Georgia, serif; font-size: 8px; font-weight: 700;
+  color: #ffd9a0; text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+}
 .room-btn { font-size: 15px; }
 .portrait-hover { transform: translateY(2px); }
 

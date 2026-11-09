@@ -84,6 +84,20 @@ function chooseAction(state) {
   const idx = state.current;
   const p = state.players[idx];
 
+  // 同时满足多张贵族：引擎只在真人席位挂起，这里兜底（超时托管也会走到）
+  if (state.pendingNoble && state.pendingNoble.seat === idx) {
+    const nobleId = state.pendingNoble.options[0];
+    let picked = null;
+    for (let i = 0; i < state.nobles.length; i++) {
+      if (state.nobles[i].id === nobleId) { picked = state.nobles[i]; break; }
+    }
+    return {
+      type: 'chooseNoble',
+      id: nobleId,
+      noble: picked ? { id: picked.id, title: picked.title, points: picked.points, req: picked.req } : null
+    };
+  }
+
   if (state.pendingDiscard > 0) {
     const gems = pickDiscard(p, state.pendingDiscard);
     if (gems.length === state.pendingDiscard) return { type: 'discard', gems: gems };

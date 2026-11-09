@@ -590,5 +590,86 @@ assert(st0.lastAction.id === page._seenActionId, '自己的动作不该再被自
 page.mySeat = 0;
 console.log('OK  联机动作回放 · 购卡 / 盲抽 / 拿筹码 + 本机动作不重放');
 
+/* ---------- 对手席位卡：红利（流派）/ 筹码（购买力）/ 预购数 ---------- */
+page.ui.playerCount = 4;
+page.ui.bots = [1, 2, 3];
+page.startLocalGame();
+page.mySeat = 0;
+assert(page.data.rivals.length === 3, '4 人局应有 3 张对手席位卡');
+page.data.rivals.forEach(function (r, i) {
+  const p = page.state.players[r.index];
+  assert(r.bonusCells.length === 5, '席位卡应固定 5 格红利');
+  const bonusSum = r.bonusCells.reduce(function (a, c) { return a + c.num; }, 0);
+  assert(bonusSum === p.cards.length, '红利合计应等于发展卡数（' + bonusSum + ' vs ' + p.cards.length + '）');
+  r.bonusCells.forEach(function (c) {
+    assert(c.num === (p.cards.filter(function (card) { return card.gem === c.key; }).length),
+      '红利格应与该色卡数一致: ' + c.key);
+  });
+  assert(r.tokenCells.length === 6, '席位卡筹码应 5 宝石 + 黄金共 6 格');
+  assert(r.tokenCells[5].isGold === true, '最后一格应为黄金');
+  r.tokenCells.forEach(function (c) { assert(c.num === (p.tokens[c.key] || 0), '筹码格应与持有量一致: ' + c.key); });
+  assert(r.reservedCount === p.reserved.length, '预购数应与预留卡数一致');
+});
+assert(page.data.rivals[0].bonusCells[0].zero === true, '开局零红利应淡显');
+console.log('OK  对手席位卡 · 红利 / 筹码 / 预购概览与真实状态一致');
+
+/* ---------- 多贵族同时满足：挂起挑选 / 门禁 / 选择后结算 / 远端重放 ---------- */
+page.startLocalGame();
+const stN = page.state;
+stN.current = 0;
+stN.turnCount = 0;
+stN.players[0].cards = [];
+['white', 'blue', 'black'].forEach(function (g) {
+  for (let i = 0; i < 4; i++) stN.players[0].cards.push({ gem: g, points: 0, cost: {}, name: 'x', level: 1, art: i });
+});
+stN.players[0].points = 0;
+stN.nobles = [
+  { id: 'n1', title: '霜港勋爵', points: 3, claimedBy: -1, req: { white: 4, blue: 4, green: 0, red: 0, black: 0 } },
+  { id: 'n2', title: '铸币大臣', points: 3, claimedBy: -1, req: { white: 4, blue: 0, green: 0, red: 0, black: 4 } }
+];
+const turnBeforeNoble = stN.turnCount;
+const rN = page.applyPlayerAction({ type: 'pass' });
+assert(rN === true, 'pass 触发回合结束应成功');
+assert(stN.pendingNoble && stN.pendingNoble.seat === 0, '本机席位满足多贵族应挂起');
+assert(stN.turnCount === turnBeforeNoble, '挂起期间回合不推进');
+assert(page.data.nobleChoice && page.data.nobleChoice.mine === true, '本机应弹选择卡');
+assert(page.data.nobleChoice.options.length === 2, '选择卡应列出两张贵族');
+assert(page.data.nobleChoice.options[0].photoClass.indexOf('noble-photo-') === 0, '贵族选项应带肖像');
+assert(page.data.statusText === '请挑选 1 张贵族', '状态行应提示挑选：' + page.data.statusText);
+assert(page.data.hintText.indexOf('挑选') >= 0, '提示语应引导挑选');
+// 挂起期间禁止其他动作
+assert(page.applyPlayerAction({ type: 'take', gems: ['white'] }) === false, '挂起期间拿筹码应被拒绝');
+assert(stN.pendingNoble !== null, '被拒绝的动作不影响挂起');
+// 点选贵族：+3 声望 / 贵族离桌 / 展演 / 快照回放数据
+page.ui.showcase = null;
+page.onChooseNoble({ currentTarget: { dataset: { id: 'n2' } } });
+assert(stN.pendingNoble === null, '选择后清除挂起');
+assert(stN.players[0].points === 3, '贵族 +3 声望');
+assert(stN.nobles.length === 1 && stN.nobles[0].id === 'n1', '选中的贵族离桌，另一张保留');
+assert(stN.turnCount === turnBeforeNoble + 1, '选择后回合推进');
+assert(stN.lastAction && stN.lastAction.type === 'chooseNoble', '选贵族动作要写进快照');
+assert(stN.lastAction.noble && stN.lastAction.noble.id === 'n2', '快照要带贵族数据供对端重放');
+assert(page.ui.showcase && page.ui.showcase.kind === 'noble', '选贵族应播贵族展演');
+assert(page.ui.showcase.nobleVM.title === '铸币大臣', '展演显示选中的贵族');
+// 别人在挑：等待横幅，不弹选择卡
+stN.current = 1;
+stN.pendingNoble = { seat: 1, options: ['n1'] };
+stN.turnCount += 1;
+page.refresh('');
+assert(page.data.nobleChoice && page.data.nobleChoice.waiting === true, '别人挑选时本机显示等待');
+assert(page.data.nobleChoice.mine === false, '别人挑选时不弹选择卡');
+assert(page.data.statusText.indexOf('正在挑选贵族') >= 0, '状态行提示他人挑选中');
+// 远端选贵族动作重放
+stN.pendingNoble = null;
+stN.lastAction = {
+  id: 'a1-noble', seat: 1, type: 'chooseNoble',
+  noble: { id: 'n1', title: '霜港勋爵', points: 3, req: { white: 4, blue: 4, green: 0, red: 0, black: 0 } }
+};
+page.ui.showcase = null;
+page._seenActionId = '';
+page.replayRemoteAction(stN);
+assert(page.ui.showcase && page.ui.showcase.kind === 'noble', '远端选贵族也要能重放展演');
+console.log('OK  多贵族挑选 · 挂起 / 门禁 / 结算 / 等待横幅 / 远端重放');
+
 page.onUnload();
 console.log('ALL RUNTIME CHECKS PASSED');
