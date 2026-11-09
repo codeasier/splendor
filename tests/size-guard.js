@@ -11,7 +11,11 @@
  * ../splendor-assets-preview/；本守卫作为回归第一步兜底，防止再次复发。
  *
  * 校验：工程内单文件 >2MB 即失败；工程内出现 assets/ 目录即失败。
- * 排除 .git / .workbuddy / node_modules。
+ * 排除 .git / .workbuddy。
+ *
+ * ⚠️ 不排除 node_modules：平台预览编译器直接扫目录树，不读 .gitignore，
+ * 也不读 packOptions.ignore。云 SDK 已装进工程，必须让守卫用与预览编译器
+ * 相同的口径扫描，才能提前拦住「被忽略的大文件导致预览失败」这类问题。
  */
 
 const fs = require('fs');
@@ -19,7 +23,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const LIMIT = 2 * 1024 * 1024;
-const SKIP_DIRS = ['git', '.workbuddy', 'node_modules'];
+const SKIP_DIRS = ['.git', '.workbuddy'];
 
 const oversized = [];
 let total = 0;

@@ -1,0 +1,9 @@
+{
+  "name": "splendor-miniprogram",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Splendor-style board game, WeChat native mini program",
+  "dependencies": {
+    "@tencent-ai/workbuddy-cloud-sdk": "dev"
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "description": "璀璨宝石桌游小程序（原生单机版）",
+  "description": "璀璨宝石桌游小程序（原生 + 云端房间联机）",
   "packOptions": {
     "ignore": [
       {
@@ -29,6 +29,18 @@
       {
         "type": "file",
         "value": "index.html"
+      },
+      {
+        "type": "folder",
+        "value": "node_modules"
+      },
+      {
+        "type": "file",
+        "value": "package.json"
+      },
+      {
+        "type": "file",
+        "value": "package-lock.json"
       }
     ],
     "include": []
