@@ -122,6 +122,43 @@ console.log('横屏：12 个卡槽 / 写实卡面 / 宝石 / 筹码 / 贵族 / �
 console.log('舞台 transform:', /class="stage" style="([^"]+)"/.exec(out)[1]);
 assert(a.page.data.stageRotate === 0, '横屏窗口不应旋转舞台');
 
+// 1.3 成本气泡恒为印刷值 · 绿光/金光分流 · 预留卡上桌
+const p3 = a.page;
+const GEM_KEYS = ['white', 'blue', 'green', 'red', 'black'];
+const lv1Card = p3.state.board[0][0];
+const printedCost = {};
+GEM_KEYS.forEach(function (g) { printedCost[g] = lv1Card.cost[g] || 0; });
+p3.state.players[0].tokens = Object.assign({ gold: 0 }, printedCost);
+p3.refresh('');
+let optHtml = a.host.innerHTML;
+assert(optHtml.indexOf('is-buyable') > 0, '筹码足够的卡应带绿光类名');
+assert(optHtml.indexOf('reserved-rail') > 0, '桌面最左侧应有预留区');
+assert(optHtml.indexOf('reserved-tag') > 0, '预留区应有竖排「预留」标签');
+assert((optHtml.match(/vault-cell/g) || []).length >= 11, '工作台应有 5 个红利格 + 6 个筹码格');
+assert(optHtml.indexOf('尚无永久红利') < 0, '红利行应固定 5 色，不再用文字占位');
+
+const giveGem = GEM_KEYS.filter(function (g) { return printedCost[g] > 0; })[0];
+p3.state.players[0].tokens[giveGem] -= 1;
+p3.state.players[0].tokens.gold = 1;
+p3.refresh('');
+optHtml = a.host.innerHTML;
+assert(optHtml.indexOf('is-gold-buy') > 0, '需用黄金补齐的卡应带金光类名');
+
+const deckA = p3.state.decks[0];
+const deckB = p3.state.decks[1];
+const resA = deckA.pop();
+const resB = deckB.pop();
+p3.state.players[0].reserved = [resA, resB];
+p3.refresh('');
+optHtml = a.host.innerHTML;
+assert((optHtml.match(/reserved-slot/g) || []).length >= 3, '预留区应有 3 个卡位（2 张卡 + 1 空槽）');
+assert((optHtml.match(/reserved-empty/g) || []).length === 1, '剩余 1 个预留位应渲染空槽');
+p3.state.players[0].reserved = [];
+deckA.push(resA);
+deckB.push(resB);
+p3.refresh('');
+console.log('优化项：印刷成本 / 绿光金光 / 预留卡上桌 / 红利-筹码对齐 全部生效');
+
 // 2) 竖屏容器（CSS 旋转 #frame，逻辑窗口仍为横屏）
 const b = run(390, 844);
 assert(b.page.data.stageRotate === 0, 'H5 竖屏由 CSS 旋转 frame 承担，舞台自身不旋转');

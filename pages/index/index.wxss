@@ -230,6 +230,38 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .round-btn:active { transform: translateY(1px); }
 
 /* ---------- 4. 左侧牌库：沿 2.5D 牌桌左缘斜铺的厚牌叠（参考图1） ---------- */
+/* 预留区：桌沿最左侧那条原本空着的绒面，铺本机 3 张预留卡（卡面与市场卡同款） */
+.reserved-rail {
+  position: absolute; left: 30px; top: 82px; width: 92px; height: 348px;
+  display: flex; flex-direction: column; gap: 4px;
+  z-index: 5;
+}
+.reserved-slot { position: relative; width: 92px; height: 112px; }
+.reserved-slot.reserved-hover { transform: translateY(2px) scale(.99); }
+.reserved-empty {
+  width: 92px; height: 112px; border-radius: 7px;
+  border: 1px dashed rgba(243, 212, 139, .34);
+  background:
+    linear-gradient(180deg, rgba(58, 26, 42, .28), rgba(16, 6, 12, .34));
+  box-shadow: inset 0 3px 12px rgba(0, 0, 0, .44);
+}
+/* 竖排「预留」标签，用 flex 逐个字符堆叠，不依赖 writing-mode */
+.reserved-tag {
+  position: absolute; left: -19px; top: 2px;
+  width: 15px; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  pointer-events: none;
+}
+.reserved-tag-ch {
+  font-family: "Songti SC", "STSong", Georgia, serif;
+  font-size: 10px; font-weight: 700; line-height: 1.05; color: #e8c489;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .95);
+}
+.reserved-tag-num {
+  margin-top: 2px;
+  font-family: Georgia, serif; font-size: 9px; font-weight: 700; color: #ffebb8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .95);
+}
+
 .left-rail { position: absolute; left: 138px; top: 82px; width: 102px; height: 348px; z-index: 4; }
 .rail-shadow {
   position: absolute; left: -6px; top: -4px; width: 112px; height: 356px;
@@ -356,17 +388,35 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     inset 0 0 0 1px rgba(255, 248, 225, .48);
   transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
-/* 可购买：参考图1的青蓝/暖金高光外轮廓 + 立体纸厚 */
-.card.is-affordable {
-  border-color: #ffe49e;
+/* 可购买：分两种光环，取代「把成本数字改成缺口」的旧做法
+   绿光 = 现有筹码直接可买   金光 = 缺口需动用黄金
+   三层同心阴影（实心描边 + 近场光晕 + 远场扩散）让光环比纸厚阴影更抢眼 */
+.card.is-buyable {
+  border-color: #63ffb0;
   box-shadow:
-    0 0 0 1.5px rgba(255, 222, 138, .92),
-    0 0 14px rgba(255, 204, 96, .42),
+    0 0 0 3px rgba(46, 255, 148, 1),
+    0 0 10px 2px rgba(34, 240, 132, .85),
+    0 0 22px 6px rgba(24, 214, 122, .55),
+    0 0 40px 14px rgba(16, 170, 96, .26),
     0 1.5px 0 #ebd4a8,
     0 3px 0 #b8925a,
     0 4.5px 0 #6e502a,
-    0 11px 18px rgba(8, 2, 7, .86);
+    0 12px 20px rgba(8, 2, 7, .9);
 }
+.card.is-buyable .card-photo { filter: brightness(1.15) saturate(1.18) contrast(1.04); }
+.card.is-gold-buy {
+  border-color: #ffc23c;
+  box-shadow:
+    0 0 0 3px rgba(255, 186, 44, 1),
+    0 0 10px 2px rgba(255, 168, 22, .85),
+    0 0 22px 6px rgba(240, 140, 12, .55),
+    0 0 40px 14px rgba(190, 108, 8, .28),
+    0 1.5px 0 #ebd4a8,
+    0 3px 0 #b8925a,
+    0 4.5px 0 #6e502a,
+    0 12px 20px rgba(8, 2, 7, .9);
+}
+.card.is-gold-buy .card-photo { filter: brightness(1.12) saturate(1.14) contrast(1.04); }
 /* 选中：璀璨青蓝宝石光环 + 抬升悬浮感 */
 .card-slot.is-selected .card {
   border-color: #6fe3ff;
@@ -483,7 +533,6 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     1px 1px 0 rgba(255, 255, 255, .9),
     -1px -1px 0 rgba(255, 255, 255, .9);
 }
-.cost-bubble.is-covered { opacity: .48; filter: saturate(.75); }
 .card-empty {
   width: 92px; height: 112px; border-radius: 7px;
   border: 1px dashed rgba(243, 212, 139, .28);
@@ -733,25 +782,31 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   color: #ecc89a; letter-spacing: .6px; text-align: right;
   text-shadow: 0 1px 2px #000;
 }
-.vault-row { display: flex; gap: 6px; align-items: center; min-height: 26px; }
-/* 永久红利：微型宝石铭牌 */
+/* 两行共用 48px 定宽单元格：红利第 n 格正好压在筹码第 n 格上方，按颜色逐列对读 */
+.vault-row { display: flex; gap: 6px; align-items: center; }
+.vault-cell {
+  width: 48px; flex: 0 0 48px; height: 37px;
+  display: flex; align-items: center; justify-content: flex-start;
+}
+.vault-cell.is-gold-cell {
+  margin-left: 2px; padding-left: 10px;
+  border-left: 1px solid rgba(243, 212, 139, .26);
+  box-sizing: content-box;
+}
+/* 永久红利：微型宝石铭牌（0 也占位，保持列对齐）
+   左侧 3px 与下方筹码堆的 .vault-stack left:3px 对齐，让两行的宝石圆心落在同一竖线上 */
 .disc-chip {
-  position: relative; width: 22px; height: 26px; border-radius: 4px;
+  position: relative; width: 26px; height: 26px; border-radius: 5px; margin-left: 1px;
   background-color: #1e1018;
   border: 1px solid rgba(255, 230, 172, .78);
   display: flex; align-items: center; justify-content: center;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .32), 0 2px 5px rgba(0, 0, 0, .68);
 }
+.disc-chip.is-zero { opacity: .3; filter: grayscale(.55); }
 .disc-chip text {
   position: relative; z-index: 2;
   font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #fff4d6;
   text-shadow: 0 1px 2px #000, 0 0 4px #000, 1px 1px 0 #12080e, -1px -1px 0 #12080e;
-}
-.disc-empty {
-  font-size: 10px; color: #bfa09a; letter-spacing: .4px;
-  padding: 3px 10px; border-radius: 12px;
-  border: 1px dashed rgba(243, 212, 139, .24);
-  background: rgba(18, 8, 14, .45);
 }
 /* 持有筹码：镶金天鹅绒宝石槽 + 槽内 3D 堆叠筹码（参考图1） */
 .vault-token {

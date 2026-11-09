@@ -75,6 +75,81 @@ for (let round = 0; round < 10 && sawDense === 0; round++) {
 assert(sawDense > 0, '10 次发牌里应至少出现一张四色成本卡');
 console.log('OK  四色成本卡 · 10 次发牌命中 ' + sawDense + ' 张，均带 is-dense');
 
+// 成本气泡 = 卡面印刷成本（不随持有筹码变化）；买得起与否改用光环表达
+page.onStartSolo();
+const GEM_KEYS = ['white', 'blue', 'green', 'red', 'black'];
+// rows[2] 是近端一级行，对应 state.board[0]（引擎里 lv 0 = 一级）
+const probeCard = page.state.board[0][0];
+const printed = {};
+let printedTotal = 0;
+GEM_KEYS.forEach(function (g) { printed[g] = probeCard.cost[g] || 0; printedTotal += printed[g]; });
+assert(printedTotal > 0, '一级首张卡应有成本');
+const gapGem = GEM_KEYS.filter(function (g) { return printed[g] === 0; })[0];
+assert(gapGem, '任一张卡最多 4 色成本，应至少缺 1 色以便构造缺口');
+
+function boardCardVM() { return page.data.rows[2].cards[0]; }
+function costSignature(vm) { return (vm.costs || []).map(function (c) { return c.key + c.display; }).join(','); }
+
+// ① 筹码恰好够：绿光，且气泡仍是印刷值
+page.state.players[0].tokens = Object.assign({ gold: 0 }, printed);
+page.refresh('');
+let vm = boardCardVM();
+assert(vm.buyState === 'direct' && vm.buyClass === 'is-buyable', '筹码够时应为绿光直购，实际 ' + vm.buyState);
+assert(vm.costs.every(function (c) { return c.display === String(printed[c.key]); }), '筹码够时气泡应为印刷成本');
+const sigDirect = costSignature(vm);
+
+// ② 差 1 枚、用黄金补：金光，气泡数字不能变成缺口值
+const giveGem = GEM_KEYS.filter(function (g) { return printed[g] > 0; })[0];
+page.state.players[0].tokens[giveGem] -= 1;
+page.state.players[0].tokens.gold = 1;
+page.refresh('');
+vm = boardCardVM();
+assert(vm.buyState === 'gold' && vm.buyClass === 'is-gold-buy', '需动用黄金时应为金光，实际 ' + vm.buyState);
+assert(vm.goldPay === 1, '缺口 1 枚应由黄金补足，实际 ' + vm.goldPay);
+assert(costSignature(vm) === sigDirect, '气泡不应随筹码缺口变化（仍是印刷成本）');
+assert(costSignature(vm).indexOf('✓') < 0, '成本气泡不应再出现打勾抵扣');
+
+// ③ 连黄金都不够：无光环，气泡依旧
+page.state.players[0].tokens.gold = 0;
+page.refresh('');
+vm = boardCardVM();
+assert(vm.buyState === 'no' && vm.buyClass === '', '买不起时不应有光环，实际 ' + vm.buyState);
+assert(costSignature(vm) === sigDirect, '买不起时气泡仍为印刷成本');
+console.log('OK  卡面成本恒定 · 绿光/金光/无光三态判定正确');
+
+// 预留卡直接铺在桌面左侧：卡面同款 + 空位补槽 + 成本同为印刷值
+// 从牌库顶取两张（不动市场），断言完再放回，避免影响后续用例
+const deckA = page.state.decks[0];
+const deckB = page.state.decks[1];
+const probeReserved = [deckA.pop(), deckB.pop()];
+page.state.players[0].reserved = probeReserved.filter(Boolean);
+page.refresh('');
+assert(page.data.reservedCards.length === 2, '两张预留卡应铺到桌面左侧');
+assert(page.data.emptyReservedSlots.length === 1, '3 个预留位应补 1 个空槽');
+page.data.reservedCards.forEach(function (c) {
+  assert(c.photoClass && c.costs.length > 0, '预留卡应带完整卡面数据：' + c.name);
+  assert(c.tiltStyle.indexOf('perspective') > 0, '预留卡应带 2.5D 摆放姿态');
+  c.costs.forEach(function (x) {
+    assert(/^\d+$/.test(x.display), '预留卡成本气泡应为纯数字（印刷值）：' + x.display);
+  });
+});
+assert(page.data.reservedCards[0].index === 0 && page.data.reservedCards[1].index === 1, '预留卡应带可点击的下标');
+console.log('OK  预留卡上桌 · 2 张就位 + 1 个空槽');
+
+// 复原牌库与预留位，后续用例按原状态继续
+page.state.players[0].reserved = [];
+probeReserved.forEach(function (c, i) { (i === 0 ? deckA : deckB).push(c); });
+page.refresh('');
+
+// 工作台：红利行固定 5 色，与筹码行逐列同色
+assert(page.data.me.discountCells.length === 5, '红利行应固定 5 色');
+assert(page.data.me.tokens.length === 6, '筹码行应为 5 色 + 黄金');
+page.data.me.discountCells.forEach(function (cell, i) {
+  assert(cell.key === page.data.me.tokens[i].key, '第 ' + i + ' 列红利与筹码应同色：' + cell.key + ' vs ' + page.data.me.tokens[i].key);
+  assert(cell.num >= 0 && cell.zero === (cell.num === 0), '红利格应如实反映数量与零值');
+});
+console.log('OK  工作台红利/筹码逐列对齐（白蓝绿红黑 + 黄金）');
+
 // 逐个模拟事件处理方法
 function tap(method, dataset) {
   page[method]({ currentTarget: { dataset: dataset } });

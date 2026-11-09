@@ -67,6 +67,39 @@
       </view>
     </view>
 
+    <!-- ========== 组件：本机预留区（左侧空档） ==========
+         预留卡直接就位铺在桌沿，卡面与待购区完全同款；
+         空位保留虚线卡槽，让 3 个预留额度始终可见。 -->
+    <view class="reserved-rail">
+      <view class="reserved-tag">
+        <text class="reserved-tag-ch">预</text>
+        <text class="reserved-tag-ch">留</text>
+        <text class="reserved-tag-num">{{reservedCards.length}}/3</text>
+      </view>
+      <view wx:for="{{reservedCards}}" wx:key="id" class="reserved-slot"
+            bindtap="onTapReservedCard" data-index="{{item.index}}" hover-class="reserved-hover">
+        <view class="card {{item.buyClass}}" style="{{item.tiltStyle}}">
+          <view class="card-art">
+            <view class="card-photo {{item.photoClass}} {{item.artClass}}"></view>
+            <view class="art-glaze"></view>
+            <text class="card-name">{{item.name}}</text>
+          </view>
+          <text wx:if="{{item.pointsText}}" class="card-points">{{item.pointsText}}</text>
+          <view class="card-gem gem-icon {{item.gemClass}}"></view>
+          <view class="card-foot {{item.costDense ? 'is-dense' : ''}}">
+            <view wx:for="{{item.costs}}" wx:for-item="cost" wx:key="key"
+                  class="cost-bubble gem-icon {{cost.gemClass}}">
+              <text style="color:{{cost.ink}}">{{cost.display}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view wx:for="{{emptyReservedSlots}}" wx:key="*this" class="reserved-slot"
+            bindtap="onTapReservedSlot" hover-class="reserved-hover">
+        <view class="reserved-empty"></view>
+      </view>
+    </view>
+
     <!-- ========== 组件：三组牌库（上 III 深蓝 / 中 II 赭金 / 下 I 深绿） ==========
          侧转 + 可见纸叠侧边 + 整叠落地投影；与市场三行严格水平对齐。 -->
     <view class="left-rail">
@@ -92,7 +125,7 @@
         <view wx:for="{{row.cards}}" wx:for-item="card" wx:for-index="ci" wx:key="id"
               class="card-slot {{card.selected ? 'is-selected' : ''}}"
               bindtap="onTapCard" data-lv="{{row.lv}}" data-index="{{ci}}" hover-class="slot-hover">
-          <view wx:if="{{!card.empty}}" class="card {{card.affordable ? 'is-affordable' : ''}}" style="{{card.tiltStyle}}">
+          <view wx:if="{{!card.empty}}" class="card {{card.buyClass}}" style="{{card.tiltStyle}}">
             <view class="card-art">
               <view class="card-photo {{card.photoClass}} {{card.artClass}}"></view>
               <view class="art-glaze"></view>
@@ -102,7 +135,7 @@
             <view class="card-gem gem-icon {{card.gemClass}}"></view>
             <view class="card-foot {{card.costDense ? 'is-dense' : ''}}">
               <view wx:for="{{card.costs}}" wx:for-item="cost" wx:key="key"
-                    class="cost-bubble gem-icon {{cost.gemClass}} {{cost.covered ? 'is-covered' : ''}}">
+                    class="cost-bubble gem-icon {{cost.gemClass}}">
                 <text style="color:{{cost.ink}}">{{cost.display}}</text>
               </view>
             </view>
@@ -182,25 +215,28 @@
         <view class="vault-groups">
           <view class="vault-group">
             <text class="vault-label">红利</text>
+            <!-- 固定 5 色各一格：与下面筹码行逐列对齐，方便按颜色做减法 -->
             <view class="vault-row">
-              <view wx:for="{{me.discounts}}" wx:key="key" class="disc-chip gem-icon {{item.gemClass}}">
-                <text>{{item.num}}</text>
+              <view wx:for="{{me.discountCells}}" wx:key="key" class="vault-cell">
+                <view class="disc-chip gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}}">
+                  <text>{{item.num}}</text>
+                </view>
               </view>
-              <text wx:if="{{me.discounts.length === 0}}" class="disc-empty">尚无永久红利</text>
             </view>
           </view>
           <view class="vault-group">
             <text class="vault-label">持有筹码</text>
             <view class="vault-row">
-              <view wx:for="{{me.tokens}}" wx:key="key"
-                    class="vault-token {{item.zero ? 'is-zero' : ''}} {{needDiscard ? 'can-discard' : ''}}"
-                    bindtap="onTapMyToken" data-key="{{item.key}}" hover-class="vault-hover">
-                <view class="vault-stack">
-                  <view wx:for="{{item.stack}}" wx:for-item="req" wx:key="idx"
-                        class="vault-disc coin-face {{item.coinClass}}" style="{{req.style}}"></view>
-                  <view class="vault-token-icon gem-icon {{item.gemClass}}"></view>
+              <view wx:for="{{me.tokens}}" wx:key="key" class="vault-cell {{item.isGold ? 'is-gold-cell' : ''}}">
+                <view class="vault-token {{item.zero ? 'is-zero' : ''}} {{needDiscard ? 'can-discard' : ''}}"
+                      bindtap="onTapMyToken" data-key="{{item.key}}" hover-class="vault-hover">
+                  <view class="vault-stack">
+                    <view wx:for="{{item.stack}}" wx:for-item="req" wx:key="idx"
+                          class="vault-disc coin-face {{item.coinClass}}" style="{{req.style}}"></view>
+                    <view class="vault-token-icon gem-icon {{item.gemClass}}"></view>
+                  </view>
+                  <text class="vault-token-num">{{item.count}}</text>
                 </view>
-                <text class="vault-token-num">{{item.count}}</text>
               </view>
             </view>
           </view>
@@ -245,7 +281,7 @@
             <view class="card-gem gem-icon {{item.card.gemClass}}"></view>
             <view class="card-foot">
               <view wx:for="{{item.card.costs}}" wx:for-item="cost" wx:key="key"
-                    class="cost-bubble gem-icon {{cost.gemClass}} {{cost.covered ? 'is-covered' : ''}}">
+                    class="cost-bubble gem-icon {{cost.gemClass}}">
                 <text style="color:{{cost.ink}}">{{cost.display}}</text>
               </view>
             </view>
@@ -475,7 +511,7 @@
           <text class="dialog-sub">第 {{detail.card.level}} 级发展卡 · {{detail.card.pointsLabel}} · 产出{{detail.card.gemLabel}}红利</text>
         </view>
         <view class="detail-body">
-          <view class="card card-big">
+          <view class="card card-big {{detail.card.buyClass}}">
             <view class="card-art">
               <view class="card-photo {{detail.card.photoClass}} {{detail.card.artClass}}"></view>
               <view class="art-glaze"></view>
@@ -485,25 +521,25 @@
             <view class="card-gem gem-icon {{detail.card.gemClass}}"></view>
             <view class="card-foot">
               <view wx:for="{{detail.card.costs}}" wx:for-item="cost" wx:key="key"
-                    class="cost-bubble gem-icon {{cost.gemClass}} {{cost.covered ? 'is-covered' : ''}}">
+                    class="cost-bubble gem-icon {{cost.gemClass}}">
                 <text style="color:{{cost.ink}}">{{cost.display}}</text>
               </view>
             </view>
           </view>
           <view class="detail-info">
-            <text class="detail-section">购买成本（气泡为扣除红利后的实付量）</text>
+            <text class="detail-section">卡面成本 · 逐色实付</text>
             <view wx:for="{{detail.costLines}}" wx:key="key" class="cost-line {{item.missing ? 'is-missing' : ''}}">
               <view class="cost-line-dot gem-icon {{item.gemClass}}"></view>
               <text class="cost-line-label">{{item.label}}</text>
               <text class="cost-line-num">印刷 {{item.raw}} − 红利 {{item.discount}} = 实付 {{item.need}}</text>
             </view>
             <text class="detail-summary {{detail.canBuy ? 'ok' : 'no'}}">{{detail.summary}}</text>
-            <text class="detail-note">卡片可购买时呈暖色细边；选中时呈细窄青蓝轮廓。买不起时仍可先预留，并获 1 枚黄金万能筹码。</text>
+            <text class="detail-note">卡面气泡恒为印刷成本；桌面上绿框＝现有筹码直接可买，金框＝缺口需用黄金补齐。买不起时仍可先预留，并获 1 枚黄金万能筹码。</text>
           </view>
         </view>
         <view class="dialog-btns">
-          <view class="btn btn-primary {{detail.canBuy ? '' : 'btn-off'}}" bindtap="onBuyFromDetail">购买此卡</view>
-          <view wx:if="{{detail.kind === 'board'}}" class="btn {{detail.canReserve ? '' : 'btn-off'}}" bindtap="onReserveFromDetail">预留此卡</view>
+          <view class="btn btn-primary {{detail.canBuy && detail.canAct ? '' : 'btn-off'}}" bindtap="onBuyFromDetail">购买此卡</view>
+          <view wx:if="{{detail.kind === 'board'}}" class="btn {{detail.canReserve && detail.canAct ? '' : 'btn-off'}}" bindtap="onReserveFromDetail">预留此卡</view>
           <view class="btn" bindtap="onCloseDetail">关闭</view>
         </view>
       </view>
@@ -518,7 +554,7 @@
         </view>
         <view class="reserved-list">
           <view wx:for="{{reservedCards}}" wx:key="id" class="reserved-item" bindtap="onTapReservedCard" data-index="{{item.index}}">
-            <view class="card card-small">
+            <view class="card card-small {{item.buyClass}}">
               <view class="card-art">
                 <view class="card-photo {{item.photoClass}} {{item.artClass}}"></view>
                 <view class="art-glaze"></view>
@@ -528,7 +564,7 @@
               <view class="card-gem gem-icon {{item.gemClass}}"></view>
               <view class="card-foot">
                 <view wx:for="{{item.costs}}" wx:for-item="cost" wx:key="key"
-                      class="cost-bubble gem-icon {{cost.gemClass}} {{cost.covered ? 'is-covered' : ''}}">
+                      class="cost-bubble gem-icon {{cost.gemClass}}">
                   <text style="color:{{cost.ink}}">{{cost.display}}</text>
                 </view>
               </view>
@@ -601,11 +637,11 @@
         <view class="rules-body">
           <text class="rule-item">1. 支持 2 / 3 / 4 人：首页可开「人机对战」或「邀请好友」；房间内所有真人点「准备」、房主才可开始。房间默认全是真人席位，房主点空席即可安排机器人，再点一次撤回。</text>
           <text class="rule-item">2. 每回合四选一：拿 3 枚不同色筹码（或同色 2 枚，该色需剩 ≥4）、预留 1 张卡并拿 1 枚黄金、购买 1 张桌面卡或预留卡。</text>
-          <text class="rule-item">3. 卡牌左下角气泡是购买成本；每持有 1 张同色发展卡，该色成本自动减 1（宝石红利）。不足部分可用黄金补齐。</text>
-          <text class="rule-item">4. 发展卡提供声望与永久红利；贵族牌在回合末自动判定，满足红利要求即 +3 声望。每人筹码上限 10 枚，预留卡上限 3 张。</text>
+          <text class="rule-item">3. 卡牌左下角气泡是卡面印刷成本（原作数值，不随你的筹码变化）；每持有 1 张同色发展卡，该色实付就减 1。桌面上绿框＝现有筹码直接可买，金框＝缺口需用黄金补齐。</text>
+          <text class="rule-item">4. 发展卡提供声望与永久红利；贵族牌在回合末自动判定，满足红利要求即 +3 声望。每人筹码上限 10 枚，预留卡上限 3 张。已预留的卡就铺在桌面左侧，随时可点开购买。</text>
           <text class="rule-item">5. 有人达到 15 声望后，其余玩家各再行动一回合即结算；同分时发展卡少者胜。</text>
           <text class="rule-item">6. 断线、切后台或重进小程序会自动回到原来的房间与座位；房主结束后房间失效，自动退回首页。</text>
-          <text class="rule-note">本版为规则化生成的牌组（40/30/20 张），非官方逐张卡面复刻；卡面插画取自 Cleveland Museum of Art 开放获取（CC0）绘画，牌序每局随机。</text>
+          <text class="rule-note">牌组为官方 90 张逐张对应（一级 40 / 二级 30 / 三级 20），贵族 10 张；卡面插画取自 Cleveland Museum of Art 开放获取（CC0）绘画，牌序每局随机。</text>
         </view>
         <view class="dialog-btns">
           <view class="btn btn-primary" bindtap="onCloseRules">开始游戏</view>
@@ -688,8 +724,7 @@
             </view>
             <text class="detail-section">永久红利</text>
             <view class="player-chips">
-              <view wx:for="{{playerDetail.discounts}}" wx:key="key" class="disc-chip gem-icon {{item.gemClass}}"><text>{{item.num}}</text></view>
-              <text wx:if="{{playerDetail.discounts.length === 0}}" class="disc-empty">尚无永久红利</text>
+              <view wx:for="{{playerDetail.discountCells}}" wx:key="key" class="disc-chip gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}}"><text>{{item.num}}</text></view>
             </view>
             <text class="detail-section">持有筹码</text>
             <view class="player-chips">

@@ -62,25 +62,18 @@ function boardSlotTransform(r, c, jitterDeg) {
     colSkew + 'deg) rotateZ(' + rotZ + 'deg) scale(' + rowScaleX + ',' + rowScaleY + ');';
 }
 
-/** 把一张发展卡转换为视图数据；成本气泡显示扣除红利后的实付数量 */
+/**
+ * 把一张发展卡转换为视图数据。
+ * 成本气泡一律显示**卡面印刷成本**（原作数值），不随玩家持有筹码变化——
+ * 这样桌面上每张卡看起来和实体卡一致，玩家自己用「工作台红利 + 筹码」去心算。
+ * 买得起与否不再靠改数字表达，改用卡框光环：绿光=现有筹码直接可买，金光=需动用黄金。
+ */
 function cardVM(state, card, seat, r, c) {
   const s = seat || 0;
-  const disc = E.getDiscounts(state, s);
-  const costs = [];
-  for (let i = 0; i < GEMS.length; i++) {
-    const g = GEMS[i];
-    const raw = card.cost[g] || 0;
-    if (raw <= 0) continue;
-    const need = Math.max(0, raw - (disc[g] || 0));
-    costs.push({
-      key: g,
-      display: need === 0 ? '✓' : String(need),
-      covered: need === 0,
-      ink: g === 'white' ? '#142030' : '#FFFFFF',
-      gemClass: 'gem-' + g,
-      style: gemStyle(g)
-    });
-  }
+  const costs = printedCosts(card);
+  // direct：筹码足够；gold：缺口靠黄金补齐；no：连黄金都不够
+  const pay = E.getPayment(state, s, card);
+  const buyState = pay ? (pay.gold > 0 ? 'gold' : 'direct') : 'no';
   const jitter = ((card.art % 5) - 2) * 0.35;
   const tiltStyle = (typeof r === 'number' && typeof c === 'number')
     ? boardSlotTransform(r, c, jitter)
@@ -104,7 +97,10 @@ function cardVM(state, card, seat, r, c) {
     // 官方牌组里有 4 色成本的卡（如 1/1/1/1 与三级 3/3/3/5），
     // 市场格只有 92×112，默认 21px 圆章会折成第二列压住卡名，这里标记出来收窄
     costDense: costs.length >= 4,
-    affordable: E.canBuy(state, s, card)
+    buyState: buyState,
+    buyClass: buyState === 'direct' ? 'is-buyable' : (buyState === 'gold' ? 'is-gold-buy' : ''),
+    goldPay: pay ? pay.gold : 0,
+    affordable: buyState !== 'no'
   };
 }
 
@@ -136,11 +132,31 @@ function tokensVM(player, keys) {
       label: META[g].label,
       count: count,
       zero: count === 0,
+      isGold: g === 'gold',
       ink: META[g].ink,
       gemClass: 'gem-' + g,
       coinClass: 'coin-' + g,
       style: gemStyle(g),
       stack: stack
+    };
+  });
+}
+
+/**
+ * 工作台「红利」行：固定 5 色各一格（哪怕为 0 也占位），
+ * 才能和下面「持有筹码」行按颜色严格上下对齐，便于逐列做减法。
+ */
+function discountCellsVM(state, idx) {
+  const disc = E.getDiscounts(state, idx);
+  return GEMS.map(function (g) {
+    const num = disc[g] || 0;
+    return {
+      key: g,
+      num: num,
+      zero: num === 0,
+      label: META[g].label,
+      gemClass: 'gem-' + g,
+      style: gemStyle(g)
     };
   });
 }
@@ -267,6 +283,7 @@ function playerDetailVM(state, index, room, selfSeat) {
       { label: '当前合计', value: p.points }
     ],
     discounts: discountsVM(state, index),
+    discountCells: discountCellsVM(state, index),
     tokens: tokensVM(p, ALL),
     reservedCards: reserved,
     nobles: nobles,
@@ -517,6 +534,8 @@ function detailVM(state, ui, seat) {
     costLines: costLines,
     summary: summary,
     canBuy: !!pay,
+    // 只有轮到自己且不在退还筹码阶段，按钮才真正可点；否则仍可查看卡片明细
+    canAct: state.current === s && !state.gameOver && state.pendingDiscard === 0,
     canReserve: d.kind === 'board' && state.players[s].reserved.length < 3,
     reserveHint: state.decks[d.lv] ? '' : ''
   };
@@ -695,6 +714,7 @@ function buildViewModel(state, ui, layout, ctx) {
       seats: [],
       rivals: [],
       reservedCards: [],
+      emptyReservedSlots: [],
       detail: null,
       gameOver: false,
       isMyTurn: false,
@@ -713,7 +733,7 @@ function buildViewModel(state, ui, layout, ctx) {
       resultTitle: '',
       resultDetail: '',
       showcaseList: [],
-      me: { name: '', points: 0, totalTokens: 0, reservedCount: 0, tokens: [], discounts: [] },
+      me: { name: '', points: 0, totalTokens: 0, reservedCount: 0, tokens: [], discounts: [], discountCells: [] },
       rival: { name: '', points: 0, cardCount: 0, reservedCount: 0, tokens: [] }
     };
   }
@@ -825,11 +845,16 @@ function buildViewModel(state, ui, layout, ctx) {
     };
   });
 
+  // 预留卡直接铺在桌面左侧空档里，卡面与待购区完全同款（插画 / 声望 / 红利 / 成本 / 购卡光环）
   const reservedCards = me.reserved.map(function (c, i) {
     const vm = cardVM(state, c, seat);
     vm.index = i;
+    vm.tiltStyle = 'transform:perspective(520px) rotateX(14deg) skewX(-6deg) scale(.99);';
     return vm;
   });
+  // 空位补齐到 3 个，让「预留区」始终是 3 个卡位，玩家一眼知道还能留几张
+  const emptyReservedSlots = [];
+  for (let i = reservedCards.length; i < 3; i++) emptyReservedSlots.push(i);
 
   let selectedText = '';
   for (let i = 0; i < sel.length; i++) {
@@ -844,7 +869,7 @@ function buildViewModel(state, ui, layout, ctx) {
   } else if (ui.toast) {
     hint = ui.toast;
   } else {
-    hint = '选筹码后确认拿取，或点击卡牌购买 / 预留';
+    hint = '绿框＝当即可买　金框＝需黄金补足';
   }
 
   let statusText;
@@ -914,9 +939,12 @@ function buildViewModel(state, ui, layout, ctx) {
       totalTokens: E.tokenTotal(me),
       reservedCount: me.reserved.length,
       tokens: tokensVM(me, ALL),
-      discounts: discountsVM(state, seat)
+      discounts: discountsVM(state, seat),
+      // 红利行固定 5 色，与筹码行逐列对齐
+      discountCells: discountCellsVM(state, seat)
     },
     reservedCards: reservedCards,
+    emptyReservedSlots: emptyReservedSlots,
     mySeat: seat,
     statusText: statusText,
     turnText: '第 ' + (Math.floor(state.turnCount / state.players.length) + 1) + ' 轮',
@@ -1616,9 +1644,9 @@ Page({
 
   onTapReservedCard(event) {
     const s = this.state;
-    if (s.current !== this.mySeat || s.gameOver || s.pendingDiscard > 0) return;
     const index = Number(event.currentTarget.dataset.index);
-    if (!s.players[this.mySeat].reserved[index]) return;
+    if (!s || !s.players[this.mySeat].reserved[index]) return;
+    // 预留卡随时可点开看明细；能否购买由弹层按钮的 canAct 决定
     this.ui.detail = { kind: 'reserved', lv: -1, index: index, key: '' };
     this.ui.showReserved = false;
     this.refresh('');
@@ -1626,7 +1654,7 @@ Page({
 
   onBuyFromDetail() {
     const d = this.ui.detail;
-    if (!d || !this.data.detail || !this.data.detail.canBuy) return;
+    if (!d || !this.data.detail || !this.data.detail.canBuy || !this.data.detail.canAct) return;
     const action = d.kind === 'board'
       ? { type: 'buyBoard', lv: d.lv, index: d.index }
       : { type: 'buyReserved', index: d.index };
@@ -1635,7 +1663,8 @@ Page({
 
   onReserveFromDetail() {
     const d = this.ui.detail;
-    if (!d || d.kind !== 'board' || !this.data.detail || !this.data.detail.canReserve) return;
+    if (!d || d.kind !== 'board' || !this.data.detail) return;
+    if (!this.data.detail.canReserve || !this.data.detail.canAct) return;
     this.applyPlayerAction({ type: 'reserveBoard', lv: d.lv, index: d.index });
   },
 
@@ -1679,6 +1708,10 @@ Page({
     this.ui.showRules = false;
     this.refresh('');
   },
+  onTapReservedSlot() {
+    this.refresh('预留位：点桌面卡牌或左侧牌库即可预留，最多 3 张');
+  },
+
   onShowReserved() {
     this.ui.showReserved = true;
     this.refresh('');
