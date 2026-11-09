@@ -100,7 +100,9 @@ function defaultProfile() {
     avatarUrl: '',
     isWechat: false,
     // 是否被用户主动改过：false 时入席要引导取昵称，否则同一房间会撞成一片「珠宝商」
-    customized: false
+    customized: false,
+    // 账号建立时间：个人中心展示「入会时间」，战绩统计按它算平均值
+    createdAt: Date.now()
   };
 }
 
@@ -111,6 +113,11 @@ function getProfile() {
     const fresh = defaultProfile();
     writeJSON(store, PROFILE_KEY, fresh);
     return fresh;
+  }
+  // 老版本存档没有 createdAt：补一次，避免个人中心显示空值
+  if (!p.createdAt) {
+    p.createdAt = Date.now();
+    writeJSON(store, PROFILE_KEY, p);
   }
   return p;
 }
@@ -556,6 +563,8 @@ module.exports = {
   defaultProfile: defaultProfile,
   getProfile: getProfile,
   saveProfile: saveProfile,
+  // 供 utils/user.js 复用同一套存储后端（wx / localStorage / Node 内存）
+  storageBackend: backend,
   makeSeats: makeSeats,
   createRoom: createRoom,
   getRoom: getRoom,

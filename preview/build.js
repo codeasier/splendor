@@ -259,7 +259,8 @@ const moduleFiles = [
   ['game-data', 'utils/game-data.js'],
   ['game-engine', 'utils/game-engine.js'],
   ['ai', 'utils/ai.js'],
-  ['room', 'utils/room.js']
+  ['room', 'utils/room.js'],
+  ['user', 'utils/user.js']
 ];
 
 const moduleDefs = moduleFiles.map(([name, file]) => (

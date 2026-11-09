@@ -4,6 +4,7 @@ const D = require('../../utils/game-data.js');
 const E = require('../../utils/game-engine.js');
 const AI = require('../../utils/ai.js');
 const R = require('../../utils/room.js');
+const U = require('../../utils/user.js');
 
 // 设计稿舞台尺寸（与参考截图比例一致），运行时等比缩放适配屏幕
 const DESIGN_W = 1080;
@@ -271,8 +272,11 @@ function playerDetailVM(state, index, room, selfSeat) {
   };
 }
 
-/** 首页入口：两种模式的人数选择与云端可用性 */
-function homeVM(ui, profile) {
+/**
+ * 游戏大厅：玩家档案（身份 / 称号 / 战绩三格 / 最近对局）+ 模式选择 + 两条入口。
+ * 首页不再只是「两个按钮」，而是玩家每次回来的落地页，所以统计信息必须一眼可见。
+ */
+function lobbyVM(ui, profile) {
   function counts(active, key) {
     return [2, 3, 4].map(function (n) {
       return { n: n, key: key, label: n + ' 人', active: active === n };
@@ -281,10 +285,36 @@ function homeVM(ui, profile) {
   const solo = ui.soloCount || 2;
   const room = ui.roomCount || 3;
   const cloud = R.hasCloud();
+  const stats = U.statsOf();
+  const identity = U.getIdentity();
+  const activeMode = ui.lobbyMode || 'standard';
+  const recent = U.recordList(4).map(function (r) {
+    return {
+      id: r.id,
+      text: r.modeText + ' · ' + r.rankText,
+      sub: r.dateText + ' · ' + r.scoreText,
+      resultText: r.resultText,
+      resultClass: r.resultClass
+    };
+  });
   return {
     nickname: (profile && profile.nickname) || '珠宝商',
+    initial: ((profile && profile.nickname) || '珠宝商').slice(0, 1),
     avatarHue: avatarHue((profile && profile.avatar) || 'a0'),
     avatarUrl: (profile && profile.avatarUrl) || '',
+    rankTitle: stats.rankTitle,
+    playerId: identity.shortId,
+    identityText: identity.label,
+    stats: stats,
+    statCells: [
+      { key: 'total', label: '对局', value: String(stats.total) },
+      { key: 'winRate', label: '胜率', value: stats.total ? stats.winRate + '%' : '—' },
+      { key: 'best', label: '最高', value: stats.best ? String(stats.best) : '—' }
+    ],
+    recent: recent,
+    hasRecent: recent.length > 0,
+    modes: U.listModes(activeMode),
+    modeHint: U.modeByKey(activeMode).desc,
     soloCount: solo,
     roomCount: room,
     soloCounts: counts(solo, 'solo'),
@@ -295,6 +325,18 @@ function homeVM(ui, profile) {
       : '本机模式 · 人机对战可玩；跨设备邀请需连接云端',
     joinCode: ui.joinCode || '',
     notice: ui.homeNotice || ''
+  };
+}
+
+/** 战绩页：总览 + 最近对局列表 */
+function recordsVM(ui) {
+  const stats = U.statsOf();
+  return {
+    stats: stats,
+    rankTitle: stats.rankTitle,
+    items: U.recordList(8),
+    empty: stats.total === 0,
+    notice: ui.recordsNotice || ''
   };
 }
 
@@ -405,6 +447,8 @@ function profileVM(ui, profile) {
   const avatars = R.PRESET_AVATARS.map(function (a) {
     return { key: a.key, name: a.name, hue: a.hue, active: draft.avatar === a.key && !draft.avatarUrl };
   });
+  const identity = U.getIdentity();
+  const stats = U.statsOf();
   return {
     nickname: draft.nickname || '',
     avatarUrl: draft.avatarUrl || '',
@@ -412,7 +456,16 @@ function profileVM(ui, profile) {
     avatars: avatars,
     nicknames: ['珠宝商', '宝石收藏家', '贸易行会', '威尼斯商人'],
     isWechat: !!p.isWechat,
-    notice: ui.profileNotice || ''
+    notice: ui.profileNotice || '',
+    // 账号信息：让「用户系统」是可见的，而不是只在存储里有个 uid
+    playerId: identity.shortId,
+    identityLabel: identity.label,
+    identityDetail: identity.detail,
+    sinceText: identity.sinceText,
+    rankTitle: stats.rankTitle,
+    statsLine: stats.total
+      ? '已对局 ' + stats.total + ' 场 · 胜率 ' + stats.winRate + '% · 最高 ' + stats.best + ' 声望'
+      : '还没有对局记录，开一局就会记进战绩'
   };
 }
 
@@ -612,9 +665,11 @@ function buildViewModel(state, ui, layout, ctx) {
       stageScale: layout.scale,
       stageRotate: layout.rotate,
       screen: screen,
-      home: homeVM(ui, profile),
+      home: lobbyVM(ui, profile),
       roomScreen: roomScreenVM(ui, room, profile, seat),
       profileDialog: profileVM(ui, profile),
+      records: recordsVM(ui),
+      showRecords: !!ui.showRecords,
       showProfile: !!ui.showProfile,
       showRules: !!ui.showRules,
       showReserved: false,
@@ -816,8 +871,11 @@ function buildViewModel(state, ui, layout, ctx) {
     stageScale: layout.scale,
     stageRotate: layout.rotate,
     screen: 'game',
-    home: homeVM(ui, profile),
+    home: lobbyVM(ui, profile),
     roomScreen: roomScreenVM(ui, room, profile, seat),
+    // 战绩只在入口 / 房间层可开；牌桌层保留占位避免 WXML 根变量缺声明
+    records: null,
+    showRecords: false,
     rows: rows,
     decks: decks,
     bankPiles: bankPiles,
@@ -900,6 +958,11 @@ function freshUI(config) {
     detail: null,
     showRules: false,
     showReserved: false,
+    // 大厅：选中的对局模式（当前只有 standard 可用）
+    lobbyMode: 'standard',
+    // 战绩弹层
+    showRecords: false,
+    recordsNotice: '',
     // 入口界面的两种模式人数
     soloCount: c.soloCount || 2,
     roomCount: c.roomCount || 3,
@@ -943,9 +1006,20 @@ Page({
     this._resuming = false;
     this._netFails = 0;
     this._netDown = false;
+    // 一局只记一条战绩：开局时复位，结算时置位
+    this._resultRecorded = false;
     this.mode = 'solo';
     this.mySeat = 0;
     this.profile = R.getProfile();
+    // 用户系统：确认本机身份（uid 持久化）；云端可用时把资料与战绩对齐一次
+    U.ensureIdentity();
+    if (R.hasCloud()) {
+      const that = this;
+      U.syncAll(this.profile).then(function (res) {
+        // 云端补回了本机没有的战绩才重绘，否则这次刷新是多余的
+        if (res && res.records && res.records.added > 0) that.refresh('');
+      });
+    }
     this.ui = freshUI({ screen: 'home' });
 
     // 微信分享卡片带 ?room=XXXXXX：有云端能力时直接入席，
@@ -997,6 +1071,7 @@ Page({
     this.ui.showcase = null;
     // 上一屏（如「已离开房间」）的提示不该被带进新一局
     this.ui.toast = '';
+    this._resultRecorded = false;
     this.refresh('');
     this.maybeRunAi({ ended: true });
   },
@@ -1045,7 +1120,52 @@ Page({
     }
   },
 
+  /**
+   * 结算时落一条战绩。
+   * refresh() 在轮询（1.6s）与每次动作后都会调用，所以必须靠 _resultRecorded 幂等，
+   * 否则结算弹层每重绘一次就会多记一条，胜率被自己刷歪。
+   */
+  maybeRecordResult() {
+    const st = this.state;
+    if (!st || !st.gameOver || this._resultRecorded) return;
+    const players = st.players || [];
+    if (!players.length) return;
+    const seat = this.mySeat || 0;
+    const me = players[seat] || players[0];
+    // 名次口径与引擎结算一致：声望高者靠前，同分时发展卡少者靠前
+    const order = players.map(function (p, i) { return { i: i, p: p }; }).sort(function (a, b) {
+      if (b.p.points !== a.p.points) return b.p.points - a.p.points;
+      return a.p.cards.length - b.p.cards.length;
+    });
+    let rank = 1;
+    for (let i = 0; i < order.length; i++) {
+      if (order[i].i === seat) { rank = i + 1; break; }
+    }
+    const opponents = [];
+    for (let i = 0; i < order.length; i++) {
+      if (order[i].i === seat) continue;
+      opponents.push((order[i].p.nickname || order[i].p.name) + ' ' + order[i].p.points);
+    }
+    this._resultRecorded = true;
+    U.addRecord({
+      mode: this.mode === 'room' ? 'room' : 'solo',
+      playerCount: players.length,
+      rank: rank,
+      score: me.points,
+      win: st.winner === seat,
+      tie: st.winner === -2,
+      turns: st.turnCount,
+      at: Date.now(),
+      roomCode: this._cloudCode || '',
+      opponents: opponents
+    }, this.profile);
+  },
+
   refresh(toast) {
+    // onLoad 期间的异步回调可能在 ui 初始化前返回
+    if (!this.ui) return;
+    // 先记账再渲染，保证回到大厅时战绩已是新的（addRecord 只写存储，不会递归）
+    this.maybeRecordResult();
     if (toast) this.ui.toast = toast;
     this.setData(buildViewModel(this.state, this.ui, this._layout, {
       room: this.room, profile: this.profile, mySeat: this.mySeat
@@ -1242,6 +1362,7 @@ Page({
       that.ui.playerCount = res.state.players.length;
       that.ui.detail = null;
       that.ui.selectedGems = [];
+      that._resultRecorded = false;
       that.refresh('牌局开始');
       that.saveSession();
       that.maybeRunAi({ ended: true });
@@ -1596,6 +1717,48 @@ Page({
     this.ui.roomCount = n;
     this.refresh('');
   },
+
+  /* ---------- 大厅：模式选择 / 战绩 ---------- */
+
+  /** 当前只开放标准模式，其余模式点一下给出明确说明，不做假入口 */
+  onSelectMode(event) {
+    const key = event.currentTarget.dataset.key;
+    const mode = U.modeByKey(key);
+    if (!mode.available) {
+      this.ui.homeNotice = '「' + mode.name + '」还在筹备中，当前只开放标准模式';
+      this.refresh('');
+      return;
+    }
+    this.ui.lobbyMode = mode.key;
+    this.ui.homeNotice = '';
+    this.refresh('');
+  },
+  onOpenRecords() {
+    this.ui.showRecords = true;
+    this.ui.recordsNotice = '';
+    this.ui.showProfile = false;
+    this.refresh('');
+  },
+  onCloseRecords() {
+    this.ui.showRecords = false;
+    this.refresh('');
+  },
+  /** 清空本机战绩；云端行不删，换设备登录后仍可拉回 */
+  onClearRecords() {
+    const that = this;
+    if (typeof wx === 'undefined' || !wx.showModal) return;
+    wx.showModal({
+      title: '清空战绩',
+      content: '只删除本机记录，云端战绩不受影响。确定清空？',
+      confirmText: '清空',
+      success: function (res) {
+        if (!res.confirm) return;
+        U.clearRecords();
+        that.ui.recordsNotice = '本机战绩已清空';
+        that.refresh('');
+      }
+    });
+  },
   /** 人机对战：全部对手由机器人托管，不建房间、不发网络请求 */
   onStartSolo() {
     this.ui.playerCount = this.ui.soloCount || 2;
@@ -1806,6 +1969,7 @@ Page({
     this.ui.selectedGems = [];
     this.ui.showLobby = false;
     this.ui.roomNotice = '';
+    this._resultRecorded = false;
     this.refresh('牌局开始 · ' + seats.length + ' 人');
     this.saveSession();
     if (!R.hasCloud()) {
@@ -1976,12 +2140,16 @@ Page({
       this.refresh('');
       return;
     }
+    // 微信头像是临时路径，先落成本地文件，否则重启后又变回预设头像
+    const avatarUrl = d.avatarUrl ? U.persistAvatar(d.avatarUrl, this.profile.uid) : '';
     this.profile = R.saveProfile({
       nickname: nickname,
       avatar: d.avatar || this.profile.avatar,
-      avatarUrl: d.avatarUrl || '',
+      avatarUrl: avatarUrl,
       isWechat: !!d.isWechat
     });
+    // 资料上云：失败不影响本机使用，只影响换设备后的可恢复性
+    U.syncProfile(this.profile);
     // 同步本机席位的显示资料，不改动规则状态（首页 / 大厅阶段可能还没有牌局）
     const si = this.mySeat;
     const me = this.state && this.state.players[si];

@@ -1,5 +1,6 @@
 'use strict';
 const ROOT = require('path').resolve(__dirname, '..');
+const U = require(ROOT + '/utils/user.js');
 let captured = null;
 global.Page = function (cfg) { captured = cfg; };
 global.wx = {
@@ -163,6 +164,21 @@ while (!page.state.gameOver && guard < 300) {
 assert(page.state.gameOver, '完整对局能结束 (guard=' + guard + ')');
 assert(page.data.gameOver === true, '结算弹层状态');
 assert(page.data.resultTitle.length > 0, '结算标题');
+
+/* ---------- 结算自动落战绩（幂等） ---------- */
+const recs = U.getRecords();
+assert(recs.length === 1, '结算应自动落一条战绩，实际 ' + recs.length);
+assert(recs[0].mode === 'solo', '人机局战绩应标记 solo');
+assert(recs[0].playerCount === page.state.players.length, '战绩人数应与牌局一致');
+assert(recs[0].score === page.state.players[0].points, '战绩声望应取本机席位');
+assert(recs[0].win === (page.state.winner === 0), '胜负应与引擎判定一致');
+assert(recs[0].rank >= 1 && recs[0].rank <= page.state.players.length, '名次应在席位范围内');
+const recCount = U.getRecords().length;
+page.refresh('');
+page.refresh('');
+assert(U.getRecords().length === recCount, '重复刷新不应重复记账（结算弹层会反复重绘）');
+assert(page.data.home.stats.total === recCount, '回到大厅时战绩统计应已包含本局');
+console.log('OK  结算落战绩 · ' + recs[0].rank + ' 名 / ' + recs[0].score + ' 声望 · 重复刷新不重复记账');
 console.log('OK  完整对局跑通 · ' + page.data.resultTitle + ' · ' + page.data.resultDetail);
 
 /* ---------- 入口 → 房间 → 准备 → 房主开始 ---------- */

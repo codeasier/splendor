@@ -57,9 +57,47 @@ assert(homeHtml.indexOf('邀请好友') > 0, '入口界面应有「邀请好友�
 assert(homeHtml.indexOf('创建房间') > 0, '入口界面应有「创建房间」按钮');
 assert(homeHtml.indexOf('加入房间') > 0, '入口界面应有「加入房间」入口');
 assert(homeHtml.indexOf('class="choice-counts"') > 0, '入口界面应有 2/3/4 人选择');
+assert(homeHtml.indexOf('class="mode-bar"') > 0, '大厅应有模式选择条');
+assert(homeHtml.indexOf('标准模式') > 0 && homeHtml.indexOf('已开放') > 0, '标准模式应标记为已开放');
+assert(homeHtml.indexOf('轮抽模式') > 0 && homeHtml.indexOf('筹备中') > 0, '未开放模式应标记筹备中');
+assert(homeHtml.indexOf('class="lobby-stats"') > 0, '大厅应有战绩三格');
+assert(homeHtml.indexOf('玩家档案') > 0, '大厅应有玩家档案区');
+assert(homeHtml.indexOf('本机账号') > 0, '大厅应显示账号类型');
+assert(homeHtml.indexOf('全部战绩') > 0, '大厅应有战绩入口');
 assert(homeHtml.indexOf('undefined') < 0, '入口界面含 undefined');
 assert(homeHtml.indexOf('{{') < 0, '入口界面存在未求值的模板表达式');
 assert(homeHtml.indexOf('wx:') < 0, '入口界面残留 wx: 指令');
+
+// 1.1.1 战绩弹层：空态
+a.page.onOpenRecords();
+let recHtml = a.host.innerHTML;
+assert(a.page.data.showRecords === true, '战绩弹层应打开');
+assert(recHtml.indexOf('records-dialog') > 0, '战绩弹层结构缺失');
+assert(recHtml.indexOf('还没有对局记录') > 0, '无战绩时应显示空态引导');
+assert(recHtml.indexOf('总对局') > 0 && recHtml.indexOf('胜率') > 0, '战绩总览格缺失');
+a.page.onCloseRecords();
+
+// 1.1.2 结算自动落一条战绩 → 大厅三格与列表同步
+a.page.state = {
+  gameOver: true, winner: 0, turnCount: 40,
+  players: [
+    { nickname: '珠宝商', name: '珠宝商', points: 15, cards: [{}], reserved: [], tokens: {} },
+    { nickname: '机器人 1', name: '机器人 1', points: 9, cards: [{}, {}], reserved: [], tokens: {} }
+  ]
+};
+a.page.mode = 'solo';
+a.page.mySeat = 0;
+a.page._resultRecorded = false;
+a.page.refresh('');
+a.page.state = null;
+a.page.onOpenRecords();
+const recFilled = a.host.innerHTML;
+assert(recFilled.indexOf('人机 · 2 人') > 0, '战绩列表应显示对局模式与人数');
+assert(recFilled.indexOf('第 1 名') > 0, '战绩列表应显示名次');
+assert(recFilled.indexOf('清空本机战绩') > 0, '有战绩时应提供清空入口');
+a.page.onCloseRecords();
+assert(a.page.data.home.stats.total === 1, '返回大厅后战绩统计应更新');
+assert(a.page.data.home.recent.length === 1, '大厅应显示最近一条战绩');
 
 // 1.2 进入人机对战
 a.page.onStartSolo();

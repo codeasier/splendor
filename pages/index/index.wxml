@@ -275,34 +275,82 @@
     <!-- ========== 入口界面：人机对战 / 邀请好友 ========== -->
     <view wx:if="{{screen === 'home'}}" class="screen-layer home-screen">
       <view class="home-brand">
-        <view class="brand-crest"><view class="brand-gem gem-icon gem-blue"></view></view>
-        <text class="brand-title">璀璨宝石</text>
-        <text class="brand-en">SPLENDOR · ROYAL EDITION</text>
-        <view class="brand-gems">
-          <view class="brand-gem-chip"><view class="brand-gem-dot gem-icon gem-white"></view></view>
-          <view class="brand-gem-chip"><view class="brand-gem-dot gem-icon gem-blue"></view></view>
-          <view class="brand-gem-chip"><view class="brand-gem-dot gem-icon gem-green"></view></view>
-          <view class="brand-gem-chip"><view class="brand-gem-dot gem-icon gem-red"></view></view>
-          <view class="brand-gem-chip"><view class="brand-gem-dot gem-icon gem-black"></view></view>
-          <view class="brand-gem-chip is-gold"><view class="brand-gem-dot gem-icon gem-gold"></view></view>
+        <view class="brand-head">
+          <view class="brand-crest"><view class="brand-gem gem-icon gem-blue"></view></view>
+          <view class="brand-titles">
+            <text class="brand-title">璀璨宝石</text>
+            <text class="brand-en">SPLENDOR · ROYAL EDITION</text>
+          </view>
         </view>
         <view class="brand-rule"></view>
-        <text class="brand-desc">文艺复兴时期的珠宝商，在酒红绒面的牌桌上收集宝石、经营贸易、迎候贵族到访。</text>
-        <text class="brand-meta">2–4 人 · 横屏对局 · 先达 15 声望者胜</text>
+
+        <text class="home-section-label">玩家档案</text>
         <view class="brand-player" bindtap="onOpenProfile" hover-class="brand-player-hover">
           <view wx:if="{{home.avatarUrl}}" class="brand-avatar">
             <image class="brand-avatar-img" src="{{home.avatarUrl}}" mode="aspectFill"></image>
           </view>
           <view wx:else class="brand-avatar"
-                style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{home.avatarHue}} 52%, rgba(20,10,16,.92) 100%);"></view>
+                style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{home.avatarHue}} 52%, rgba(20,10,16,.92) 100%);">
+            <text class="brand-avatar-initial">{{home.initial}}</text>
+          </view>
           <view class="brand-player-text">
             <text class="brand-player-name">{{home.nickname}}</text>
-            <text class="brand-player-sub">点击修改头像与昵称</text>
+            <text class="brand-player-rank">{{home.rankTitle}}</text>
+            <text class="brand-player-sub">{{home.identityText}} · {{home.playerId}}</text>
           </view>
+        </view>
+
+        <view class="lobby-stats">
+          <view wx:for="{{home.statCells}}" wx:key="key" class="lobby-stat">
+            <text class="lobby-stat-value">{{item.value}}</text>
+            <text class="lobby-stat-label">{{item.label}}</text>
+          </view>
+        </view>
+
+        <view class="lobby-recent">
+          <view class="lobby-recent-head">
+            <text class="home-section-label">最近战绩</text>
+            <text class="lobby-recent-more" bindtap="onOpenRecords">全部 ›</text>
+          </view>
+          <view wx:if="{{home.hasRecent}}" class="lobby-recent-list">
+            <view wx:for="{{home.recent}}" wx:key="id" class="lobby-recent-row">
+              <view class="lobby-recent-result {{item.resultClass}}"><text>{{item.resultText}}</text></view>
+              <view class="lobby-recent-text">
+                <text class="lobby-recent-main">{{item.text}}</text>
+                <text class="lobby-recent-sub">{{item.sub}}</text>
+              </view>
+            </view>
+          </view>
+          <view wx:else class="lobby-recent-empty">
+            <text class="lobby-recent-empty-main">还没有对局记录</text>
+            <text class="lobby-recent-empty-sub">开一局人机对战或房间牌局，结算后自动记录</text>
+          </view>
+        </view>
+
+        <view class="lobby-foot">
+          <view class="brand-rule"></view>
+          <text class="lobby-foot-text">2–4 人 · 横屏对局 · 先达 15 声望者胜</text>
+        </view>
+
+        <view class="brand-actions">
+          <view class="btn brand-btn" bindtap="onOpenProfile">编辑资料</view>
+          <view class="btn brand-btn" bindtap="onOpenRecords">全部战绩</view>
         </view>
       </view>
 
       <view class="home-main">
+        <!-- 模式选择：当前只开放标准模式，其余模式点按给出明确说明 -->
+        <view class="mode-bar">
+          <text class="mode-bar-label">对局模式</text>
+          <view wx:for="{{home.modes}}" wx:key="key"
+                class="mode-chip {{item.active ? 'is-active' : ''}} {{item.available ? '' : 'is-locked'}}"
+                bindtap="onSelectMode" data-key="{{item.key}}">
+            <text class="mode-chip-name">{{item.name}}</text>
+            <text class="mode-chip-tag">{{item.tag}}</text>
+          </view>
+          <text class="mode-bar-hint">{{home.modeHint}}</text>
+        </view>
+
         <view class="home-choices">
           <view class="choice">
             <view class="choice-top">
@@ -494,6 +542,55 @@
       </view>
     </view>
 
+    <!-- ========== 战绩：总览 + 最近对局 ========== -->
+    <view wx:if="{{showRecords && records}}" class="overlay" bindtap="onCloseRecords">
+      <view class="dialog records-dialog" catchtap="noop">
+        <view class="dialog-head">
+          <text class="dialog-title">战绩 · {{records.rankTitle}}</text>
+          <text class="dialog-sub">{{records.stats.total}} 场对局 · 胜 {{records.stats.wins}} · 胜率 {{records.stats.winRate}}% · 最高 {{records.stats.best}} 声望</text>
+        </view>
+        <view class="records-body">
+          <view class="records-summary">
+            <view class="records-cell">
+              <text class="records-cell-value">{{records.stats.total}}</text>
+              <text class="records-cell-label">总对局</text>
+            </view>
+            <view class="records-cell">
+              <text class="records-cell-value">{{records.stats.winRate}}%</text>
+              <text class="records-cell-label">胜率</text>
+            </view>
+            <view class="records-cell">
+              <text class="records-cell-value">{{records.stats.best}}</text>
+              <text class="records-cell-label">最高声望</text>
+            </view>
+            <view class="records-cell">
+              <text class="records-cell-value">{{records.stats.avgScore}}</text>
+              <text class="records-cell-label">场均声望</text>
+            </view>
+            <view class="records-cell">
+              <text class="records-cell-value">{{records.stats.streak}}</text>
+              <text class="records-cell-label">当前连胜</text>
+            </view>
+          </view>
+          <view class="records-list">
+            <view wx:for="{{records.items}}" wx:key="id" class="records-row">
+              <view class="records-result {{item.resultClass}}"><text>{{item.resultText}}</text></view>
+              <view class="records-main">
+                <text class="records-title">{{item.modeText}} · {{item.rankText}}</text>
+                <text class="records-sub">{{item.dateText}} · {{item.scoreText}}{{item.turnsText ? ' · ' + item.turnsText : ''}}</text>
+              </view>
+            </view>
+            <text wx:if="{{records.empty}}" class="empty-tip">还没有对局记录。开一局人机对战或房间牌局，结算后就会自动记一条。</text>
+          </view>
+          <text wx:if="{{records.notice}}" class="room-notice">{{records.notice}}</text>
+        </view>
+        <view class="dialog-btns">
+          <view wx:if="{{!records.empty}}" class="btn" bindtap="onClearRecords">清空本机战绩</view>
+          <view class="btn btn-primary" bindtap="onCloseRecords">关闭</view>
+        </view>
+      </view>
+    </view>
+
     <!-- ========== 规则说明 ========== -->
     <view wx:if="{{showRules}}" class="overlay overlay-top" bindtap="onCloseRules">
       <view class="dialog rules-dialog" catchtap="noop">
@@ -657,6 +754,20 @@
               <text class="profile-avatar-name">当前头像：{{profileDialog.avatarName}}</text>
             </view>
           </view>
+          <view class="profile-identity">
+            <view class="profile-id-line">
+              <text class="profile-id-label">账号</text>
+              <text class="profile-id-value">{{profileDialog.playerId}}</text>
+              <text class="profile-id-tag">{{profileDialog.identityLabel}}</text>
+              <text class="profile-id-since">加入于 {{profileDialog.sinceText}}</text>
+            </view>
+            <text class="profile-id-detail">{{profileDialog.identityDetail}}</text>
+            <view class="profile-id-line">
+              <text class="profile-id-label">称号</text>
+              <text class="profile-rank">{{profileDialog.rankTitle}}</text>
+              <text class="profile-stats">{{profileDialog.statsLine}}</text>
+            </view>
+          </view>
           <text class="detail-section">昵称</text>
           <view class="profile-input-row">
             <input class="profile-input" type="nickname" maxlength="12" value="{{profileDialog.nickname}}"
@@ -680,6 +791,7 @@
         </view>
         <view class="dialog-btns">
           <view class="btn btn-primary" bindtap="onSaveProfile">保存资料</view>
+          <view wx:if="{{screen !== 'game'}}" class="btn" bindtap="onOpenRecords">查看战绩</view>
           <view class="btn" bindtap="onCloseProfile">取消</view>
         </view>
       </view>
