@@ -20,9 +20,8 @@
  *    也不允许把任何服务端密钥写进这里。
  */
 
-const sdk = require('./vendor/workbuddy-cloud-sdk.js');
-const { createDiagnosticWx } = require('./workbuddy-cloud-diagnostics.js');
 const room = require('./room.js');
+const { createDiagnosticWx } = require('./workbuddy-cloud-diagnostics.js');
 
 const publicConfig = {
   endpoint: 'https://mp-api.app.workbuddy.host',
@@ -33,14 +32,28 @@ const publicConfig = {
 const wxApi = typeof wx !== 'undefined' ? wx : null;
 let cloud = null;
 
-if (wxApi && typeof sdk.createMiniProgramWorkBuddyCloud === 'function') {
-  cloud = sdk.createMiniProgramWorkBuddyCloud({
-    endpoint: publicConfig.endpoint,
-    publishableKey: publicConfig.publishableKey,
-    wx: createDiagnosticWx(wxApi)
-  });
+if (wxApi) {
+  // 任何一步失败都要把原因登记到 room.js：
+  // 否则界面只能看到「没有云客户端」，并把它误报成「设备离线」。
+  try {
+    const sdk = require('./vendor/workbuddy-cloud-sdk.js');
+    if (typeof sdk.createMiniProgramWorkBuddyCloud !== 'function') {
+      throw new Error('云 SDK 缺少 createMiniProgramWorkBuddyCloud');
+    }
+    cloud = sdk.createMiniProgramWorkBuddyCloud({
+      endpoint: publicConfig.endpoint,
+      publishableKey: publicConfig.publishableKey,
+      wx: createDiagnosticWx(wxApi)
+    });
+    if (!cloud || !cloud.database) throw new Error('云客户端未返回 database');
+  } catch (err) {
+    cloud = null;
+    const reason = (err && err.message) || '云服务初始化失败';
+    room.attachCloudFailure(reason);
+    console.warn('[splendor] 云服务未就绪：' + reason);
+  }
   // 注入到 RoomAdapter，房间层不需要（也不应该）自己 require SDK。
-  room.attachCloud(cloud);
+  if (cloud) room.attachCloud(cloud);
 }
 
 module.exports = {

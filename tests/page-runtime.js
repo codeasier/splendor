@@ -46,8 +46,32 @@ assert(page.data.home.soloCounts.length === 3, '首页提供 2/3/4 人选项');
 assert(page.data.rows.length === 0, '首页不渲染牌桌');
 console.log('OK  入口界面 · 人机对战 / 邀请好友 / 加入房间');
 
+// 场景大厅：设置 / 建房 / 加入按需打开，取消不会创建牌局或房间。
+assert(page.data.home.dialog === '', '首屏不展开配置表单');
+page.onOpenHomeDialog({ currentTarget: { dataset: { kind: 'create' } } });
+assert(page.data.home.dialog === 'create' && !page.room && !page.state, '打开建房设置不应提前创建房间');
+page.onSelectTurnLimit({ currentTarget: { dataset: { value: 90 } } });
+assert(page.data.home.turnLimit === 90 && page.ui.toast === '', '计时选择应生效且不重复提示');
+page.onCloseHomeDialog();
+assert(page.data.home.dialog === '' && !page.room && !page.state, '取消建房应停留在首页');
+assert(page.data.home.turnLimit === 0, '取消建房应恢复原来的计时设置');
+page.onSelectTurnLimit({ currentTarget: { dataset: { value: 0 } } });
+page.onOpenHomeDialog({ currentTarget: { dataset: { kind: 'join' } } });
+page.onJoinFromHome();
+assert(page.data.home.notice.indexOf('6 位') >= 0, '加入失败应保留输入旁的错误反馈');
+page.onCloseHomeDialog();
+assert(page.data.home.notice === '', '取消加入不遗留错误提示');
+// 三态文案：预览 / 云服务初始化失败都必须说清原因，不能笼统说「离线」。
+assert(page.data.home.cloudState === 'preview', '无 wx 环境应标记为预览');
+assert(page.data.home.cloudHint.indexOf('浏览器预览') >= 0, '预览环境应如实说明');
+page.onOpenHomeDialog({ currentTarget: { dataset: { kind: 'create' } } });
+assert(page.data.home.cloudHint.length > 0, '预览环境建房应给出限制说明');
+page.onCloseHomeDialog();
+page.onOpenHomeDialog({ currentTarget: { dataset: { kind: 'solo' } } });
+
 // 进入人机对战
 page.onStartSolo();
+assert(page.ui.homeDialog === '', '开局时应清理首页设置弹层');
 assert(page.data.screen === 'game', '人机对战进入牌桌');
 assert(page.data.rows.length === 3, '3 行明牌');
 page.data.rows.forEach(function (r) { assert(r.cards.length === 4, '每行 4 张卡'); });
@@ -368,6 +392,15 @@ while (!page.state.gameOver && guard < 300) {
     continue;
   }
   const E = require(ROOT + '/utils/game-engine.js');
+  // 随机牌序可能同时满足多张贵族；和退还筹码一样，模拟真实 UI
+  // 先完成强制选择，否则后续买卡 / 拿筹码会一直被引擎拒绝。
+  if (s2.pendingNoble) {
+    tap('onChooseNoble', { id: s2.pendingNoble.options[0] });
+    assert(!page.state.pendingNoble, '完整对局应能完成贵族挑选');
+    drain(80);
+    guard += 1;
+    continue;
+  }
   let bought = false;
   // 真实 UI 在 pendingDiscard 时只开放「退还」入口（onTapCard/onTapPile/onPass 均有保护），
   // 模拟脚本也必须先处理退还，否则会提交被引擎拒绝的买卡动作而误判为已行动。

@@ -659,10 +659,7 @@ function turnLimitVM(active, disabled) {
   return { list: list, value: cur, text: text };
 }
 
-/**
- * 游戏大厅：玩家档案（身份 / 称号 / 战绩三格 / 最近对局）+ 模式选择 + 两条入口。
- * 首页不再只是「两个按钮」，而是玩家每次回来的落地页，所以统计信息必须一眼可见。
- */
+/** 游戏大厅以开局为主；档案与完整战绩按需打开，不占首页主操作区。 */
 function lobbyVM(ui, profile) {
   function counts(active, key) {
     return [2, 3, 4].map(function (n) {
@@ -672,6 +669,7 @@ function lobbyVM(ui, profile) {
   const solo = ui.soloCount || 2;
   const room = ui.roomCount || 3;
   const cloud = R.hasCloud();
+  const cloudInfo = R.cloudStatus ? R.cloudStatus() : { mode: cloud ? 'ready' : 'preview', reason: '' };
   const stats = U.statsOf();
   const identity = U.getIdentity();
   const activeMode = ui.lobbyMode || 'standard';
@@ -711,10 +709,20 @@ function lobbyVM(ui, profile) {
     turnLimit: timer.value,
     turnLimitText: timer.text,
     cloud: cloud,
+    cloudState: cloudInfo.mode,
+    // 三态文案：只有真能跨设备时才不提限制；预览与初始化失败必须分开说。
     cloudText: cloud
       ? '云端已连接 · 可微信邀请好友跨设备加入'
-      : '本机模式 · 人机对战可玩；跨设备邀请需连接云端',
+      : (cloudInfo.mode === 'failed'
+        ? '云服务未就绪 · 当前仅本机房间'
+        : '浏览器预览 · 当前仅本机房间，跨设备邀请请在微信中打开'),
+    cloudHint: cloud
+      ? ''
+      : (cloudInfo.mode === 'failed'
+        ? '云服务未就绪，暂时只能创建本机房间'
+        : '浏览器预览环境，暂不可跨设备邀请'),
     joinCode: ui.joinCode || '',
+    dialog: ui.homeDialog || '',
     notice: ui.homeNotice || ''
   };
 }
@@ -1569,6 +1577,8 @@ function freshUI(config) {
     roomCount: c.roomCount || 3,
     // 回合计时（秒）：0 = 不限时；建房时选定
     turnLimit: R.normTurnLimit(c.turnLimit),
+    homeDialog: '',
+    homeDialogBefore: null,
     homeNotice: '',
     // 房间配置：重开一局时保留人数与机器人席位
     playerCount: c.playerCount || 2,
@@ -2695,6 +2705,35 @@ Page({
 
   /* ---------- 入口界面：人机对战 / 邀请好友 ---------- */
 
+  /** 首屏只放三条主操作；人数 / 计时 / 房间号按需展开。 */
+  onOpenHomeDialog(event) {
+    const kind = event.currentTarget.dataset.kind;
+    if (this.ui.screen !== 'home' || ['solo', 'create', 'join'].indexOf(kind) < 0) return;
+    this.ui.homeDialogBefore = {
+      soloCount: this.ui.soloCount,
+      roomCount: this.ui.roomCount,
+      turnLimit: this.ui.turnLimit
+    };
+    this.ui.homeDialog = kind;
+    this.ui.homeNotice = '';
+    this.refresh('');
+  },
+  onCloseHomeDialog() {
+    // 取消 / 点遮罩不提交设置；只有保存或创建房间才保留选择。
+    if (this.ui.homeDialogBefore) Object.assign(this.ui, this.ui.homeDialogBefore);
+    this.ui.homeDialogBefore = null;
+    this.ui.homeDialog = '';
+    this.ui.homeNotice = '';
+    this.refresh('');
+  },
+  onSaveHomeSettings() {
+    if (this.ui.homeDialog !== 'solo') return;
+    this.ui.homeDialogBefore = null;
+    this.ui.homeDialog = '';
+    this.ui.homeNotice = '';
+    this.refresh('');
+  },
+
   onSelectSoloCount(event) {
     const n = Number(event.currentTarget.dataset.n);
     if (n < 2 || n > 4) return;
@@ -2713,7 +2752,8 @@ Page({
     const raw = Number(event.currentTarget.dataset.value);
     if (!R.TURN_LIMITS.some(function (m) { return m.value === raw; })) return;
     this.ui.turnLimit = raw;
-    this.refresh(raw > 0 ? '回合计时：' + raw + ' 秒' : '回合计时：不限时');
+    // 选中态已经表达结果，不再重复发提示。
+    this.refresh('');
   },
 
   /* ---------- 大厅：模式选择 / 战绩 ---------- */
@@ -2759,12 +2799,17 @@ Page({
   },
   /** 人机对战：全部对手由机器人托管，不建房间、不发网络请求 */
   onStartSolo() {
+    this.ui.homeDialogBefore = null;
+    this.ui.homeDialog = '';
+    this.ui.homeNotice = '';
     this.ui.playerCount = this.ui.soloCount || 2;
     this.ui.bots = { 1: true, 2: true, 3: true };
     this.startLocalGame();
   },
   /** 邀请好友：先开一间大厅，等好友入席并准备后再由房主开始 */
   onCreateRoom() {
+    this.ui.homeDialogBefore = null;
+    this.ui.homeDialog = '';
     this.mode = 'room';
     this.ui.playerCount = this.ui.roomCount || 3;
     // 邀请模式默认所有外席位留给真人，房主可按需逐个改成机器人
@@ -2772,6 +2817,8 @@ Page({
     this.openRoom();
   },
   onJoinFromHome() {
+    // 格式 / 连接错误留在输入框旁，关闭弹层后不残留到首屏。
+    if (this.ui.screen === 'home') this.ui.homeDialog = 'join';
     const code = String(this.ui.joinCode || '').trim().toUpperCase();
     if (!/^[A-Z0-9]{6}$/.test(code)) {
       this.ui.homeNotice = '房间号为 6 位字母数字';

@@ -205,6 +205,17 @@ function mockCloudClient() {
 async function cloudChecks() {
   const mock = mockCloudClient();
   assert.equal(R.hasCloud(), false, '未注入 client 时应为本地模式');
+  assert.equal(R.cloudStatus().mode, 'preview', '从未初始化云模块时应标记为预览环境');
+
+  // 初始化失败必须与「预览环境」区分：两者都不可跨设备，但原因不同，
+  // 界面不能把 SDK 初始化失败说成「设备离线」。
+  R.attachCloudFailure('云 SDK 缺少 createMiniProgramWorkBuddyCloud');
+  const failedStatus = R.cloudStatus();
+  assert.equal(failedStatus.mode, 'failed', '初始化失败应记录为 failed');
+  assert.ok(failedStatus.reason.indexOf('createMiniProgramWorkBuddyCloud') >= 0, '应保留失败原因');
+  const failedJoin = await R.cloudJoinRoom('ABC123', R.defaultProfile());
+  assert.equal(failedJoin.offline, true);
+  assert.ok(failedJoin.error.indexOf('云服务未就绪') >= 0, '失败态应提示云服务未就绪而非离线');
 
   const before = await R.cloudCreateRoom({}, {});
   assert.equal(before.ok, false);
@@ -213,6 +224,8 @@ async function cloudChecks() {
 
   R.attachCloud(mock);
   assert.equal(R.hasCloud(), true);
+  assert.equal(R.cloudStatus().mode, 'ready');
+  assert.equal(R.cloudStatus().reason, '', '就绪状态不应残留失败原因');
 
   const host = R.saveProfile({ nickname: '房主', avatar: 'a0' });
   const seats = R.makeSeats(3, { 1: false, 2: true }, host);

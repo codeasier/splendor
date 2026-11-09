@@ -52,25 +52,80 @@ assert(a.page, 'Page 实例应已挂载');
 const homeHtml = a.host.innerHTML;
 console.log('入口界面 HTML 长度:', homeHtml.length);
 assert(a.page.data.screen === 'home', '默认应停在入口界面');
-assert(homeHtml.indexOf('人机对战') > 0, '入口界面应有「人机对战」');
-assert(homeHtml.indexOf('邀请好友') > 0, '入口界面应有「邀请好友」');
-assert(homeHtml.indexOf('创建房间') > 0, '入口界面应有「创建房间」按钮');
-assert(homeHtml.indexOf('加入房间') > 0, '入口界面应有「加入房间」入口');
-assert(homeHtml.indexOf('class="choice-counts"') > 0, '入口界面应有 2/3/4 人选择');
-assert(homeHtml.indexOf('class="mode-bar"') > 0, '大厅应有模式选择条');
-assert(homeHtml.indexOf('标准模式') > 0 && homeHtml.indexOf('已开放') > 0, '标准模式应标记为已开放');
-assert(homeHtml.indexOf('轮抽模式') > 0 && homeHtml.indexOf('筹备中') > 0, '未开放模式应标记筹备中');
-assert(homeHtml.indexOf('class="lobby-stats"') > 0, '大厅应有战绩三格');
-assert(homeHtml.indexOf('玩家档案') > 0, '大厅应有玩家档案区');
-assert(homeHtml.indexOf('本机账号') > 0, '大厅应显示账号类型');
-assert(homeHtml.indexOf('全部战绩') > 0, '大厅应有战绩入口');
-assert(homeHtml.indexOf('class="choice-timer"') > 0, '邀请好友卡应有回合计时选择');
-assert(homeHtml.indexOf('回合计时') > 0, '回合计时要带标签');
-assert(homeHtml.indexOf('timer-chip') > 0 && homeHtml.indexOf('60 秒') > 0, '应提供 60 秒选项');
-assert(homeHtml.indexOf('不限时') > 0, '应提供不限时选项');
+['经典对局', '快速开始', '人机对战', '创建房间', '加入房间', '对局战绩', '游戏规则', '对局设置'].forEach(function (label) {
+  assert(homeHtml.indexOf(label) > 0, '商会大厅入口缺失：' + label);
+});
+['guild-scenery', 'guild-panel', 'guild-nav'].forEach(function (cls) {
+  assert(homeHtml.indexOf('class="' + cls + '"') > 0, '场景式大厅结构缺失：' + cls);
+});
+['onOpenProfile', 'onOpenRecords', 'onShowRules', 'onStartSolo'].forEach(function (handler) {
+  assert((homeHtml.match(new RegExp('data-tap="' + handler + '"', 'g')) || []).length === 1,
+    '大厅入口应保留且不重复：' + handler);
+});
+['mode-bar', '筹备中', 'lobby-stats', 'lobby-recent', '本机账号', 'count-chip', 'timer-chip', '<input', 'home-notice'].forEach(function (noise) {
+  assert(homeHtml.indexOf(noise) < 0, '首屏不应常驻说明或配置表单：' + noise);
+});
+a.page.setData({ topRightTop: 110 });
+assert(a.host.innerHTML.indexOf('top:110px;') > 0, '操作板应能整体下移避让真机胶囊');
+a.page.setData({ topRightTop: 10 });
 assert(homeHtml.indexOf('undefined') < 0, '入口界面含 undefined');
 assert(homeHtml.indexOf('{{') < 0, '入口界面存在未求值的模板表达式');
 assert(homeHtml.indexOf('wx:') < 0, '入口界面残留 wx: 指令');
+
+// 配置按需展开：取消不能误开局；保存人数后快速开始使用同一份选择。
+function openHome(kind) {
+  a.page.onOpenHomeDialog({ currentTarget: { dataset: { kind: kind } } });
+}
+openHome('invalid');
+assert(a.page.data.home.dialog === '', '非法弹层类型应忽略');
+openHome('solo');
+assert(a.host.innerHTML.indexOf('人机对战设置') > 0, '人机设置弹层应打开');
+assert((a.host.innerHTML.match(/class="count-chip /g) || []).length === 3, '人机设置提供 2/3/4 人');
+a.page.onSelectSoloCount({ currentTarget: { dataset: { n: 4 } } });
+assert(a.page.data.home.soloCount === 4, '人机人数选择应生效');
+a.page.onSaveHomeSettings();
+assert(a.host.innerHTML.indexOf('人机对战 · 4 人') > 0, '快速开始应展示已保存的人数');
+assert(a.host.innerHTML.indexOf('guild-dialog"') < 0 && !a.page.state, '保存设置不应误开局');
+openHome('solo');
+a.page.onSelectSoloCount({ currentTarget: { dataset: { n: 3 } } });
+a.page.onCloseHomeDialog();
+assert(a.page.data.home.soloCount === 4, '取消修改应恢复上次已保存的人数');
+a.page.onSelectSoloCount({ currentTarget: { dataset: { n: 2 } } });
+openHome('create');
+assert(a.host.innerHTML.indexOf('回合计时') > 0, '建房时应展示回合计时');
+assert(a.host.innerHTML.indexOf('60 秒') > 0 && a.host.innerHTML.indexOf('不限时') > 0, '建房应保留全部计时选项');
+assert(a.host.innerHTML.indexOf('浏览器预览环境，暂不可跨设备邀请') > 0, '预览环境应如实说明不可跨设备邀请');
+const onlineHomeHtml = a.sandbox.renderStage(Object.assign({}, a.page.data, {
+  home: Object.assign({}, a.page.data.home, { cloud: true, cloudHint: '' })
+}));
+assert(onlineHomeHtml.indexOf('暂不可跨设备邀请') < 0, '云端可用时不应误报离线');
+assert(onlineHomeHtml.indexOf('浏览器预览') < 0, '云端可用时不应误报预览环境');
+a.page.onSelectRoomCount({ currentTarget: { dataset: { n: 4 } } });
+assert(a.page.data.home.roomCount === 4, '房间人数选择应生效');
+a.page.onSelectRoomCount({ currentTarget: { dataset: { n: 3 } } });
+a.page.onSelectTurnLimit({ currentTarget: { dataset: { value: 90 } } });
+assert(a.page.data.home.turnLimit === 90, '建房计时选择应生效');
+assert(a.page.ui.toast === '', '计时选中态不应产生重复提示');
+a.page.onSelectTurnLimit({ currentTarget: { dataset: { value: 0 } } });
+a.page.onCloseHomeDialog();
+openHome('join');
+assert(a.host.innerHTML.indexOf('data-input="onJoinCodeInput"') > 0, '加入弹层应提供房间号输入');
+a.page.onJoinFromHome();
+assert(a.host.innerHTML.indexOf('class="home-notice"') > 0, '无效房间号应在弹层显示必要错误提示');
+assert(a.host.innerHTML.indexOf('房间号为 6 位字母数字') > 0, '房间号格式错误应可见');
+a.page.onJoinCodeInput({ detail: { value: 'abc123' } });
+assert(a.page.ui.joinCode === 'ABC123', '房间号输入应转为大写');
+a.page.onJoinFromHome();
+assert(a.host.innerHTML.indexOf('未连接云端') > 0, '离线加入房间应有明确错误反馈');
+assert(a.host.innerHTML.indexOf('undefined') < 0, '大厅错误态不得含 undefined');
+a.page.onCloseHomeDialog();
+assert(a.page.data.home.notice === '' && a.page.data.home.dialog === '', '关闭弹层后不应遗留错误提示');
+a.page.onJoinCodeInput({ detail: { value: '' } });
+a.page.ui.homeNotice = '房间已结束';
+a.page.refresh('');
+assert(a.host.innerHTML.indexOf('class="guild-notice"') > 0, '邀请 / 重连结果仍应能在首页展示');
+a.page.ui.homeNotice = '';
+a.page.refresh('');
 
 // 1.1.1 战绩弹层：空态
 a.page.onOpenRecords();
@@ -81,7 +136,7 @@ assert(recHtml.indexOf('还没有对局记录') > 0, '无战绩时应显示空�
 assert(recHtml.indexOf('总对局') > 0 && recHtml.indexOf('胜率') > 0, '战绩总览格缺失');
 a.page.onCloseRecords();
 
-// 1.1.2 结算自动落一条战绩 → 大厅三格与列表同步
+// 1.1.2 结算自动落一条战绩 → 战绩弹层与大厅数据同步
 a.page.state = {
   gameOver: true, winner: 0, turnCount: 40,
   players: [

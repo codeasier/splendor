@@ -299,14 +299,31 @@ const ROOM_TABLE = 'splendor_rooms';
 const GAME_TABLE = 'splendor_games';
 
 let cloudClient = null;
+// 云能力的三态：'preview' 未加载云模块（浏览器预览 / Node 测试）、
+// 'ready' 客户端可用、'failed' 加载过云模块但初始化失败。
+// 界面必须按此如实说明，不能把「初始化失败」和「预览环境」都说成「离线」。
+let cloudMode = 'preview';
+let cloudFailure = '';
 
 /** 由 utils/cloud.js 在小程序启动时注入；H5 预览不注入 */
 function attachCloud(client) {
   cloudClient = client && client.database ? client : null;
+  cloudMode = cloudClient ? 'ready' : 'failed';
+  cloudFailure = cloudClient ? '' : (cloudFailure || '云客户端不可用');
   return !!cloudClient;
 }
+
+/** 云模块存在但初始化抛错：记录原因，界面据此提示「云服务未就绪」而非「离线」。 */
+function attachCloudFailure(reason) {
+  cloudClient = null;
+  cloudMode = 'failed';
+  cloudFailure = String(reason || '云服务初始化失败').slice(0, 120);
+  return cloudMode;
+}
+
 function hasCloud() { return !!cloudClient; }
 function getCloud() { return cloudClient; }
+function cloudStatus() { return { mode: cloudMode, reason: cloudFailure }; }
 
 function offline(reason) {
   return { ok: false, offline: true, error: reason || '云端未连接，当前为本机房间' };
@@ -503,7 +520,9 @@ async function cloudResetRoom(code, seats, expectedVersion) {
 
 /** 好友通过分享卡片带房间号入席，返回本机的席位号与最新牌局快照 */
 async function cloudJoinRoom(code, profile) {
-  if (!hasCloud()) return offline('跨设备加入需要云端房间；当前为浏览器预览 / 本机房间');
+  if (!hasCloud()) return offline(cloudMode === 'failed'
+    ? '云服务未就绪，暂时无法跨设备加入房间'
+    : '跨设备加入需要云端房间；当前为浏览器预览 / 本机房间');
   const normalized = String(code || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{6}$/.test(normalized)) {
     return { ok: false, error: '房间号为 6 位字母数字' };
@@ -603,6 +622,8 @@ module.exports = {
   clearSession: clearSession,
 
   attachCloud: attachCloud,
+  attachCloudFailure: attachCloudFailure,
+  cloudStatus: cloudStatus,
   hasCloud: hasCloud,
   getCloud: getCloud,
   ROOM_TABLE: ROOM_TABLE,

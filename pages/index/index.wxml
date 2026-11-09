@@ -420,142 +420,103 @@
     </view>
     <!-- ========== /牌桌图层 ========== -->
 
-    <!-- ========== 入口界面：人机对战 / 邀请好友 ========== -->
+    <!-- ========== 商会大厅：装饰场景无烘焙 UI，所有文字与操作均为原生组件 ========== -->
     <view wx:if="{{screen === 'home'}}" class="screen-layer home-screen">
-      <view class="home-brand">
-        <view class="brand-head">
-          <view class="brand-crest"><view class="brand-gem gem-icon gem-blue"></view></view>
-          <view class="brand-titles">
-            <text class="brand-title">璀璨宝石</text>
-            <text class="brand-en">SPLENDOR · ROYAL EDITION</text>
-          </view>
-        </view>
-        <view class="brand-rule"></view>
+      <view class="guild-scenery"></view>
+      <view class="guild-scene-shade"></view>
 
-        <text class="home-section-label">玩家档案</text>
-        <view class="brand-player" bindtap="onOpenProfile" hover-class="brand-player-hover">
-          <view wx:if="{{home.avatarUrl}}" class="brand-avatar">
-            <image class="brand-avatar-img" src="{{home.avatarUrl}}" mode="aspectFill"></image>
+      <view class="guild-profile" bindtap="onOpenProfile" hover-class="guild-pressed">
+        <view class="guild-avatar-frame">
+          <view wx:if="{{home.avatarUrl}}" class="guild-avatar">
+            <image class="guild-avatar-img" src="{{home.avatarUrl}}" mode="aspectFill"></image>
           </view>
-          <view wx:else class="brand-avatar"
-                style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{home.avatarHue}} 52%, rgba(20,10,16,.92) 100%);">
-            <text class="brand-avatar-initial">{{home.initial}}</text>
-          </view>
-          <view class="brand-player-text">
-            <text class="brand-player-name">{{home.nickname}}</text>
-            <text class="brand-player-rank">{{home.rankTitle}}</text>
-            <text class="brand-player-sub">{{home.identityText}} · {{home.playerId}}</text>
-          </view>
+          <view wx:else class="guild-avatar guild-avatar-preset"></view>
         </view>
-
-        <view class="lobby-stats">
-          <view wx:for="{{home.statCells}}" wx:key="key" class="lobby-stat">
-            <text class="lobby-stat-value">{{item.value}}</text>
-            <text class="lobby-stat-label">{{item.label}}</text>
-          </view>
-        </view>
-
-        <view class="lobby-recent">
-          <view class="lobby-recent-head">
-            <text class="home-section-label">最近战绩</text>
-            <text class="lobby-recent-more" bindtap="onOpenRecords">全部 ›</text>
-          </view>
-          <view wx:if="{{home.hasRecent}}" class="lobby-recent-list">
-            <view wx:for="{{home.recent}}" wx:key="id" class="lobby-recent-row">
-              <view class="lobby-recent-result {{item.resultClass}}"><text>{{item.resultText}}</text></view>
-              <view class="lobby-recent-text">
-                <text class="lobby-recent-main">{{item.text}}</text>
-                <text class="lobby-recent-sub">{{item.sub}}</text>
-              </view>
-            </view>
-          </view>
-          <view wx:else class="lobby-recent-empty">
-            <text class="lobby-recent-empty-main">还没有对局记录</text>
-            <text class="lobby-recent-empty-sub">开一局人机对战或房间牌局，结算后自动记录</text>
-          </view>
-        </view>
-
-        <view class="lobby-foot">
-          <view class="brand-rule"></view>
-          <text class="lobby-foot-text">2–4 人 · 横屏对局 · 先达 15 声望者胜</text>
-        </view>
-
-        <view class="brand-actions">
-          <view class="btn brand-btn" bindtap="onOpenProfile">编辑资料</view>
-          <view class="btn brand-btn" bindtap="onOpenRecords">全部战绩</view>
+        <view class="guild-player-text">
+          <text class="guild-player-name">{{home.nickname}}</text>
+          <text class="guild-player-rank">{{home.rankTitle}}</text>
         </view>
       </view>
 
-      <view class="home-main">
-        <!-- 模式选择：当前只开放标准模式，其余模式点按给出明确说明 -->
-        <view class="mode-bar">
-          <text class="mode-bar-label">对局模式</text>
-          <view wx:for="{{home.modes}}" wx:key="key"
-                class="mode-chip {{item.active ? 'is-active' : ''}} {{item.available ? '' : 'is-locked'}}"
-                bindtap="onSelectMode" data-key="{{item.key}}">
-            <text class="mode-chip-name">{{item.name}}</text>
-            <text class="mode-chip-tag">{{item.tag}}</text>
+      <view class="guild-brand">
+        <view class="guild-brand-gem gem-icon gem-green"></view>
+        <text class="guild-brand-title">璀璨宝石</text>
+        <view class="guild-brand-sub"><view class="guild-title-line"></view><text>商会大厅</text><view class="guild-title-line"></view></view>
+      </view>
+
+      <view class="guild-panel" style="top:{{topRightTop > 82 ? topRightTop : 82}}px;">
+        <text class="guild-panel-title">经典对局</text>
+        <view class="guild-rule"><text>◇</text></view>
+        <view class="guild-quick" bindtap="onStartSolo" hover-class="guild-pressed">
+          <view class="guild-quick-gem gem-icon gem-white"></view>
+          <view class="guild-quick-copy">
+            <text class="guild-quick-title">快速开始</text>
+            <text class="guild-quick-sub">人机对战 · {{home.soloCount}} 人</text>
           </view>
-          <text class="mode-bar-hint">{{home.modeHint}}</text>
         </view>
-
-        <view class="home-choices">
-          <view class="choice">
-            <view class="choice-top">
-              <text class="choice-tag">单人 · 皇家工坊</text>
-              <view class="choice-medal coin-face coin-green"><view class="choice-medal-gem gem-icon gem-green"></view></view>
-            </view>
-            <text class="choice-title">人机对战</text>
-            <text class="choice-desc">立即开局，对手由本地 AI 托管，不依赖网络</text>
-            <view class="choice-points">
-              <text class="choice-point">规则完整：拿取 / 预留 / 购买 / 贵族</text>
-              <text class="choice-point">每局随机牌序，2–4 人自由设定</text>
-            </view>
-            <view class="choice-counts">
-              <view wx:for="{{home.soloCounts}}" wx:key="n"
-                    class="count-chip {{item.active ? 'is-active' : ''}}"
-                    bindtap="onSelectSoloCount" data-n="{{item.n}}">{{item.label}}</view>
-            </view>
-            <view class="btn btn-primary choice-btn" bindtap="onStartSolo">开始对局</view>
+        <view class="guild-room-actions">
+          <view class="guild-action" bindtap="onOpenHomeDialog" data-kind="create" hover-class="guild-pressed">
+            <view class="guild-icon guild-icon-table"></view>
+            <text>创建房间</text>
           </view>
+          <view class="guild-action" bindtap="onOpenHomeDialog" data-kind="join" hover-class="guild-pressed">
+            <view class="guild-icon guild-icon-door"></view>
+            <text>加入房间</text>
+          </view>
+        </view>
+        <view class="guild-panel-foot"><view class="guild-rule"><text>◇</text></view><text>2–4 人 · 策略对弈</text></view>
+      </view>
 
-          <view class="choice choice-room">
-            <view class="choice-top">
-              <text class="choice-tag choice-tag-gold">联机 · 商人工会</text>
-              <view class="choice-medal coin-face coin-gold"><view class="choice-medal-gem gem-icon gem-gold"></view></view>
+      <text wx:if="{{home.notice && !home.dialog}}" class="guild-notice">{{home.notice}}</text>
+      <view class="guild-nav">
+        <view class="guild-nav-item" bindtap="onOpenRecords" hover-class="guild-nav-hover"><view class="guild-icon guild-icon-records"></view><text>对局战绩</text></view>
+        <view class="guild-nav-item" bindtap="onShowRules" hover-class="guild-nav-hover"><view class="guild-icon guild-icon-book"></view><text>游戏规则</text></view>
+        <view class="guild-nav-item" bindtap="onOpenHomeDialog" data-kind="solo" hover-class="guild-nav-hover"><view class="guild-icon guild-icon-settings"></view><text>对局设置</text></view>
+      </view>
+
+      <!-- 人数、回合计时与房间号不常驻首页，只在执行相关操作时展开。 -->
+      <view wx:if="{{home.dialog}}" class="overlay guild-overlay" bindtap="onCloseHomeDialog">
+        <view class="dialog guild-dialog" catchtap="noop">
+          <view class="guild-dialog-head">
+            <text class="dialog-title">{{home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'create' ? '创建房间' : '加入房间')}}</text>
+            <view class="guild-dialog-close" bindtap="onCloseHomeDialog">×</view>
+          </view>
+          <view class="guild-config">
+            <view wx:if="{{home.dialog === 'solo'}}" class="guild-config-row">
+              <text class="guild-config-label">对局人数</text>
+              <view class="guild-config-options">
+                <view wx:for="{{home.soloCounts}}" wx:key="n" class="count-chip {{item.active ? 'is-active' : ''}}"
+                      bindtap="onSelectSoloCount" data-n="{{item.n}}">{{item.label}}</view>
+              </view>
             </view>
-            <text class="choice-title">邀请好友</text>
-            <text class="choice-desc">创建房间并分享到群，好友入席准备，全员就绪后房主开始</text>
-            <view class="choice-points">
-              <text class="choice-point">房间号 / 分享卡片两种入席方式</text>
-              <text class="choice-point">实时显示加入人数与准备状态</text>
+            <view wx:if="{{home.dialog === 'create'}}" class="guild-config-row">
+              <text class="guild-config-label">对局人数</text>
+              <view class="guild-config-options">
+                <view wx:for="{{home.roomCounts}}" wx:key="n" class="count-chip {{item.active ? 'is-active' : ''}}"
+                      bindtap="onSelectRoomCount" data-n="{{item.n}}">{{item.label}}</view>
+              </view>
             </view>
-            <view class="choice-counts">
-              <view wx:for="{{home.roomCounts}}" wx:key="n"
-                    class="count-chip {{item.active ? 'is-active' : ''}}"
-                    bindtap="onSelectRoomCount" data-n="{{item.n}}">{{item.label}}</view>
-            </view>
-            <view class="choice-timer">
-              <text class="choice-timer-label">回合计时</text>
-              <view class="timer-chips">
-                <view wx:for="{{home.turnLimits}}" wx:key="value"
-                      class="timer-chip {{item.active ? 'is-active' : ''}}"
+            <view wx:if="{{home.dialog === 'create'}}" class="guild-config-row">
+              <text class="guild-config-label">回合计时</text>
+              <view class="guild-config-options">
+                <view wx:for="{{home.turnLimits}}" wx:key="value" class="timer-chip {{item.active ? 'is-active' : ''}}"
                       bindtap="onSelectTurnLimit" data-value="{{item.value}}">{{item.label}}</view>
               </view>
             </view>
-            <view class="btn btn-primary choice-btn" bindtap="onCreateRoom">创建房间</view>
+            <view wx:if="{{home.dialog === 'join'}}" class="guild-config-row">
+              <text class="guild-config-label">房间号</text>
+              <input class="room-input guild-join-input" type="text" maxlength="6" value="{{home.joinCode}}"
+                     placeholder="6 位房间号" bindinput="onJoinCodeInput"></input>
+            </view>
+            <text wx:if="{{home.dialog !== 'solo' && home.cloudHint}}" class="guild-config-note">{{home.cloudHint}}</text>
+            <text wx:if="{{home.notice}}" class="home-notice">{{home.notice}}</text>
           </view>
-        </view>
-
-        <view class="home-foot">
-          <view class="home-join">
-            <input class="room-input home-input" type="text" maxlength="6" value="{{home.joinCode}}"
-                   placeholder="输入 6 位房间号加入" bindinput="onJoinCodeInput"></input>
-            <view class="btn" bindtap="onJoinFromHome">加入房间</view>
-            <view class="btn" bindtap="onShowRules">玩法</view>
+          <view class="dialog-btns">
+            <view class="btn" bindtap="onCloseHomeDialog">取消</view>
+            <view wx:if="{{home.dialog === 'solo'}}" class="btn btn-primary" bindtap="onSaveHomeSettings">保存设置</view>
+            <view wx:if="{{home.dialog === 'create'}}" class="btn btn-primary" bindtap="onCreateRoom">创建房间</view>
+            <view wx:if="{{home.dialog === 'join'}}" class="btn btn-primary" bindtap="onJoinFromHome">加入房间</view>
           </view>
-          <text class="home-cloud {{home.cloud ? 'is-cloud' : ''}}">{{home.cloudText}}</text>
-          <text wx:if="{{home.notice}}" class="room-notice">{{home.notice}}</text>
         </view>
       </view>
     </view>
