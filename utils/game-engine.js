@@ -284,7 +284,19 @@ function fail(error) {
   return { ok: false, error: error, needDiscard: false, ended: false };
 }
 
-/** 校验拿筹码：1~3 个不同色各 1 枚，或同色 2 枚（该色库存需 ≥4） */
+/**
+ * 校验一次「拿筹码」是否可提交。合法组合只有三种：
+ *   A) 同色 2 枚，且该色库存 ≥ 4；
+ *   B) 3 种不同色各 1 枚；
+ *   C) 缺货降级：桌面可拿颜色不足 3 种时，把剩余颜色各拿 1 枚（官方规则允许少拿，
+ *      否则残局里谁都凑不出 3 色、也没有 ≥4 的单色，会直接卡死）。
+ *
+ * 旧实现允许「1 枚 / 2 个不同色」在库存充足时也提交，导致玩家误触「确认拿取」
+ * 就白丢一回合。现在页面 canConfirm 门禁、onConfirmTake 二次校验、AI 候选取舍
+ * 全部复用这一份判定，避免 UI 与规则引擎各写一套而漂移。
+ *
+ * 返回 null 表示可以提交，否则返回可直接展示给玩家的引导文案。
+ */
 function validateTake(state, gems) {
   if (!gems || gems.length === 0) return '请先点选要拿取的宝石筹码';
   if (gems.length > 3) return '一回合最多拿 3 枚筹码';
@@ -295,22 +307,23 @@ function validateTake(state, gems) {
     counts[g] = (counts[g] || 0) + 1;
   }
   const keys = Object.keys(counts);
+  const avail = availableGems(state).length;
   if (keys.length === 1) {
     const g = keys[0];
-    // 库存紧张时标准规则允许只拿 1 枚
-    if (gems.length === 1) {
-      if (state.bank[g] < 1) return '该宝石已无剩余';
-      return null;
-    }
-    if (gems.length !== 2) return '拿同色筹码必须一次拿 2 枚';
-    if (state.bank[g] < 4) return '该颜色剩余不足 4 枚，不能拿 2 枚';
-    return null;
+    if (gems.length === 2 && state.bank[g] < 4) return '该颜色剩余不足 4 枚，不能拿 2 枚';
+    if (state.bank[g] < gems.length) return '该宝石已无剩余';
+    if (gems.length === 2) return null;
+    if (gems.length === 3) return '拿同色筹码必须一次拿 2 枚';
+    if (avail <= 1) return null; // C：全桌只剩这一种颜色
+    return '再选 1 枚同色，或另选 2 种不同色';
   }
   for (let i = 0; i < keys.length; i++) {
     if (counts[keys[i]] !== 1) return '拿不同颜色筹码时，每种只能拿 1 枚';
     if (state.bank[keys[i]] < 1) return '所选宝石已无剩余';
   }
-  return null;
+  if (gems.length === 3) return null;
+  if (avail < 3 && gems.length === avail) return null; // C：剩余颜色已全部选入
+  return gems.length === 2 ? '再选 1 种不同色' : '还需选满 3 种不同色，或改选同色 2 枚';
 }
 
 function doTake(state, gems) {
@@ -496,6 +509,34 @@ function availableGems(state) {
   return list;
 }
 
+/**
+ * 当前席位是否还有任何合法动作。
+ * 「跳过本回合」是规则兜底（无筹码可拿、无卡可买、也无法预留时才出现），
+ * 不是常驻按钮——常驻会让玩家误以为跳过是常规选择。
+ */
+function hasAnyAction(state) {
+  const idx = state.current;
+  if (!state.players[idx]) return false;
+  if (state.pendingDiscard > 0) return true;
+  if (availableGems(state).length > 0) return true;
+  const p = state.players[idx];
+  if (p.reserved.length < 3) {
+    for (let lv = 0; lv < 3; lv++) if (state.decks[lv] && state.decks[lv].length) return true;
+  }
+  for (let lv = 0; lv < 3; lv++) {
+    for (let i = 0; i < state.board[lv].length; i++) {
+      const c = state.board[lv][i];
+      if (!c) continue;
+      if (canBuy(state, idx, c)) return true;
+      if (p.reserved.length < 3) return true;
+    }
+  }
+  for (let i = 0; i < p.reserved.length; i++) {
+    if (canBuy(state, idx, p.reserved[i])) return true;
+  }
+  return false;
+}
+
 module.exports = {
   createGame: createGame,
   refill: refill,
@@ -511,5 +552,6 @@ module.exports = {
   performAction: performAction,
   validateTake: validateTake,
   availableGems: availableGems,
+  hasAnyAction: hasAnyAction,
   pushLog: pushLog
 };
