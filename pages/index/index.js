@@ -995,6 +995,8 @@ Page({
     this.ui.showLobby = false;
     this.ui.selectedGems = [];
     this.ui.showcase = null;
+    // 上一屏（如「已离开房间」）的提示不该被带进新一局
+    this.ui.toast = '';
     this.refresh('');
     this.maybeRunAi({ ended: true });
   },

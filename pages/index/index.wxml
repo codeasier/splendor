@@ -40,7 +40,7 @@
               <text class="seat-name">{{item.name}}</text>
               <view class="seat-score-pill"><text>{{item.points}}</text></view>
             </view>
-            <text class="seat-sub">{{item.points}} 声望 · {{item.subtitle}}</text>
+            <text class="seat-sub">{{item.subtitle}}</text>
           </view>
           <view class="seat-stats">
             <text>卡 {{item.cardCount}}</text>

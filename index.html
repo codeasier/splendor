@@ -3463,8 +3463,6 @@ window.renderStage = function (data) {
       $h.push(ESC("seat-sub"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(12, $s1)));
-      $h.push(" 声望 · ");
       $h.push(ESC(EV(13, $s1)));
       $h.push("</text>");
       $h.push("</div>");
@@ -7689,6 +7687,8 @@ Page({
     this.ui.showLobby = false;
     this.ui.selectedGems = [];
     this.ui.showcase = null;
+    // 上一屏（如「已离开房间」）的提示不该被带进新一局
+    this.ui.toast = '';
     this.refresh('');
     this.maybeRunAi({ ended: true });
   },

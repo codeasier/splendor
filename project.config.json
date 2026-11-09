@@ -35,6 +35,14 @@
         "value": "node_modules"
       },
       {
+        "type": "folder",
+        "value": ".agents"
+      },
+      {
+        "type": "folder",
+        "value": "docs"
+      },
+      {
         "type": "file",
         "value": "package.json"
       },

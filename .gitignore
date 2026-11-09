@@ -25,3 +25,6 @@ assets/
 
 # 预览面板自动截取的界面快照（首页 / 房间 / 牌桌），生成物不入库
 preview/shots/
+
+# 并行会话使用的 git worktree（内含整份工程副本，不入库也不打包）
+.agents/
