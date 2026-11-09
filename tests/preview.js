@@ -94,11 +94,12 @@ a.page.onSelectSoloCount({ currentTarget: { dataset: { n: 2 } } });
 openHome('create');
 assert(a.host.innerHTML.indexOf('回合计时') > 0, '建房时应展示回合计时');
 assert(a.host.innerHTML.indexOf('60 秒') > 0 && a.host.innerHTML.indexOf('不限时') > 0, '建房应保留全部计时选项');
-assert(a.host.innerHTML.indexOf('离线房间，暂不可跨设备邀请') > 0, '建房前应提示必要的离线限制');
+assert(a.host.innerHTML.indexOf('浏览器预览环境，暂不可跨设备邀请') > 0, '预览环境应如实说明不可跨设备邀请');
 const onlineHomeHtml = a.sandbox.renderStage(Object.assign({}, a.page.data, {
-  home: Object.assign({}, a.page.data.home, { cloud: true })
+  home: Object.assign({}, a.page.data.home, { cloud: true, cloudHint: '' })
 }));
-assert(onlineHomeHtml.indexOf('离线房间') < 0, '联网建房不应误报离线');
+assert(onlineHomeHtml.indexOf('暂不可跨设备邀请') < 0, '云端可用时不应误报离线');
+assert(onlineHomeHtml.indexOf('浏览器预览') < 0, '云端可用时不应误报预览环境');
 a.page.onSelectRoomCount({ currentTarget: { dataset: { n: 4 } } });
 assert(a.page.data.home.roomCount === 4, '房间人数选择应生效');
 a.page.onSelectRoomCount({ currentTarget: { dataset: { n: 3 } } });

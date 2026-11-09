@@ -50,9 +50,17 @@ function logFailure(options, startedAt, status, data, headers) {
 
 function createDiagnosticWx(originalWx) {
     // 自定义 wx 适配器可能只实现请求和存储接口。
+    // getAccountInfoSync 只用于打印一行启动日志，取不到 appid 时不能影响云客户端初始化，
+    // 否则整条云端链路会被误降级成本机房间。
     if (typeof originalWx.getAccountInfoSync === 'function') {
-        const appid = originalWx.getAccountInfoSync().miniProgram.appId;
-        console.info('[WorkBuddy Cloud] initialized', JSON.stringify({ appid }));
+        let appid;
+        try {
+            const account = originalWx.getAccountInfoSync();
+            appid = account && account.miniProgram && account.miniProgram.appId;
+        } catch {
+            appid = undefined;
+        }
+        console.info('[WorkBuddy Cloud] initialized', JSON.stringify({ appid: appid || null }));
     }
 
     const diagnosticWx = {

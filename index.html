@@ -3748,14 +3748,31 @@ const ROOM_TABLE = 'splendor_rooms';
 const GAME_TABLE = 'splendor_games';
 
 let cloudClient = null;
+// 云能力的三态：'preview' 未加载云模块（浏览器预览 / Node 测试）、
+// 'ready' 客户端可用、'failed' 加载过云模块但初始化失败。
+// 界面必须按此如实说明，不能把「初始化失败」和「预览环境」都说成「离线」。
+let cloudMode = 'preview';
+let cloudFailure = '';
 
 /** 由 utils/cloud.js 在小程序启动时注入；H5 预览不注入 */
 function attachCloud(client) {
   cloudClient = client && client.database ? client : null;
+  cloudMode = cloudClient ? 'ready' : 'failed';
+  cloudFailure = cloudClient ? '' : (cloudFailure || '云客户端不可用');
   return !!cloudClient;
 }
+
+/** 云模块存在但初始化抛错：记录原因，界面据此提示「云服务未就绪」而非「离线」。 */
+function attachCloudFailure(reason) {
+  cloudClient = null;
+  cloudMode = 'failed';
+  cloudFailure = String(reason || '云服务初始化失败').slice(0, 120);
+  return cloudMode;
+}
+
 function hasCloud() { return !!cloudClient; }
 function getCloud() { return cloudClient; }
+function cloudStatus() { return { mode: cloudMode, reason: cloudFailure }; }
 
 function offline(reason) {
   return { ok: false, offline: true, error: reason || '云端未连接，当前为本机房间' };
@@ -3952,7 +3969,9 @@ async function cloudResetRoom(code, seats, expectedVersion) {
 
 /** 好友通过分享卡片带房间号入席，返回本机的席位号与最新牌局快照 */
 async function cloudJoinRoom(code, profile) {
-  if (!hasCloud()) return offline('跨设备加入需要云端房间；当前为浏览器预览 / 本机房间');
+  if (!hasCloud()) return offline(cloudMode === 'failed'
+    ? '云服务未就绪，暂时无法跨设备加入房间'
+    : '跨设备加入需要云端房间；当前为浏览器预览 / 本机房间');
   const normalized = String(code || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{6}$/.test(normalized)) {
     return { ok: false, error: '房间号为 6 位字母数字' };
@@ -4052,6 +4071,8 @@ module.exports = {
   clearSession: clearSession,
 
   attachCloud: attachCloud,
+  attachCloudFailure: attachCloudFailure,
+  cloudStatus: cloudStatus,
   hasCloud: hasCloud,
   getCloud: getCloud,
   ROOM_TABLE: ROOM_TABLE,
@@ -4613,7 +4634,7 @@ module.exports = {
 });
 
 
-var EXPR_TEXTS = ["stageRotate","stageScale","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.avatarHue","item.initial","item.seatNo","item.name","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.reservedCount","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","lastMove.text","turnClock.pct","topRightTop","goldCount","roomMode","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meSeatLabel","me.nameText","me.pointsReached ? 'is-reached' : ''","me.pointsText","me.reservedText","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && !item.zero) ? 'is-picked' : ''","isMyTurn ? '' : 'is-idle'","pick.kind","pick.delta > 0","pick.delta","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? pick.label : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","screen === 'home'","home.avatarUrl","home.nickname","home.rankTitle","topRightTop > 82 ? topRightTop : 82","home.soloCount","home.notice && !home.dialog","home.notice","home.dialog","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'create' ? '创建房间' : '加入房间')","home.dialog === 'solo'","home.soloCounts","item.active ? 'is-active' : ''","item.n","home.dialog === 'create'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && !home.cloud","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.isSelf ? 'is-self' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.kind === 'board'","detail.canReserve && detail.canAct ? '' : 'btn-off'","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","gameOver","resultTitle","resultDetail","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'"];
+var EXPR_TEXTS = ["stageRotate","stageScale","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.avatarHue","item.initial","item.seatNo","item.name","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.reservedCount","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","lastMove.text","turnClock.pct","topRightTop","goldCount","roomMode","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meSeatLabel","me.nameText","me.pointsReached ? 'is-reached' : ''","me.pointsText","me.reservedText","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && !item.zero) ? 'is-picked' : ''","isMyTurn ? '' : 'is-idle'","pick.kind","pick.delta > 0","pick.delta","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? pick.label : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","screen === 'home'","home.avatarUrl","home.nickname","home.rankTitle","topRightTop > 82 ? topRightTop : 82","home.soloCount","home.notice && !home.dialog","home.notice","home.dialog","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'create' ? '创建房间' : '加入房间')","home.dialog === 'solo'","home.soloCounts","item.active ? 'is-active' : ''","item.n","home.dialog === 'create'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && home.cloudHint","home.cloudHint","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.isSelf ? 'is-self' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.kind === 'board'","detail.canReserve && detail.canAct ? '' : 'btn-off'","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","gameOver","resultTitle","resultDetail","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'"];
 var EXPR_CACHE = {};
 function EV(id, scope) {
   var fn = EXPR_CACHE[id] || (EXPR_CACHE[id] = new Function('$s', 'with ($s) { return (' + EXPR_TEXTS[id] + '); }'));
@@ -7094,7 +7115,7 @@ window.renderStage = function (data) {
         $h.push(ESC("guild-config-note"));
         $h.push("\"");
         $h.push(">");
-        $h.push("离线房间，暂不可跨设备邀请");
+        $h.push(ESC(EV(185, $s)));
         $h.push("</text>");
       }
       if (EV(171, $s)) {
@@ -7156,7 +7177,7 @@ window.renderStage = function (data) {
     }
     $h.push("</div>");
   }
-  if (EV(185, $s)) {
+  if (EV(186, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("screen-layer room-screen"));
@@ -7184,14 +7205,14 @@ window.renderStage = function (data) {
     $h.push(ESC("room-code-big"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(186, $s)));
+    $h.push(ESC(EV(187, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("room-backend"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(187, $s)));
+    $h.push(ESC(EV(188, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -7204,7 +7225,7 @@ window.renderStage = function (data) {
     $h.push(ESC("room-status-main"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(188, $s)));
+    $h.push(ESC(EV(189, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -7212,9 +7233,9 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("回合计时 ");
-    $h.push(ESC(EV(189, $s)));
-    $h.push(" · ");
     $h.push(ESC(EV(190, $s)));
+    $h.push(" · ");
+    $h.push(ESC(EV(191, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -7231,14 +7252,14 @@ window.renderStage = function (data) {
     $h.push(ESC("room-seat-row"));
     $h.push("\"");
     $h.push(">");
-    var $list26 = EV(191, $s) || [];
+    var $list26 = EV(192, $s) || [];
     for (var $i26 = 0; $i26 < $list26.length; $i26++) {
       var $s26 = Object.create($s);
       $s26.item = $list26[$i26];
       $s26.index = $i26;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("room-seat " + String(EV(192, $s26)) + " " + String(EV(7, $s26)) + " " + String(EV(193, $s26)) + " " + String(EV(194, $s26)))));
+      $h.push(ESC(("room-seat " + String(EV(193, $s26)) + " " + String(EV(7, $s26)) + " " + String(EV(194, $s26)) + " " + String(EV(195, $s26)))));
       $h.push("\"");
       $h.push(" data-tap=\"onRoomSeatTap\"");
       $h.push(" data-index=\"");
@@ -7278,7 +7299,7 @@ window.renderStage = function (data) {
         $h.push(ESC("room-avatar-no"));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(195, $s26)));
+        $h.push(ESC(EV(196, $s26)));
         $h.push("</text>");
         $h.push("</div>");
       }
@@ -7298,15 +7319,15 @@ window.renderStage = function (data) {
       $h.push("</text>");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("room-seat-state " + String(EV(196, $s26)))));
+      $h.push(ESC(("room-seat-state " + String(EV(197, $s26)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(197, $s26)));
+      $h.push(ESC(EV(198, $s26)));
       $h.push("</text>");
       $h.push("</div>");
-      if (EV(198, $s26)) {
+      if (EV(199, $s26)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("room-seat-action"));
@@ -7316,7 +7337,7 @@ window.renderStage = function (data) {
         $h.push(ESC(String(EV(8, $s26))));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(199, $s26)));
+        $h.push(ESC(EV(200, $s26)));
         $h.push("</div>");
       }
       $h.push("</div>");
@@ -7324,10 +7345,10 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("room-tip " + String(EV(200, $s)))));
+    $h.push(ESC(("room-tip " + String(EV(201, $s)))));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(201, $s)));
+    $h.push(ESC(EV(202, $s)));
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -7365,7 +7386,7 @@ window.renderStage = function (data) {
     $h.push("好友点分享卡片即自动入席");
     $h.push("</text>");
     $h.push("</div>");
-    if (EV(202, $s)) {
+    if (EV(203, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("room-counts"));
@@ -7378,7 +7399,7 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("人数");
       $h.push("</text>");
-      var $list27 = EV(203, $s) || [];
+      var $list27 = EV(204, $s) || [];
       for (var $i27 = 0; $i27 < $list27.length; $i27++) {
         var $s27 = Object.create($s);
         $s27.item = $list27[$i27];
@@ -7397,7 +7418,7 @@ window.renderStage = function (data) {
       }
       $h.push("</div>");
     }
-    if (EV(202, $s)) {
+    if (EV(203, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("room-counts"));
@@ -7410,7 +7431,7 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("回合计时");
       $h.push("</text>");
-      var $list28 = EV(204, $s) || [];
+      var $list28 = EV(205, $s) || [];
       for (var $i28 = 0; $i28 < $list28.length; $i28++) {
         var $s28 = Object.create($s);
         $s28.item = $list28[$i28];
@@ -7429,13 +7450,13 @@ window.renderStage = function (data) {
       }
       $h.push("</div>");
     }
-    if (EV(205, $s)) {
+    if (EV(206, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(205, $s)));
+      $h.push(ESC(EV(206, $s)));
       $h.push("</text>");
     }
     $h.push("</div>");
@@ -7449,31 +7470,31 @@ window.renderStage = function (data) {
     $h.push(ESC("room-action-note"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(206, $s)));
+    $h.push(ESC(EV(207, $s)));
     $h.push("</text>");
-    if (EV(202, $s)) {
+    if (EV(203, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("btn btn-primary room-start " + String(EV(207, $s)))));
+      $h.push(ESC(("btn btn-primary room-start " + String(EV(208, $s)))));
       $h.push("\"");
       $h.push(" data-tap=\"onRoomStart\"");
       $h.push(">");
-      $h.push(ESC(EV(208, $s)));
+      $h.push(ESC(EV(209, $s)));
       $h.push("</div>");
     } else {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("btn btn-primary room-start " + String(EV(209, $s)))));
+      $h.push(ESC(("btn btn-primary room-start " + String(EV(210, $s)))));
       $h.push("\"");
       $h.push(" data-tap=\"onRoomToggleReady\"");
       $h.push(">");
-      $h.push(ESC(EV(208, $s)));
+      $h.push(ESC(EV(209, $s)));
       $h.push("</div>");
     }
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(210, $s)) {
+  if (EV(211, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -7496,7 +7517,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(211, $s)));
+    $h.push(ESC(EV(212, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -7504,11 +7525,11 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("第 ");
-    $h.push(ESC(EV(212, $s)));
-    $h.push(" 级发展卡 · ");
     $h.push(ESC(EV(213, $s)));
-    $h.push(" · 产出");
+    $h.push(" 级发展卡 · ");
     $h.push(ESC(EV(214, $s)));
+    $h.push(" · 产出");
+    $h.push(ESC(EV(215, $s)));
     $h.push("红利");
     $h.push("</text>");
     $h.push("</div>");
@@ -7519,7 +7540,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card card-big " + String(EV(215, $s)))));
+    $h.push(ESC(("card card-big " + String(EV(216, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("<div");
@@ -7529,7 +7550,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card-photo " + String(EV(216, $s)) + " " + String(EV(217, $s)))));
+    $h.push(ESC(("card-photo " + String(EV(217, $s)) + " " + String(EV(218, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("</div>");
@@ -7544,21 +7565,21 @@ window.renderStage = function (data) {
     $h.push(ESC("card-name"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(211, $s)));
+    $h.push(ESC(EV(212, $s)));
     $h.push("</text>");
     $h.push("</div>");
-    if (EV(218, $s)) {
+    if (EV(219, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("card-points"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(218, $s)));
+      $h.push(ESC(EV(219, $s)));
       $h.push("</text>");
     }
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card-gem gem-icon " + String(EV(219, $s)))));
+    $h.push(ESC(("card-gem gem-icon " + String(EV(220, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("</div>");
@@ -7567,7 +7588,7 @@ window.renderStage = function (data) {
     $h.push(ESC("card-foot"));
     $h.push("\"");
     $h.push(">");
-    var $list29 = EV(220, $s) || [];
+    var $list29 = EV(221, $s) || [];
     for (var $i29 = 0; $i29 < $list29.length; $i29++) {
       var $s29 = Object.create($s);
       $s29.item = $list29[$i29];
@@ -7601,14 +7622,14 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("卡面成本 · 逐色实付");
     $h.push("</text>");
-    var $list30 = EV(221, $s) || [];
+    var $list30 = EV(222, $s) || [];
     for (var $i30 = 0; $i30 < $list30.length; $i30++) {
       var $s30 = Object.create($s);
       $s30.item = $list30[$i30];
       $s30.index = $i30;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("cost-line " + String(EV(222, $s30)))));
+      $h.push(ESC(("cost-line " + String(EV(223, $s30)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<div");
@@ -7630,20 +7651,20 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("印刷 ");
-      $h.push(ESC(EV(223, $s30)));
-      $h.push(" − 红利 ");
       $h.push(ESC(EV(224, $s30)));
-      $h.push(" = 实付 ");
+      $h.push(" − 红利 ");
       $h.push(ESC(EV(225, $s30)));
+      $h.push(" = 实付 ");
+      $h.push(ESC(EV(226, $s30)));
       $h.push("</text>");
       $h.push("</div>");
     }
     $h.push("<text");
     $h.push(" class=\"");
-    $h.push(ESC(("detail-summary " + String(EV(226, $s)))));
+    $h.push(ESC(("detail-summary " + String(EV(227, $s)))));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(227, $s)));
+    $h.push(ESC(EV(228, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -7666,10 +7687,10 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("购买 / 预留请在弹层关闭后，用工作台右下的主按钮确认");
     $h.push("</text>");
-    if (EV(228, $s)) {
+    if (EV(229, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("btn " + String(EV(229, $s)))));
+      $h.push(ESC(("btn " + String(EV(230, $s)))));
       $h.push("\"");
       $h.push(" data-tap=\"onReserveFromDetail\"");
       $h.push(">");
@@ -7688,7 +7709,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(230, $s)) {
+  if (EV(231, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -7816,7 +7837,7 @@ window.renderStage = function (data) {
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(231, $s)) {
+    if (EV(232, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -7843,7 +7864,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(232, $s)) {
+  if (EV(233, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -7867,20 +7888,20 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("战绩 · ");
-    $h.push(ESC(EV(233, $s)));
+    $h.push(ESC(EV(234, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(234, $s)));
-    $h.push(" 场对局 · 胜 ");
     $h.push(ESC(EV(235, $s)));
-    $h.push(" · 胜率 ");
+    $h.push(" 场对局 · 胜 ");
     $h.push(ESC(EV(236, $s)));
-    $h.push("% · 最高 ");
+    $h.push(" · 胜率 ");
     $h.push(ESC(EV(237, $s)));
+    $h.push("% · 最高 ");
+    $h.push(ESC(EV(238, $s)));
     $h.push(" 声望");
     $h.push("</text>");
     $h.push("</div>");
@@ -7904,7 +7925,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-cell-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(234, $s)));
+    $h.push(ESC(EV(235, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -7924,7 +7945,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-cell-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(236, $s)));
+    $h.push(ESC(EV(237, $s)));
     $h.push("%");
     $h.push("</text>");
     $h.push("<text");
@@ -7945,7 +7966,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-cell-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(237, $s)));
+    $h.push(ESC(EV(238, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -7965,7 +7986,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-cell-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(238, $s)));
+    $h.push(ESC(EV(239, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -7985,7 +8006,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-cell-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(239, $s)));
+    $h.push(ESC(EV(240, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -8001,7 +8022,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-list"));
     $h.push("\"");
     $h.push(">");
-    var $list33 = EV(240, $s) || [];
+    var $list33 = EV(241, $s) || [];
     for (var $i33 = 0; $i33 < $list33.length; $i33++) {
       var $s33 = Object.create($s);
       $s33.item = $list33[$i33];
@@ -8013,12 +8034,12 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("records-result " + String(EV(241, $s33)))));
+      $h.push(ESC(("records-result " + String(EV(242, $s33)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(242, $s33)));
+      $h.push(ESC(EV(243, $s33)));
       $h.push("</text>");
       $h.push("</div>");
       $h.push("<div");
@@ -8031,24 +8052,24 @@ window.renderStage = function (data) {
       $h.push(ESC("records-title"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(243, $s33)));
-      $h.push(" · ");
       $h.push(ESC(EV(244, $s33)));
+      $h.push(" · ");
+      $h.push(ESC(EV(245, $s33)));
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("records-sub"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(245, $s33)));
-      $h.push(" · ");
       $h.push(ESC(EV(246, $s33)));
+      $h.push(" · ");
       $h.push(ESC(EV(247, $s33)));
+      $h.push(ESC(EV(248, $s33)));
       $h.push("</text>");
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(248, $s)) {
+    if (EV(249, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -8058,13 +8079,13 @@ window.renderStage = function (data) {
       $h.push("</text>");
     }
     $h.push("</div>");
-    if (EV(249, $s)) {
+    if (EV(250, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(249, $s)));
+      $h.push(ESC(EV(250, $s)));
       $h.push("</text>");
     }
     $h.push("</div>");
@@ -8073,7 +8094,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-btns"));
     $h.push("\"");
     $h.push(">");
-    if (EV(250, $s)) {
+    if (EV(251, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("btn"));
@@ -8095,7 +8116,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(251, $s)) {
+  if (EV(252, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay overlay-top"));
@@ -8125,7 +8146,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(252, $s)));
+    $h.push(ESC(EV(253, $s)));
     $h.push(" 人对局 · 先达到 15 声望者胜 · 点击任意头像可查看详情");
     $h.push("</text>");
     $h.push("</div>");
@@ -8208,7 +8229,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(253, $s)) {
+  if (EV(254, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -8232,14 +8253,14 @@ window.renderStage = function (data) {
     $h.push(ESC("result-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(254, $s)));
+    $h.push(ESC(EV(255, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("result-detail"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(255, $s)));
+    $h.push(ESC(EV(256, $s)));
     $h.push("</text>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -8276,7 +8297,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(256, $s)) {
+  if (EV(257, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay overlay-top"));
@@ -8300,16 +8321,16 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("房间 · ");
-    $h.push(ESC(EV(186, $s)));
+    $h.push(ESC(EV(187, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(188, $s)));
+    $h.push(ESC(EV(189, $s)));
     $h.push(" · ");
-    $h.push(ESC(EV(187, $s)));
+    $h.push(ESC(EV(188, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -8334,7 +8355,7 @@ window.renderStage = function (data) {
     $h.push(ESC("seat-setup"));
     $h.push("\"");
     $h.push(">");
-    var $list34 = EV(191, $s) || [];
+    var $list34 = EV(192, $s) || [];
     for (var $i34 = 0; $i34 < $list34.length; $i34++) {
       var $s34 = Object.create($s);
       $s34.item = $list34[$i34];
@@ -8369,10 +8390,10 @@ window.renderStage = function (data) {
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
-      $h.push(ESC(("setup-state " + String(EV(257, $s34)))));
+      $h.push(ESC(("setup-state " + String(EV(258, $s34)))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(197, $s34)));
+      $h.push(ESC(EV(198, $s34)));
       $h.push("</text>");
       $h.push("</div>");
     }
@@ -8400,7 +8421,7 @@ window.renderStage = function (data) {
     $h.push(ESC("room-code"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(186, $s)));
+    $h.push(ESC(EV(187, $s)));
     $h.push("</text>");
     $h.push("<button");
     $h.push(" class=\"");
@@ -8433,16 +8454,16 @@ window.renderStage = function (data) {
     $h.push(ESC("room-hint"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(190, $s)));
+    $h.push(ESC(EV(191, $s)));
     $h.push("</text>");
     $h.push("</div>");
-    if (EV(205, $s)) {
+    if (EV(206, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(205, $s)));
+      $h.push(ESC(EV(206, $s)));
       $h.push("</text>");
     }
     $h.push("</div>");
@@ -8471,7 +8492,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(258, $s)) {
+  if (EV(259, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -8494,14 +8515,14 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(259, $s)));
+    $h.push(ESC(EV(260, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(260, $s)));
+    $h.push(ESC(EV(261, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -8514,7 +8535,7 @@ window.renderStage = function (data) {
     $h.push(ESC("player-left"));
     $h.push("\"");
     $h.push(">");
-    if (EV(261, $s)) {
+    if (EV(262, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("player-avatar"));
@@ -8525,7 +8546,7 @@ window.renderStage = function (data) {
       $h.push(ESC("player-avatar-img"));
       $h.push("\"");
       $h.push(" src=\"");
-      $h.push(ESC(String(EV(261, $s))));
+      $h.push(ESC(String(EV(262, $s))));
       $h.push("\"");
       $h.push(" mode=\"");
       $h.push(ESC("aspectFill"));
@@ -8539,7 +8560,7 @@ window.renderStage = function (data) {
       $h.push(ESC("player-avatar"));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(262, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(263, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -8549,7 +8570,7 @@ window.renderStage = function (data) {
     $h.push(ESC("player-score"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(263, $s)));
+    $h.push(ESC(EV(264, $s)));
     $h.push(" / 15 声望");
     $h.push("</text>");
     $h.push("<text");
@@ -8558,11 +8579,11 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("发展卡 ");
-    $h.push(ESC(EV(264, $s)));
-    $h.push(" · 预留 ");
     $h.push(ESC(EV(265, $s)));
-    $h.push(" · 筹码 ");
+    $h.push(" · 预留 ");
     $h.push(ESC(EV(266, $s)));
+    $h.push(" · 筹码 ");
+    $h.push(ESC(EV(267, $s)));
     $h.push("/10");
     $h.push("</text>");
     $h.push("<text");
@@ -8572,7 +8593,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("声望构成");
     $h.push("</text>");
-    var $list35 = EV(267, $s) || [];
+    var $list35 = EV(268, $s) || [];
     for (var $i35 = 0; $i35 < $list35.length; $i35++) {
       var $s35 = Object.create($s);
       $s35.item = $list35[$i35];
@@ -8618,7 +8639,7 @@ window.renderStage = function (data) {
     $h.push("筹码");
     $h.push("</text>");
     $h.push("</div>");
-    var $list36 = EV(268, $s) || [];
+    var $list36 = EV(269, $s) || [];
     for (var $i36 = 0; $i36 < $list36.length; $i36++) {
       var $s36 = Object.create($s);
       $s36.item = $list36[$i36];
@@ -8631,22 +8652,22 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("pd-chip gem-icon " + String(EV(23, $s36)) + " " + String(EV(269, $s36)) + " " + String(EV(270, $s36)) + " " + String(EV(20, $s36)))));
+      $h.push(ESC(("pd-chip gem-icon " + String(EV(23, $s36)) + " " + String(EV(270, $s36)) + " " + String(EV(271, $s36)) + " " + String(EV(20, $s36)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(271, $s36)));
+      $h.push(ESC(EV(272, $s36)));
       $h.push("</text>");
       $h.push("</div>");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("pd-chip is-coin gem-icon " + String(EV(23, $s36)) + " " + String(EV(272, $s36)) + " " + String(EV(273, $s36)) + " " + String(EV(20, $s36)))));
+      $h.push(ESC(("pd-chip is-coin gem-icon " + String(EV(23, $s36)) + " " + String(EV(273, $s36)) + " " + String(EV(274, $s36)) + " " + String(EV(20, $s36)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(274, $s36)));
+      $h.push(ESC(EV(275, $s36)));
       $h.push("</text>");
       $h.push("</div>");
       $h.push("</div>");
@@ -8664,7 +8685,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("预留卡（");
-    $h.push(ESC(EV(275, $s)));
+    $h.push(ESC(EV(276, $s)));
     $h.push("/3）· 气泡为卡面印刷成本");
     $h.push("</text>");
     $h.push("<div");
@@ -8672,7 +8693,7 @@ window.renderStage = function (data) {
     $h.push(ESC("pd-cards"));
     $h.push("\"");
     $h.push(">");
-    var $list37 = EV(276, $s) || [];
+    var $list37 = EV(277, $s) || [];
     for (var $i37 = 0; $i37 < $list37.length; $i37++) {
       var $s37 = Object.create($s);
       $s37.item = $list37[$i37];
@@ -8760,16 +8781,16 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("第 ");
-      $h.push(ESC(EV(277, $s37)));
-      $h.push(" 级 · ");
       $h.push(ESC(EV(278, $s37)));
-      $h.push(" · ");
+      $h.push(" 级 · ");
       $h.push(ESC(EV(279, $s37)));
+      $h.push(" · ");
+      $h.push(ESC(EV(280, $s37)));
       $h.push("红利");
       $h.push("</text>");
       $h.push("</div>");
     }
-    if (EV(280, $s)) {
+    if (EV(281, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -8785,7 +8806,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("贵族到访（");
-    $h.push(ESC(EV(281, $s)));
+    $h.push(ESC(EV(282, $s)));
     $h.push("）");
     $h.push("</text>");
     $h.push("<div");
@@ -8793,7 +8814,7 @@ window.renderStage = function (data) {
     $h.push(ESC("pd-list"));
     $h.push("\"");
     $h.push(">");
-    var $list39 = EV(282, $s) || [];
+    var $list39 = EV(283, $s) || [];
     for (var $i39 = 0; $i39 < $list39.length; $i39++) {
       var $s39 = Object.create($s);
       $s39.item = $list39[$i39];
@@ -8843,7 +8864,7 @@ window.renderStage = function (data) {
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(283, $s)) {
+    if (EV(284, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -8872,7 +8893,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(284, $s)) {
+  if (EV(285, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -8915,7 +8936,7 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-current"));
     $h.push("\"");
     $h.push(">");
-    if (EV(285, $s)) {
+    if (EV(286, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("profile-avatar"));
@@ -8926,7 +8947,7 @@ window.renderStage = function (data) {
       $h.push(ESC("profile-avatar-img"));
       $h.push("\"");
       $h.push(" src=\"");
-      $h.push(ESC(String(EV(285, $s))));
+      $h.push(ESC(String(EV(286, $s))));
       $h.push("\"");
       $h.push(" mode=\"");
       $h.push(ESC("aspectFill"));
@@ -8952,7 +8973,7 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-nickname"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(286, $s)));
+    $h.push(ESC(EV(287, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -8960,7 +8981,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("当前头像：");
-    $h.push(ESC(EV(287, $s)));
+    $h.push(ESC(EV(288, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("</div>");
@@ -8986,14 +9007,14 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-id-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(288, $s)));
+    $h.push(ESC(EV(289, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("profile-id-tag"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(289, $s)));
+    $h.push(ESC(EV(290, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -9001,7 +9022,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("加入于 ");
-    $h.push(ESC(EV(290, $s)));
+    $h.push(ESC(EV(291, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<text");
@@ -9009,7 +9030,7 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-id-detail"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(291, $s)));
+    $h.push(ESC(EV(292, $s)));
     $h.push("</text>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -9028,14 +9049,14 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-rank"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(292, $s)));
+    $h.push(ESC(EV(293, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("profile-stats"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(293, $s)));
+    $h.push(ESC(EV(294, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("</div>");
@@ -9062,7 +9083,7 @@ window.renderStage = function (data) {
     $h.push(ESC("12"));
     $h.push("\"");
     $h.push(" value=\"");
-    $h.push(ESC(String(EV(286, $s))));
+    $h.push(ESC(String(EV(287, $s))));
     $h.push("\"");
     $h.push(" placeholder=\"");
     $h.push(ESC("输入或选择微信昵称"));
@@ -9070,7 +9091,7 @@ window.renderStage = function (data) {
     $h.push(" data-input=\"onNicknameInput\"");
     $h.push(">");
     $h.push("</input>");
-    if (EV(294, $s)) {
+    if (EV(295, $s)) {
       $h.push("<button");
       $h.push(" class=\"");
       $h.push(ESC("native-avatar-btn"));
@@ -9089,7 +9110,7 @@ window.renderStage = function (data) {
     $h.push(ESC("preset-nicknames"));
     $h.push("\"");
     $h.push(">");
-    var $list41 = EV(295, $s) || [];
+    var $list41 = EV(296, $s) || [];
     for (var $i41 = 0; $i41 < $list41.length; $i41++) {
       var $s41 = Object.create($s);
       $s41.item = $list41[$i41];
@@ -9100,10 +9121,10 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(" data-tap=\"onPickNickname\"");
       $h.push(" data-name=\"");
-      $h.push(ESC(String(EV(296, $s41))));
+      $h.push(ESC(String(EV(297, $s41))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(296, $s41)));
+      $h.push(ESC(EV(297, $s41)));
       $h.push("</div>");
     }
     $h.push("</div>");
@@ -9119,7 +9140,7 @@ window.renderStage = function (data) {
     $h.push(ESC("preset-avatars"));
     $h.push("\"");
     $h.push(">");
-    var $list42 = EV(297, $s) || [];
+    var $list42 = EV(298, $s) || [];
     for (var $i42 = 0; $i42 < $list42.length; $i42++) {
       var $s42 = Object.create($s);
       $s42.item = $list42[$i42];
@@ -9129,7 +9150,7 @@ window.renderStage = function (data) {
       $h.push(ESC(("preset-avatar " + String(EV(176, $s42)))));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(298, $s42)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(299, $s42)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(" data-tap=\"onPickAvatar\"");
       $h.push(" data-key=\"");
@@ -9143,13 +9164,13 @@ window.renderStage = function (data) {
       $h.push("</div>");
     }
     $h.push("</div>");
-    if (EV(299, $s)) {
+    if (EV(300, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(299, $s)));
+      $h.push(ESC(EV(300, $s)));
       $h.push("</text>");
     }
     $h.push("<text");
@@ -9173,7 +9194,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("保存资料");
     $h.push("</div>");
-    if (EV(300, $s)) {
+    if (EV(301, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("btn"));
@@ -9873,6 +9894,7 @@ function lobbyVM(ui, profile) {
   const solo = ui.soloCount || 2;
   const room = ui.roomCount || 3;
   const cloud = R.hasCloud();
+  const cloudInfo = R.cloudStatus ? R.cloudStatus() : { mode: cloud ? 'ready' : 'preview', reason: '' };
   const stats = U.statsOf();
   const identity = U.getIdentity();
   const activeMode = ui.lobbyMode || 'standard';
@@ -9912,9 +9934,18 @@ function lobbyVM(ui, profile) {
     turnLimit: timer.value,
     turnLimitText: timer.text,
     cloud: cloud,
+    cloudState: cloudInfo.mode,
+    // 三态文案：只有真能跨设备时才不提限制；预览与初始化失败必须分开说。
     cloudText: cloud
       ? '云端已连接 · 可微信邀请好友跨设备加入'
-      : '本机模式 · 人机对战可玩；跨设备邀请需连接云端',
+      : (cloudInfo.mode === 'failed'
+        ? '云服务未就绪 · 当前仅本机房间'
+        : '浏览器预览 · 当前仅本机房间，跨设备邀请请在微信中打开'),
+    cloudHint: cloud
+      ? ''
+      : (cloudInfo.mode === 'failed'
+        ? '云服务未就绪，暂时只能创建本机房间'
+        : '浏览器预览环境，暂不可跨设备邀请'),
     joinCode: ui.joinCode || '',
     dialog: ui.homeDialog || '',
     notice: ui.homeNotice || ''

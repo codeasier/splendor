@@ -669,6 +669,7 @@ function lobbyVM(ui, profile) {
   const solo = ui.soloCount || 2;
   const room = ui.roomCount || 3;
   const cloud = R.hasCloud();
+  const cloudInfo = R.cloudStatus ? R.cloudStatus() : { mode: cloud ? 'ready' : 'preview', reason: '' };
   const stats = U.statsOf();
   const identity = U.getIdentity();
   const activeMode = ui.lobbyMode || 'standard';
@@ -708,9 +709,18 @@ function lobbyVM(ui, profile) {
     turnLimit: timer.value,
     turnLimitText: timer.text,
     cloud: cloud,
+    cloudState: cloudInfo.mode,
+    // 三态文案：只有真能跨设备时才不提限制；预览与初始化失败必须分开说。
     cloudText: cloud
       ? '云端已连接 · 可微信邀请好友跨设备加入'
-      : '本机模式 · 人机对战可玩；跨设备邀请需连接云端',
+      : (cloudInfo.mode === 'failed'
+        ? '云服务未就绪 · 当前仅本机房间'
+        : '浏览器预览 · 当前仅本机房间，跨设备邀请请在微信中打开'),
+    cloudHint: cloud
+      ? ''
+      : (cloudInfo.mode === 'failed'
+        ? '云服务未就绪，暂时只能创建本机房间'
+        : '浏览器预览环境，暂不可跨设备邀请'),
     joinCode: ui.joinCode || '',
     dialog: ui.homeDialog || '',
     notice: ui.homeNotice || ''

@@ -508,7 +508,7 @@
               <input class="room-input guild-join-input" type="text" maxlength="6" value="{{home.joinCode}}"
                      placeholder="6 位房间号" bindinput="onJoinCodeInput"></input>
             </view>
-            <text wx:if="{{home.dialog !== 'solo' && !home.cloud}}" class="guild-config-note">离线房间，暂不可跨设备邀请</text>
+            <text wx:if="{{home.dialog !== 'solo' && home.cloudHint}}" class="guild-config-note">{{home.cloudHint}}</text>
             <text wx:if="{{home.notice}}" class="home-notice">{{home.notice}}</text>
           </view>
           <view class="dialog-btns">

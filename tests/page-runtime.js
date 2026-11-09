@@ -61,6 +61,12 @@ page.onJoinFromHome();
 assert(page.data.home.notice.indexOf('6 位') >= 0, '加入失败应保留输入旁的错误反馈');
 page.onCloseHomeDialog();
 assert(page.data.home.notice === '', '取消加入不遗留错误提示');
+// 三态文案：预览 / 云服务初始化失败都必须说清原因，不能笼统说「离线」。
+assert(page.data.home.cloudState === 'preview', '无 wx 环境应标记为预览');
+assert(page.data.home.cloudHint.indexOf('浏览器预览') >= 0, '预览环境应如实说明');
+page.onOpenHomeDialog({ currentTarget: { dataset: { kind: 'create' } } });
+assert(page.data.home.cloudHint.length > 0, '预览环境建房应给出限制说明');
+page.onCloseHomeDialog();
 page.onOpenHomeDialog({ currentTarget: { dataset: { kind: 'solo' } } });
 
 // 进入人机对战
