@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const lobbyArt = require('./lobby-art.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'pages', 'index', 'art.wxss');
@@ -712,7 +713,20 @@ lines.push('');
 lines.push('.turn-banner::after { background-image: ' + bg(bannerSVG()) + '; }');
 lines.push('.table-emblem { background-image: ' + bg(emblemSVG()) + '; }');
 lines.push('.corner { background-image: ' + bg(cornerMountSVG()) + '; }');
-lines.push('.home-brand .brand-crest { background-image: ' + bg(brandCrestSVG()) + '; }');
+// 装饰图已去掉参考图里的所有固定 UI；WXML 独立绘制文字和交互。
+const lobbyDir = path.join(__dirname, 'thumbs', 'lobby');
+function lobbyImage(name, fallback) {
+  const file = path.join(lobbyDir, name);
+  return fs.existsSync(file) ? jpegBg(file) : bg(fallback());
+}
+lines.push('.guild-scenery { background-image: ' + lobbyImage('scene.jpg', lobbyArt.sceneSVG) + '; }');
+lines.push('.guild-panel { background-image: ' + lobbyImage('panel.jpg', lobbyArt.panelSVG) + '; }');
+lines.push('.guild-avatar-preset { background-image: ' + lobbyImage('merchant.jpg', portraitSVG) + '; }');
+lines.push('.guild-quick { background-image: ' + bg(lobbyArt.buttonSVG('gold')) + '; }');
+lines.push('.guild-action { background-image: ' + bg(lobbyArt.buttonSVG('wine')) + '; }');
+['table', 'door', 'book', 'records', 'settings'].forEach(function (key) {
+  lines.push('.guild-icon-' + key + ' { background-image: ' + bg(lobbyArt.iconSVG(key)) + '; }');
+});
 lines.push('');
 // 伪 3D 桌面素材。rival-plaque 用双类提权：art.wxss 由 @import 置于最前，
 // 否则会被 index.wxss 里同名的 background 简写反向覆盖。

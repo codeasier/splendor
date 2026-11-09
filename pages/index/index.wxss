@@ -1862,189 +1862,109 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   box-sizing: border-box; z-index: 12;
 }
 
-/* 首页：左侧皇家行会铭牌 + 右侧双联鎏金契约卡 */
-.home-screen {
-  display: flex; align-items: stretch; gap: 24px;
-  padding: 32px 38px 26px;
-  background:
-    radial-gradient(ellipse 62% 56% at 24% 28%, rgba(255, 218, 152, .12), transparent 68%),
-    radial-gradient(ellipse 55% 50% at 76% 32%, rgba(243, 188, 106, .08), transparent 66%),
-    linear-gradient(162deg, rgba(28, 10, 20, .38), rgba(12, 4, 10, .68));
-}
-.home-brand {
-  position: relative;
-  flex: 0 0 326px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
-  padding: 20px 22px 18px;
-  border-radius: 14px;
-  border: 1px solid rgba(232, 188, 106, .48);
-  background:
-    radial-gradient(ellipse 90% 60% at 30% 15%, rgba(128, 48, 72, .45), transparent 70%),
-    linear-gradient(165deg, rgba(64, 26, 42, .86) 0%, rgba(28, 11, 21, .92) 65%, rgba(16, 6, 13, .95) 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(14, 5, 11, .7),
-    inset 0 0 0 3px rgba(243, 212, 139, .14),
-    inset 0 1px 0 rgba(255, 244, 214, .32),
-    0 16px 38px rgba(0, 0, 0, .65);
-}
-.brand-crest {
-  width: 52px; height: 52px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
+/* 场景式大厅：真实陈列美术 / 独立可动金框板 / 原生交互，绝不烘焙操作文字。 */
+.home-screen { background: #260d16; }
+.guild-scenery {
+  position: absolute; left: 0; top: 0; width: 1080px; height: 560px;
   background-size: 100% 100%; background-repeat: no-repeat;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .72));
-  flex-shrink: 0;
 }
-.brand-head { display: flex; align-items: center; gap: 12px; width: 100%; }
-.brand-titles { display: flex; flex-direction: column; min-width: 0; }
-.brand-gem { width: 24px; height: 24px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .75)); }
-.brand-title {
+.guild-scene-shade {
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(26, 6, 12, .08), transparent 30%, transparent 78%, rgba(16, 6, 8, .28));
+  box-shadow: inset 0 0 22px rgba(24, 8, 10, .35);
+}
+.guild-profile {
+  position: absolute; left: 13px; top: 9px; width: 260px; height: 82px;
+  display: flex; align-items: center; gap: 10px; box-sizing: border-box; padding-right: 18px;
+  background: linear-gradient(90deg, #28171a 0%, rgba(41, 23, 23, .98) 84%, rgba(41, 23, 23, .78) 100%);
+  border-radius: 44px 7px 7px 44px; border: 1px solid rgba(246, 215, 151, .7);
+  box-shadow: 0 3px 10px rgba(28, 11, 8, .5), inset 0 0 0 2px rgba(208, 159, 75, .18);
+}
+.guild-avatar-frame {
+  width: 80px; height: 80px; flex-shrink: 0; border-radius: 50%; padding: 4px; box-sizing: border-box;
+  background: linear-gradient(135deg, #fff0c2 0%, #c3903c 32%, #674013 50%, #edcf88 77%, #a87829 100%);
+  box-shadow: 0 0 0 1px #fff0be, inset 0 0 0 2px #5b3414, 0 3px 8px rgba(0, 0, 0, .65);
+}
+.guild-avatar { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background-size: cover; background-position: center; }
+.guild-avatar-img { width: 100%; height: 100%; }
+.guild-player-text { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; }
+.guild-player-name {
+  font-family: "Songti SC", "STSong", Georgia, serif; font-size: 22px; font-weight: 700;
+  color: #ffe3a2; text-shadow: 0 2px 3px #20100a;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.guild-player-rank { font-size: 11px; letter-spacing: 2px; color: #d7b97f; }
+.guild-brand {
+  position: absolute; left: 414px; top: 3px; width: 262px; height: 117px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(52, 8, 22, .8), rgba(52, 8, 22, .2) 60%, transparent 75%);
+}
+.guild-brand-gem { width: 30px; height: 25px; filter: drop-shadow(0 2px 2px #0a1d16); }
+.guild-brand-title {
   font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
-  font-size: 30px; font-weight: 700; letter-spacing: 5px; line-height: 1.15;
-  color: #ffedc2;
-  text-shadow:
-    0 2px 0 #6e4514,
-    0 5px 18px rgba(0, 0, 0, .88),
-    0 0 22px rgba(243, 198, 108, .28);
+  font-size: 46px; font-weight: 700; letter-spacing: 5px; line-height: 1.2;
+  color: #ffe3a0; text-shadow: 0 2px 0 #7e4c18, 0 4px 5px #1c0809;
 }
-.brand-en {
-  font-size: 8.5px; font-weight: 600; letter-spacing: 2.8px;
-  color: #e8c27e; margin-top: 3px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
+.guild-brand-sub { display: flex; align-items: center; justify-content: center; gap: 13px; margin-top: 3px; }
+.guild-brand-sub text { font-family: "Songti SC", Georgia, serif; font-size: 18px; letter-spacing: 5px; color: #f6d18a; }
+.guild-title-line { width: 38px; height: 1px; background: linear-gradient(90deg, transparent, #dcba71, transparent); }
+.guild-panel {
+  position: absolute; left: 682px; width: 384px; height: 386px; box-sizing: border-box;
+  padding: 27px 24px 25px; display: flex; flex-direction: column; align-items: stretch;
+  background-size: 100% 100%; background-repeat: no-repeat;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, .42));
 }
-/* 六色皇家宝石陈列带 */
-.brand-gems {
-  display: flex; align-items: center; gap: 7px;
-  margin-top: 13px; padding: 5px 10px;
-  border-radius: 20px;
-  border: 1px solid rgba(243, 212, 139, .32);
-  background: rgba(16, 6, 12, .58);
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, .65);
+.guild-panel-title {
+  font-family: "Songti SC", "STSong", Georgia, serif; font-size: 36px; font-weight: 700;
+  line-height: 1.25; letter-spacing: 7px; text-align: center;
+  color: #ffe6a6; text-shadow: 0 2px 1px #765323, 0 4px 5px #021d1b;
 }
-.brand-gem-chip {
-  width: 24px; height: 24px; border-radius: 50%;
-  border: 1px solid rgba(243, 212, 139, .68);
-  background: radial-gradient(circle at 35% 30%, #422232, #180a13);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, .6), inset 0 1px 1px rgba(255, 255, 255, .28);
-  display: flex; align-items: center; justify-content: center;
+.guild-rule { display: flex; align-items: center; justify-content: center; height: 14px; gap: 8px; margin-top: 8px; }
+.guild-rule::before, .guild-rule::after {
+  content: ''; display: block; height: 1px; flex: 1;
+  background: linear-gradient(90deg, transparent, #d9b66c, transparent);
 }
-.brand-gem-chip.is-gold {
-  border-color: #ffe8a4;
-  box-shadow: 0 0 8px rgba(243, 198, 108, .42), 0 2px 4px rgba(0, 0, 0, .6);
+.guild-rule text { font-size: 17px; line-height: 14px; color: #e5c67e; }
+.guild-quick {
+  display: flex; align-items: center; justify-content: center; gap: 15px;
+  min-height: 94px; flex-shrink: 0; margin-top: 12px; padding: 10px; box-sizing: border-box;
+  background-color: transparent; background-size: 100% 100%; background-repeat: no-repeat;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .35));
 }
-.brand-gem-dot { width: 17px; height: 17px; }
-.brand-rule {
-  width: 100%; height: 1px; margin: 2px 0 1px;
-  background: linear-gradient(90deg, rgba(243, 212, 139, .85), rgba(243, 212, 139, .12));
+.guild-quick-gem { width: 42px; height: 42px; filter: drop-shadow(0 3px 2px rgba(81, 47, 8, .7)); }
+.guild-quick-copy { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.guild-quick-title {
+  font-family: "Songti SC", "STSong", Georgia, serif; font-size: 36px; font-weight: 700;
+  line-height: 1.1; letter-spacing: 3px; color: #3a1b06; text-shadow: 0 1px 0 #ffe6a5;
 }
-.brand-desc { font-size: 12px; line-height: 1.85; color: #ead0be; }
-.brand-meta {
-  font-size: 10px; font-weight: 600; letter-spacing: 1px;
-  color: #f0ce8e; margin-top: 10px;
+.guild-quick-sub { font-size: 11px; line-height: 14px; letter-spacing: 2px; color: #69400f; }
+.guild-room-actions { display: flex; gap: 13px; margin-top: 20px; }
+.guild-action {
+  flex: 1; min-width: 0; height: 84px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background-color: transparent; background-size: 100% 100%; background-repeat: no-repeat;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .4));
 }
-.brand-player {
-  width: 100%; box-sizing: border-box;
-  display: flex; align-items: center; gap: 11px; padding: 8px 11px;
-  border-radius: 10px;
-  border: 1px solid rgba(226, 180, 102, .56);
-  background: linear-gradient(160deg, rgba(58, 28, 42, .85), rgba(22, 10, 18, .92));
-  box-shadow: inset 0 1px 0 rgba(255, 242, 205, .24), 0 6px 14px rgba(0, 0, 0, .52);
+.guild-action .guild-icon { width: 26px; height: 26px; }
+.guild-action text { font-family: "Songti SC", Georgia, serif; font-size: 20px; font-weight: 700; line-height: 1.2; color: #ffe1a0; text-shadow: 0 2px 2px #270b0e; }
+.guild-icon { width: 31px; height: 31px; flex-shrink: 0; background-size: 100% 100%; background-repeat: no-repeat; }
+.guild-panel-foot { margin-top: auto; text-align: center; }
+.guild-panel-foot > text { font-family: "Songti SC", Georgia, serif; display: block; font-size: 17px; font-weight: 600; letter-spacing: 2px; margin-top: 5px; color: #f2d899; }
+.guild-panel-foot .guild-rule { margin-top: 8px; }
+.guild-pressed { opacity: .85; }
+.guild-nav {
+  position: absolute; left: 0; right: 0; bottom: 8px; height: 49px;
+  display: flex; align-items: center; border-top: 1px solid rgba(222, 184, 111, .5); border-bottom: 1px solid rgba(222, 184, 111, .35);
+  background: linear-gradient(180deg, rgba(35, 22, 17, .95), rgba(13, 9, 9, .94));
+  box-shadow: 0 -1px 12px rgba(19, 8, 7, .3);
 }
-.brand-player-hover { transform: translateY(1px); }
-.brand-avatar {
-  width: 42px; height: 46px; flex-shrink: 0; border-radius: 5px; overflow: hidden;
-  border: 2px solid #deb062;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: inset 0 0 0 1px rgba(255, 240, 200, .38), 0 3px 8px rgba(0, 0, 0, .65);
+.guild-nav-item { position: relative; flex: 1; height: 100%; display: flex; align-items: center; justify-content: center; gap: 13px; }
+.guild-nav-item + .guild-nav-item::before { content: ''; position: absolute; left: 0; top: 13px; bottom: 13px; width: 1px; background: linear-gradient(180deg, transparent, #bb914e, transparent); }
+.guild-nav-item text { font-family: "Songti SC", Georgia, serif; font-size: 21px; color: #f3d598; text-shadow: 0 2px 3px #000; }
+.guild-nav-hover { background: rgba(240, 195, 113, .1); }
+.guild-notice {
+  position: absolute; left: 425px; right: 25px; bottom: 66px; padding: 5px 10px; border-radius: 5px;
+  background: rgba(25, 12, 12, .88); color: #ffe4b8; font-size: 11px; line-height: 16px; text-align: center;
 }
-.brand-avatar-initial {
-  font-family: "Songti SC", Georgia, serif; font-size: 20px; font-weight: 700;
-  color: #fff3d6; text-shadow: 0 1px 4px rgba(0, 0, 0, .85);
-}
-.lobby-foot { width: 100%; display: flex; flex-direction: column; gap: 3px; }
-.lobby-foot-text { font-size: 9px; letter-spacing: .5px; color: #c9a894; }
-.brand-avatar-img { width: 100%; height: 100%; }
-.brand-player-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.brand-player-name { font-size: 14px; font-weight: 700; color: #fff3d6; letter-spacing: .5px; }
-.brand-player-rank { font-size: 10px; font-weight: 700; letter-spacing: .5px; color: #ffd88e; }
-.brand-player-sub { font-size: 9px; color: #c9a894; }
-
-/* 大厅：分节标题 / 战绩三格 / 最近战绩 / 底部动作 */
-.home-section-label {
-  font-size: 9px; font-weight: 700; letter-spacing: 2.4px; color: #e6bb7a;
-}
-.lobby-stats { display: flex; gap: 7px; width: 100%; }
-.lobby-stat {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px;
-  padding: 7px 4px; border-radius: 8px;
-  border: 1px solid rgba(214, 166, 86, .38);
-  background: rgba(18, 8, 14, .62);
-  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .12);
-}
-.lobby-stat-value {
-  font-family: Georgia, serif; font-size: 17px; font-weight: 700; line-height: 1.2;
-  color: #ffebb8; text-shadow: 0 1px 4px rgba(0, 0, 0, .8);
-}
-.lobby-stat-label { font-size: 9px; color: #cfa98f; letter-spacing: 1px; }
-
-.lobby-recent { width: 100%; display: flex; flex-direction: column; gap: 5px; flex: 1; min-height: 0; }
-.lobby-recent-head { display: flex; align-items: center; justify-content: space-between; }
-.lobby-recent-more { font-size: 9px; color: #a8ecf7; }
-.lobby-recent-list { display: flex; flex-direction: column; gap: 4px; }
-.lobby-recent-row {
-  display: flex; align-items: center; gap: 7px;
-  padding: 4px 7px; border-radius: 6px;
-  border: 1px solid rgba(214, 166, 86, .18);
-  background: rgba(16, 7, 12, .5);
-}
-.lobby-recent-result {
-  width: 20px; height: 20px; flex-shrink: 0; border-radius: 4px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700; color: #2b1504;
-  background: linear-gradient(180deg, #ffdf8e, #b47b1f);
-}
-.lobby-recent-result.is-lose { background: linear-gradient(180deg, #8e7a6c, #4a3a30); color: #f6e6d2; }
-.lobby-recent-result.is-tie { background: linear-gradient(180deg, #cfd6df, #7c8794); color: #1d2126; }
-.lobby-recent-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.lobby-recent-main { font-size: 10px; color: #f4e3cd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lobby-recent-sub { font-size: 8.5px; color: #b9977f; }
-.lobby-recent-empty {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 3px; padding: 0 10px; text-align: center;
-}
-.lobby-recent-empty-main { font-size: 11px; color: #c9a894; }
-.lobby-recent-empty-sub { font-size: 9px; line-height: 1.6; color: #95796a; }
-.brand-actions { width: 100%; display: flex; gap: 8px; }
-.brand-btn { flex: 1; font-size: 11px; padding: 7px 0; text-align: center; }
-
-/* 模式选择条 */
-.mode-bar {
-  display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
-  padding: 9px 14px; border-radius: 12px;
-  border: 1px solid rgba(226, 180, 102, .42);
-  background: linear-gradient(160deg, rgba(52, 24, 37, .82), rgba(20, 8, 15, .9));
-  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .2), 0 8px 20px rgba(0, 0, 0, .52);
-}
-.mode-bar-label { flex-shrink: 0; font-size: 9px; font-weight: 700; letter-spacing: 2px; color: #e6bb7a; }
-.mode-chip {
-  display: flex; align-items: center; gap: 6px;
-  padding: 6px 11px; border-radius: 8px;
-  border: 1px solid rgba(214, 166, 86, .5);
-  background: linear-gradient(180deg, #4f2b3c, #23111c);
-  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .18);
-}
-.mode-chip-name { font-size: 12px; font-weight: 600; color: #edd4b4; }
-.mode-chip-tag {
-  font-size: 8.5px; color: #b9977f; padding: 1px 5px; border-radius: 8px;
-  border: 1px solid rgba(214, 166, 86, .32);
-}
-.mode-chip.is-active {
-  border-color: #fff0be;
-  background: linear-gradient(180deg, #ffeaad 0%, #e4ae4e 55%, #b87b1e 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .75), 0 0 10px rgba(243, 198, 108, .35);
-}
-.mode-chip.is-active .mode-chip-name { color: #261204; font-weight: 700; }
-.mode-chip.is-active .mode-chip-tag { color: #4a2a06; border-color: rgba(74, 42, 6, .38); }
-.mode-chip.is-locked { opacity: .58; }
-.mode-bar-hint { margin-left: auto; font-size: 9.5px; color: #cba894; }
 
 /* 战绩弹层 */
 .records-dialog { width: 720px; }
@@ -2098,124 +2018,38 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .profile-rank { font-size: 11px; font-weight: 700; color: #ffd88e; }
 .profile-stats { margin-left: auto; font-size: 9.5px; color: #c9a894; }
 
-.home-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
-.home-choices { display: flex; gap: 18px; flex: 1; min-height: 0; }
-.choice {
-  position: relative; flex: 1; min-width: 0;
-  display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between;
-  padding: 20px 22px 18px; border-radius: 14px;
-  border: 1.5px solid rgba(226, 180, 102, .62);
-  background:
-    radial-gradient(ellipse 85% 55% at 50% 0%, rgba(255, 220, 158, .14), transparent 68%),
-    repeating-linear-gradient(45deg, rgba(255, 230, 200, .015) 0px, rgba(255, 230, 200, .015) 1px, transparent 1px, transparent 6px),
-    linear-gradient(160deg, #613044 0%, #331724 58%, #1c0c15 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(14, 5, 11, .75),
-    inset 0 0 0 3px rgba(243, 212, 139, .16),
-    inset 0 1px 0 rgba(255, 244, 214, .34),
-    0 16px 38px rgba(0, 0, 0, .68);
-}
-.choice-room {
-  border-color: rgba(243, 202, 120, .75);
-  background:
-    radial-gradient(ellipse 85% 55% at 50% 0%, rgba(255, 214, 136, .18), transparent 68%),
-    repeating-linear-gradient(45deg, rgba(255, 230, 200, .015) 0px, rgba(255, 230, 200, .015) 1px, transparent 1px, transparent 6px),
-    linear-gradient(160deg, #563248 0%, #2c1828 58%, #180c17 100%);
-}
-.choice-top {
-  width: 100%; display: flex; align-items: center; justify-content: space-between;
-}
-.choice-tag {
-  font-size: 10px; font-weight: 600; letter-spacing: 2px; color: #ffe6ae;
-  padding: 4px 10px; border-radius: 4px;
-  border: 1px solid rgba(243, 212, 139, .58);
-  background: rgba(22, 9, 16, .62);
-  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .2);
-}
-.choice-tag-gold {
-  color: #261204; font-weight: 700; border-color: #fff0be;
-  background: linear-gradient(160deg, #ffeaad, #d49b3c);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .65), 0 2px 6px rgba(0, 0, 0, .45);
-}
-.choice-medal {
-  position: relative; width: 38px; height: 38px; border-radius: 50%;
-  box-shadow: 0 2px 0 #6e4a26, 0 5px 10px rgba(0, 0, 0, .65);
-}
-.choice-medal-gem {
-  position: absolute; left: 50%; top: 50%; width: 20px; height: 20px;
-  margin-left: -10px; margin-top: -10px;
-}
-.choice-title {
-  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", Georgia, serif;
-  font-size: 31px; font-weight: 700; letter-spacing: 4px; color: #ffedc2;
-  margin-top: 6px;
-  text-shadow: 0 2px 0 #5e3910, 0 4px 12px rgba(0, 0, 0, .82);
-}
-.choice-desc { font-size: 12px; line-height: 1.7; color: #e4c6b6; margin-top: 4px; min-height: 40px; }
-.choice-points {
-  width: 100%; box-sizing: border-box;
-  display: flex; flex-direction: column; gap: 6px;
-  margin-top: 8px; padding: 9px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(243, 212, 139, .22);
-  background: rgba(16, 6, 12, .46);
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, .42);
-}
-.choice-point { font-size: 11px; color: #dec0aa; }
-.choice-point::before { content: '✦'; margin-right: 7px; color: #eab862; font-size: 10px; }
-.choice-counts {
-  width: 100%; display: flex; gap: 8px; margin-top: 12px;
-}
+/* 人数按钮供建房 / 人机设置弹层与房间界面共用。 */
 .count-chip {
   flex: 1; min-width: 58px; padding: 7px 10px; border-radius: 6px; text-align: center;
-  font-size: 12px; font-weight: 600; color: #edd4b4;
-  white-space: nowrap;
+  font-size: 12px; font-weight: 600; color: #edd4b4; white-space: nowrap;
   border: 1px solid rgba(214, 166, 86, .52);
   background: linear-gradient(180deg, #4f2b3c, #23111c);
   box-shadow: inset 0 1px 0 rgba(255, 240, 200, .2), 0 2px 5px rgba(0, 0, 0, .48);
 }
-/* 回合计时行有 4 个选项，比人数行更挤一档：收窄内边距，保证「120 秒」不换行 */
 .room-counts .count-chip { min-width: 50px; padding: 7px 7px; }
 .count-chip.is-active {
   color: #261204; font-weight: 700; border-color: #fff0be;
   background: linear-gradient(180deg, #ffeaad 0%, #e4ae4e 55%, #b87b1e 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .75), 0 0 10px rgba(243, 198, 108, .35), 0 3px 6px rgba(0, 0, 0, .55);
 }
-/* 建房时的回合计时选择：比人数更细一档，避免把卡片撑太高 */
-.choice-timer { width: 100%; display: flex; align-items: center; gap: 8px; margin-top: 9px; }
-.choice-timer-label {
-  flex-shrink: 0; font-size: 10px; font-weight: 600; letter-spacing: 1px;
-  color: #e8c69a; text-shadow: 0 1px 2px #000;
-}
-.timer-chips { flex: 1; display: flex; gap: 5px; }
+.guild-overlay { background: rgba(13, 7, 10, .72); }
+.guild-dialog { width: 490px; padding: 24px 28px; border-color: #cda760; }
+.guild-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.guild-dialog-close { width: 32px; height: 32px; line-height: 30px; text-align: center; font-size: 27px; color: #dfc292; }
+.guild-config { display: flex; flex-direction: column; gap: 18px; padding: 26px 0 22px; }
+.guild-config-row { display: flex; align-items: center; gap: 16px; }
+.guild-config-label { flex: 0 0 64px; font-size: 13px; color: #e0c69e; }
+.guild-config-options { flex: 1; min-width: 0; display: flex; gap: 8px; }
+.guild-config .count-chip { min-width: 0; padding: 10px 0; }
 .timer-chip {
-  flex: 1; padding: 4px 0; border-radius: 5px; text-align: center;
-  font-size: 10.5px; font-weight: 600; color: #e4c8a8;
-  border: 1px solid rgba(214, 166, 86, .4);
-  background: rgba(30, 14, 24, .72);
-  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .14);
+  flex: 1; min-width: 0; padding: 10px 0; border-radius: 6px; text-align: center;
+  font-size: 11px; white-space: nowrap; color: #ddc7a4;
+  border: 1px solid rgba(226, 190, 126, .35); background: rgba(9, 9, 13, .3);
 }
-.timer-chip.is-active {
-  color: #261204; border-color: #fff0be;
-  background: linear-gradient(180deg, #ffe9a6 0%, #dda94a 58%, #b0761c 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 0 8px rgba(243, 198, 108, .3);
-}
-.choice-btn {
-  margin-top: 12px; width: 100%; box-sizing: border-box;
-  text-align: center; font-size: 15px; font-weight: 700; letter-spacing: 4px;
-  padding: 11px 0; border-radius: 8px;
-}
-.home-foot {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 10px 16px; border-radius: 12px;
-  border: 1px solid rgba(226, 180, 102, .42);
-  background: linear-gradient(160deg, rgba(52, 24, 37, .82), rgba(20, 8, 15, .9));
-  box-shadow: inset 0 1px 0 rgba(255, 240, 200, .2), 0 8px 20px rgba(0, 0, 0, .52);
-}
-.home-join { display: flex; align-items: center; gap: 10px; }
-.home-input { width: 220px; }
-.home-cloud { font-size: 10px; letter-spacing: .5px; color: #d8b8a6; }
-.home-cloud.is-cloud { color: #a4f0bc; font-weight: 600; }
+.timer-chip.is-active { color: #2a1807; border-color: #f4d48d; background: linear-gradient(180deg, #ffe4a1, #c89238); }
+.guild-config-note { font-size: 12px; line-height: 1.6; color: #c5a97e; }
+.guild-config .guild-join-input { flex: 1; min-width: 0; width: 0; height: 43px; box-sizing: border-box; font-size: 16px; letter-spacing: 4px; }
+.home-notice { font-size: 12px; line-height: 1.7; color: #ffcc99; }
 
 /* 房间界面：皇家议事厅席位大堂 */
 .room-screen {
