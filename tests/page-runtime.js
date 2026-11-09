@@ -201,5 +201,73 @@ page.onLeaveRoom();
 assert(page.data.screen === 'home', '离开房间回到首页');
 assert(page.room === null, '房间引用已释放');
 
+/* ---------- 真人入席 → 点准备 → 全员就绪房主才可开始 ---------- */
+page.onCreateRoom();
+assert(page.data.screen === 'room', '重新建房回到房间界面');
+assert(page.data.roomScreen.statusText === '已加入 1 人 · 已准备 1/3', '开局只有房主已就绪');
+
+// 好友凭房间号入席，尚未点准备
+page.room.seats[1] = Object.assign({}, page.room.seats[1], {
+  joined: true, uid: 'guest-a', name: '群友甲', nickname: '群友甲', ready: false
+});
+page.refresh('');
+assert(page.data.roomScreen.joinedHumans === 2, '房主端实时看到已加入 2 人');
+assert(page.data.roomScreen.statusText === '已加入 2 人 · 已准备 1/3', '状态行随入席更新');
+assert(page.data.roomScreen.waitingReady === 1, '统计到 1 人未准备');
+assert(page.data.roomScreen.tip === '还有 1 位玩家未准备', '提示差几位未准备');
+assert(page.data.roomScreen.canStart === false, '有人未准备时房主不能开始');
+assert(page.data.roomScreen.startLabel === '等待玩家准备', '开始按钮保持等待态');
+assert(page.data.roomScreen.seats[1].stateText === '未准备', '席位状态为未准备');
+assert(page.data.roomScreen.seats[1].joined === true, '席位标记为已入席');
+assert(page.data.roomScreen.seats[1].canToggleBot === false, '已入席席位不能再改机器人');
+assert(page.data.roomScreen.emptyCount === 1, '仍剩 1 个空席');
+assert(page.data.roomScreen.seats[2].canToggleBot === true, '空席对房主开放「设为机器人」');
+assert(page.data.roomScreen.seats[0].canToggleBot === false, '自己的席位没有改机器人按钮');
+
+// 好友点准备
+page.mySeat = 1;
+page.refresh('');
+assert(page.data.roomScreen.seats[1].isSelf === true, '好友定位到 2 号席');
+assert(page.data.roomScreen.seats[1].label.indexOf('你') > 0, '席位标注「你」');
+assert(page.data.roomScreen.seats[1].canReady === true, '好友可自己点准备');
+page.onRoomToggleReady();
+assert(page.data.roomScreen.seats[1].ready === true, '好友准备成功');
+assert(page.data.roomScreen.readyCount === 2, '准备数 +1');
+assert(page.data.roomScreen.waitingReady === 0, '无人待准备');
+assert(page.data.roomScreen.tip.indexOf('还有 1 个空席位') === 0, '提示改为空席缺口');
+assert(page.data.roomScreen.canStart === false, '空席未补满时仍不能开始');
+assert(page.data.roomScreen.startLabel === '已准备 · 等房主开始', '好友侧显示等待房主');
+assert(page.data.roomScreen.seats[2].canToggleBot === false, '非房主不能把空席改机器人');
+
+// 好友取消准备 → 房主端回到「有人未准备」
+page.onRoomToggleReady();
+assert(page.data.roomScreen.myReady === false, '好友取消准备');
+assert(page.data.roomScreen.readyLabel === '准备', '按钮文案回到「准备」');
+page.mySeat = 0;
+page.refresh('');
+assert(page.data.roomScreen.canStart === false, '取消准备后房主不能开始');
+assert(page.data.roomScreen.tip === '还有 1 位玩家未准备', '房主端重新提示未准备');
+assert(page.data.roomScreen.seats[1].stateText === '未准备', '席位回到未准备');
+
+// 好友重新准备 + 房主把空席补成机器人 → 全员就绪
+page.mySeat = 1;
+page.onRoomToggleReady();
+page.mySeat = 0;
+tap('onRoomToggleBot', { index: 2 });
+assert(page.data.roomScreen.botCount === 1, '空席补入机器人');
+assert(page.data.roomScreen.readyCount === 3, '全员准备 3/3');
+assert(page.data.roomScreen.tip === '全员已就绪，房主可以开始牌局', '就绪后提示可开局');
+assert(page.data.roomScreen.canStart === true, '全员准备后房主才可开始');
+assert(page.data.roomScreen.startLabel === '开始牌局', '按钮转为「开始牌局」');
+
+page.onRoomStart();
+assert(page.data.screen === 'game', '房主开局进入牌桌');
+assert(page.state.players.length === 3, '按房间人数开出 3 人局');
+assert(page.state.players[1].name === '群友甲', '真人席位用昵称入局');
+assert(page.state.players[1].isAI === false, '真人席位不托管');
+assert(page.state.players[2].isAI === true, '机器人席位 AI 托管');
+drain(80);
+console.log('OK  真人入席准备流 · 人数/准备实时变化 · 全员就绪房主才可开局');
+
 page.onUnload();
 console.log('ALL RUNTIME CHECKS PASSED');

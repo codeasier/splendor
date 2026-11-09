@@ -128,6 +128,33 @@ assert(roomHtml.indexOf('房间号') > 0, '房间界面应显示房间号');
 assert(roomHtml.indexOf('已加入') > 0 && roomHtml.indexOf('已准备') > 0, '房间界面应显示加入与准备人数');
 assert(roomHtml.indexOf('等待玩家准备') > 0, '有未就绪席位时房主不可开始');
 assert(roomHtml.indexOf('data-tap="onRoomToggleBot"') > 0, '空席应可改成机器人');
+
+// 4.1.1 好友入席但未点准备：人数 / 准备数 / 提示须实时反映
+const origSeat1 = a.page.room.seats[1];
+a.page.room.seats[1] = Object.assign({}, origSeat1, {
+  joined: true, uid: 'guest-preview', name: '群友乙', nickname: '群友乙', ready: false
+});
+a.page.refresh('');
+const guestHtml = a.host.innerHTML;
+assert(guestHtml.indexOf('已加入 2 人 · 已准备 1/3') > 0, '应实时显示已加入 2 人 / 已准备 1/3');
+assert(guestHtml.indexOf('还有 1 位玩家未准备') > 0, '应提示还有 1 位玩家未准备');
+assert(guestHtml.indexOf('未准备') > 0, '席位胶囊应显示「未准备」');
+assert(guestHtml.indexOf('群友乙') > 0, '席位应显示好友昵称');
+assert(guestHtml.indexOf('等待玩家准备') > 0, '有人未准备时开始按钮不可用');
+assert(guestHtml.indexOf('data-tap="onRoomToggleBot"') > 0, '剩余空席仍可改成机器人');
+
+// 好友点准备后，房主端准备数 +1
+a.page.room.seats[1].ready = true;
+a.page.refresh('');
+const readyHtml = a.host.innerHTML;
+assert(readyHtml.indexOf('已加入 2 人 · 已准备 2/3') > 0, '好友准备后计数应变为 2/3');
+assert(readyHtml.indexOf('还有 1 个空席位') > 0, '提示应转为空席缺口');
+
+// 还原空席，继续原「空席→机器人」链路
+a.page.room.seats[1] = origSeat1;
+a.page.refresh('');
+assert(a.host.innerHTML.indexOf('已准备 1/3') > 0, '还原空席后回到只剩房主就绪');
+
 click('onRoomToggleBot', { index: 1 });
 click('onRoomToggleBot', { index: 2 });
 assert(a.page.data.roomScreen.canStart === true, '全员就绪后房主可开始');
