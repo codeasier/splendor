@@ -1021,6 +1021,12 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .setup-toggle.is-bot { color: #f2d7a4; border-color: rgba(243, 212, 139, .5); background: rgba(62, 42, 20, .5); }
 .setup-host { margin-top: 3px; font-size: 9px; color: #a8897c; }
 .invite-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* button 走 open-type="share"，需去掉原生默认样式才能与 .btn 一致 */
+.share-btn {
+  margin: 0; min-height: 0; line-height: 1.5;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.share-btn::after { border: none; }
 .room-code {
   font-family: Georgia, serif; font-size: 22px; font-weight: 700; letter-spacing: 5px;
   color: #ffe0a4; padding: 2px 10px; border-radius: 4px;
@@ -2004,7 +2010,9 @@ function defaultProfile() {
     nickname: '珠宝商',
     avatar: 'a0',
     avatarUrl: '',
-    isWechat: false
+    isWechat: false,
+    // 是否被用户主动改过：false 时入席要引导取昵称，否则同一房间会撞成一片「珠宝商」
+    customized: false
   };
 }
 
@@ -2023,6 +2031,7 @@ function saveProfile(patch) {
   const store = backend();
   const next = Object.assign({}, getProfile(), patch || {});
   if (!next.uid) next.uid = uid();
+  next.customized = true;
   writeJSON(store, PROFILE_KEY, next);
   return next;
 }
@@ -4021,6 +4030,16 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push(ESC(EV(105, $s)));
     $h.push("</span>");
+    $h.push("<button");
+    $h.push(" class=\"");
+    $h.push(ESC("btn share-btn"));
+    $h.push("\"");
+    $h.push(" open-type=\"");
+    $h.push(ESC("share"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("分享到群");
+    $h.push("</button>");
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("btn"));
@@ -4034,7 +4053,7 @@ window.renderStage = function (data) {
     $h.push(ESC("invite-tip"));
     $h.push("\"");
     $h.push(">");
-    $h.push("或点小程序右上角「···」→ 转发给好友");
+    $h.push("点「分享到群」选微信群，成员点卡片即可入席");
     $h.push("</span>");
     $h.push("</div>");
     $h.push("<div");
@@ -5313,7 +5332,7 @@ Page({
         this._pendingJoin = false;
       } else {
         this.ui.showLobby = true;
-        this.ui.roomNotice = '收到房间邀请 ' + code + '，当前为浏览器预览 / 本机房间，请点「加入房间」';
+        this.ui.roomNotice = '收到房间邀请 ' + code + ' · 当前设备未连接云端，只能在本机试玩';
         this.refresh('');
       }
     }
@@ -5438,6 +5457,13 @@ Page({
       that.refresh('已加入云端房间 ' + res.room.code + ' · 你是席位 ' + (res.seat + 1));
       that.startCloudPolling();
       that.pushCloudState();
+      // 首次入席且从未改过资料：立刻引导取昵称，否则同房间多人全叫「珠宝商」
+      if (!that.profile.customized) {
+        that.ui.profileDraft = Object.assign({}, that.profile);
+        that.ui.profileNotice = '取个昵称，群里其他人才认得出你（当前默认「珠宝商」）';
+        that.ui.showProfile = true;
+        that.refresh('');
+      }
       that.maybeRunAi({ ended: true });
     });
   },

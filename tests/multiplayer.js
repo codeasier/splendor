@@ -72,8 +72,10 @@ check('连续机器人回合能推进一轮并回到真人', function () {
 });
 
 check('房间与资料适配层：创建 / 分享 / 校验', function () {
+  assert.equal(R.defaultProfile().customized, false, '默认资料应标记「未自定义」，入席时才会引导取昵称');
   const p = R.saveProfile({ nickname: '测试商人', avatar: 'a3' });
   assert.equal(R.getProfile().nickname, '测试商人');
+  assert.equal(R.getProfile().customized, true, '保存资料后应标记「已自定义」');
   const room = R.createRoom({ playerCount: 3, profile: p });
   assert.equal(room.code.length, 6);
   assert.equal(room.seats.length, 3);

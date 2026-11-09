@@ -584,7 +584,7 @@ Page({
         this._pendingJoin = false;
       } else {
         this.ui.showLobby = true;
-        this.ui.roomNotice = '收到房间邀请 ' + code + '，当前为浏览器预览 / 本机房间，请点「加入房间」';
+        this.ui.roomNotice = '收到房间邀请 ' + code + ' · 当前设备未连接云端，只能在本机试玩';
         this.refresh('');
       }
     }
@@ -709,6 +709,13 @@ Page({
       that.refresh('已加入云端房间 ' + res.room.code + ' · 你是席位 ' + (res.seat + 1));
       that.startCloudPolling();
       that.pushCloudState();
+      // 首次入席且从未改过资料：立刻引导取昵称，否则同房间多人全叫「珠宝商」
+      if (!that.profile.customized) {
+        that.ui.profileDraft = Object.assign({}, that.profile);
+        that.ui.profileNotice = '取个昵称，群里其他人才认得出你（当前默认「珠宝商」）';
+        that.ui.showProfile = true;
+        that.refresh('');
+      }
       that.maybeRunAi({ ended: true });
     });
   },

@@ -95,7 +95,9 @@ function defaultProfile() {
     nickname: '珠宝商',
     avatar: 'a0',
     avatarUrl: '',
-    isWechat: false
+    isWechat: false,
+    // 是否被用户主动改过：false 时入席要引导取昵称，否则同一房间会撞成一片「珠宝商」
+    customized: false
   };
 }
 
@@ -114,6 +116,7 @@ function saveProfile(patch) {
   const store = backend();
   const next = Object.assign({}, getProfile(), patch || {});
   if (!next.uid) next.uid = uid();
+  next.customized = true;
   writeJSON(store, PROFILE_KEY, next);
   return next;
 }

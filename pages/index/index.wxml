@@ -345,8 +345,9 @@
             <text class="lobby-label">邀请好友</text>
             <view class="invite-row">
               <text class="room-code">{{roomCode}}</text>
+              <button class="btn share-btn" open-type="share">分享到群</button>
               <view class="btn" bindtap="onCopyRoomCode">复制房间号</view>
-              <text class="invite-tip">或点小程序右上角「···」→ 转发给好友</text>
+              <text class="invite-tip">点「分享到群」选微信群，成员点卡片即可入席</text>
             </view>
             <view class="join-row">
               <input class="room-input" type="text" maxlength="6" value="{{lobby.joinCode}}"
