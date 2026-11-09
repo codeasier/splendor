@@ -58,6 +58,23 @@ assert(page.data.isMyTurn === true, '首回合为玩家');
 assert(page.data.gameOver === false, '开局未结束');
 console.log('OK  页面初始化 · 视图模型结构完整');
 
+// 四色成本卡（官方牌组里的 1/1/1/1 与三级 3/3/3/5）必须带 is-dense，
+// 否则市场格 92×112 里 21px 圆章会折成第二列压住卡名
+let sawDense = 0;
+for (let round = 0; round < 10 && sawDense === 0; round++) {
+  if (round > 0) page.onStartSolo();
+  page.data.rows.forEach(function (r) {
+    r.cards.forEach(function (c) {
+      if (!c.costs) return;
+      assert(c.costDense === (c.costs.length >= 4), '四色成本标记应与成本数量一致：' + c.name + ' costs=' + c.costs.length);
+      assert(c.costs.length <= 4, '官方卡最多 4 色成本：' + c.name);
+      if (c.costDense) sawDense += 1;
+    });
+  });
+}
+assert(sawDense > 0, '10 次发牌里应至少出现一张四色成本卡');
+console.log('OK  四色成本卡 · 10 次发牌命中 ' + sawDense + ' 张，均带 is-dense');
+
 // 逐个模拟事件处理方法
 function tap(method, dataset) {
   page[method]({ currentTarget: { dataset: dataset } });

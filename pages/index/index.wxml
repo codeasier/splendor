@@ -100,7 +100,7 @@
             </view>
             <text wx:if="{{card.pointsText}}" class="card-points">{{card.pointsText}}</text>
             <view class="card-gem gem-icon {{card.gemClass}}"></view>
-            <view class="card-foot">
+            <view class="card-foot {{card.costDense ? 'is-dense' : ''}}">
               <view wx:for="{{card.costs}}" wx:for-item="cost" wx:key="key"
                     class="cost-bubble gem-icon {{cost.gemClass}} {{cost.covered ? 'is-covered' : ''}}">
                 <text style="color:{{cost.ink}}">{{cost.display}}</text>

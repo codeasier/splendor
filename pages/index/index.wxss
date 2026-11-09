@@ -452,6 +452,11 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
     0 3px 6px rgba(0, 0, 0, .78);
   overflow: hidden;
 }
+/* 四色成本（官方牌组特有）：21px 圆章 ×4 会超过 76px 纵向预算并折成第二列压住卡名，
+   收窄到 17px + 1px 间距，保持单列 71px，卡名区域完全让开 */
+.card-row .card-foot.is-dense { gap: 1px; }
+.card-row .card-foot.is-dense .cost-bubble { width: 17px; height: 17px; }
+.card-row .card-foot.is-dense .cost-bubble text { font-size: 11px; }
 /* 五色成本圆章专属边框高光，强化白/蓝/绿/红/黑的边缘辨识度 */
 .cost-bubble.gem-white { border-color: #556b82; box-shadow: 0 0 0 1px #ffffff, 0 2px 4px rgba(0, 0, 0, .8); }
 .cost-bubble.gem-blue  { border-color: #a8e6ff; }

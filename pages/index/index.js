@@ -101,6 +101,9 @@ function cardVM(state, card, seat, r, c) {
     artClass: 'art-' + (GEMS.indexOf(card.gem) * 3 + (card.art % 3)),
     tiltStyle: tiltStyle,
     costs: costs,
+    // 官方牌组里有 4 色成本的卡（如 1/1/1/1 与三级 3/3/3/5），
+    // 市场格只有 92×112，默认 21px 圆章会折成第二列压住卡名，这里标记出来收窄
+    costDense: costs.length >= 4,
     affordable: E.canBuy(state, s, card)
   };
 }
