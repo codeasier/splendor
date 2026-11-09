@@ -247,80 +247,151 @@ function nobleSVG(tone, seed) {
     '</svg>';
 }
 
-/* 牌库牌背：双层金框 + 中央菱形宝石 + 卷草角花 */
+/* 牌库牌背：双层金框 + 中央菱形宝石 + 卷草角花 + 放射星芒 */
 function deckSVG(tone) {
   // tone 即牌库等级下标：I=绿、II=赭金、III=深蓝。
   // 牌库自上而下为 III / II / I，因而在视觉上呈现「上蓝、中金、下绿」，与市场行一一对应。
   const T = [
-    { a: '#2c7a4c', b: '#103d25', g: '#9ee0b2', g2: '#1d6740' },
-    { a: '#a9812c', b: '#5b3c0a', g: '#ffe6a0', g2: '#9c6c14' },
-    { a: '#24579d', b: '#0d2b5c', g: '#8ec0f5', g2: '#204f95' }
+    { a: '#1e6b43', m: '#13472c', b: '#092316', g: '#a8f0c0', g2: '#1f7a4c', rim: '#f3d79b' },
+    { a: '#b88728', m: '#7d5310', b: '#382205', g: '#fff0b8', g2: '#b37e18', rim: '#ffe2a6' },
+    { a: '#1f5299', m: '#133366', b: '#081836', g: '#a6d4ff', g2: '#255da8', rim: '#f3d9a4' }
   ][tone];
   let rays = '';
-  for (let i = 0; i < 12; i++) {
-    const ang = (i * 30 * Math.PI) / 180;
-    const x1 = 54 + Math.cos(ang) * 18;
-    const y1 = 96 + Math.sin(ang) * 18;
-    const x2 = 54 + Math.cos(ang) * 34;
-    const y2 = 96 + Math.sin(ang) * 34;
-    rays += '<path d="M' + x1.toFixed(1) + ' ' + y1.toFixed(1) + 'L' + x2.toFixed(1) + ' ' + y2.toFixed(1) + '" stroke="' + T.g + '" stroke-opacity=".14" stroke-width="1"/>';
+  for (let i = 0; i < 16; i++) {
+    const ang = (i * 22.5 * Math.PI) / 180;
+    const r1 = i % 2 === 0 ? 14 : 20;
+    const r2 = i % 2 === 0 ? 42 : 34;
+    const x1 = 54 + Math.cos(ang) * r1;
+    const y1 = 96 + Math.sin(ang) * r1;
+    const x2 = 54 + Math.cos(ang) * r2;
+    const y2 = 96 + Math.sin(ang) * r2;
+    rays += '<path d="M' + x1.toFixed(1) + ' ' + y1.toFixed(1) + 'L' + x2.toFixed(1) + ' ' + y2.toFixed(1) + '" stroke="' + T.rim + '" stroke-opacity="' + (i % 2 === 0 ? '.24' : '.14') + '" stroke-width="1.1"/>';
   }
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 192" preserveAspectRatio="xMidYMid slice">' +
     '<defs>' +
-      '<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + T.a + '"/><stop offset="1" stop-color="' + T.b + '"/></linearGradient>' +
+      '<radialGradient id="bg" cx="38%" cy="28%" r="82%"><stop offset="0" stop-color="' + T.a + '"/><stop offset=".55" stop-color="' + T.m + '"/><stop offset="1" stop-color="' + T.b + '"/></radialGradient>' +
       '<linearGradient id="gm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + T.g + '"/><stop offset=".5" stop-color="' + T.g2 + '"/><stop offset="1" stop-color="' + T.b + '"/></linearGradient>' +
     '</defs>' +
     '<rect width="108" height="192" fill="url(#bg)"/>' +
+    '<circle cx="54" cy="96" r="38" fill="none" stroke="' + T.rim + '" stroke-opacity=".22" stroke-width="1"/>' +
+    '<circle cx="54" cy="96" r="28" fill="none" stroke="' + T.rim + '" stroke-opacity=".3" stroke-width=".9" stroke-dasharray="3 2"/>' +
     '<g>' + rays + '</g>' +
-    '<rect x="4" y="4" width="100" height="184" fill="none" stroke="#f0d293" stroke-opacity=".85" stroke-width="2"/>' +
-    '<rect x="9" y="9" width="90" height="174" fill="none" stroke="#f0d293" stroke-opacity=".36" stroke-width=".9"/>' +
-    '<path d="M12 30h84M12 162h84" stroke="#f0d293" stroke-opacity=".45" stroke-width="1"/>' +
-    '<path d="M54 60l30 36-30 36-30-36z" fill="url(#gm)" stroke="#fff0c4" stroke-opacity=".8" stroke-width="1.6"/>' +
-    '<path d="M54 60v72M24 96h60M54 60l-15 36M54 60l15 36" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1"/>' +
-    '<path d="M39 78l15-18-7 24z" fill="#fff" opacity=".22"/>' +
-    '<path d="M54 16l4 6-4 6-4-6zM54 164l4 6-4 6-4-6z" fill="#f0d293" opacity=".8"/>' +
-    '<path d="M16 16q10 2 10 12M92 16q-10 2-10 12M16 176q10-2 10-12M92 176q-10-2-10-12" fill="none" stroke="#f0d293" stroke-opacity=".55" stroke-width="1.1"/>' +
-    '<circle cx="16" cy="96" r="2" fill="#f0d293" opacity=".7"/><circle cx="92" cy="96" r="2" fill="#f0d293" opacity=".7"/>' +
+    '<rect x="3.5" y="3.5" width="101" height="185" rx="3" fill="none" stroke="' + T.rim + '" stroke-opacity=".9" stroke-width="2.2"/>' +
+    '<rect x="8" y="8" width="92" height="176" rx="2" fill="none" stroke="' + T.rim + '" stroke-opacity=".42" stroke-width="1"/>' +
+    '<rect x="12" y="12" width="84" height="168" fill="none" stroke="' + T.rim + '" stroke-opacity=".18" stroke-width=".8"/>' +
+    '<path d="M12 28h84M12 164h84" stroke="' + T.rim + '" stroke-opacity=".48" stroke-width="1"/>' +
+    '<path d="M54 54l32 42-32 42-32-42z" fill="url(#gm)" stroke="#fff2c8" stroke-opacity=".86" stroke-width="1.6"/>' +
+    '<path d="M54 62l25 34-25 34-25-34z" fill="none" stroke="#fff6db" stroke-opacity=".4" stroke-width=".9"/>' +
+    '<path d="M54 54v84M22 96h64M54 54l-16 42M54 54l16 42" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="1"/>' +
+    '<path d="M38 76l16-22-8 28z" fill="#fff" opacity=".25"/>' +
+    '<path d="M54 14l5 7-5 7-5-7zM54 164l5 7-5 7-5-7z" fill="' + T.rim + '" opacity=".88"/>' +
+    '<path d="M14 14h12v3H17v9h-3zM94 14H82v3h9v9h3zM14 178h12v-3H17v-9h-3zM94 178H82v-3h9v-9h3z" fill="' + T.rim + '" opacity=".72"/>' +
+    '<circle cx="15" cy="96" r="2.4" fill="' + T.rim + '" opacity=".8"/><circle cx="93" cy="96" r="2.4" fill="' + T.rim + '" opacity=".8"/>' +
     '</svg>';
 }
 
-/* 顶部横幅装饰：细金线 + 菱纹，用于回合标题 */
+/* 顶部横幅装饰：古典双翼金线 + 菱形宝石花结，用于回合标题 */
 function bannerSVG() {
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 12" preserveAspectRatio="none">' +
-    '<path d="M0 6h150M270 6h150" stroke="#e8c684" stroke-opacity=".55" stroke-width="1"/>' +
-    '<path d="M210 1l5 5-5 5-5-5z" fill="#e8c684" opacity=".8"/>' +
-    '<circle cx="164" cy="6" r="1.6" fill="#e8c684" opacity=".6"/><circle cx="256" cy="6" r="1.6" fill="#e8c684" opacity=".6"/>' +
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 14" preserveAspectRatio="none">' +
+    '<defs><linearGradient id="bl" x1="0" y1="0" x2="1" y2="0">' +
+      '<stop offset="0" stop-color="#f3d48b" stop-opacity="0"/>' +
+      '<stop offset=".2" stop-color="#f3d48b" stop-opacity=".65"/>' +
+      '<stop offset=".5" stop-color="#fff1c8" stop-opacity=".95"/>' +
+      '<stop offset=".8" stop-color="#f3d48b" stop-opacity=".65"/>' +
+      '<stop offset="1" stop-color="#f3d48b" stop-opacity="0"/>' +
+    '</linearGradient></defs>' +
+    '<path d="M8 7h172M240 7h172" stroke="url(#bl)" stroke-width="1.3"/>' +
+    '<path d="M48 4h118M254 4h118" stroke="#f3d48b" stroke-opacity=".28" stroke-width=".8"/>' +
+    '<path d="M210 1l7 6-7 6-7-6z" fill="#ffe8aa" stroke="#9c6c1e" stroke-width=".8"/>' +
+    '<path d="M194 4l3 3-3 3-3-3zM226 4l3 3-3 3-3-3z" fill="#f3d48b" opacity=".85"/>' +
+    '<circle cx="180" cy="7" r="1.8" fill="#ffe8aa" opacity=".75"/><circle cx="240" cy="7" r="1.8" fill="#ffe8aa" opacity=".75"/>' +
     '</svg>';
 }
 
-/* 牌桌中央的低对比度织金纹章，模拟实体桌垫压印 */
+/* 牌桌中央的佛罗伦萨星盘织金纹章，模拟皇家丝绒桌垫压印 */
 function emblemSVG() {
   let rays = '';
-  for (let i = 0; i < 16; i++) {
-    const a = (i * 22.5 * Math.PI) / 180;
-    const x1 = (150 + Math.cos(a) * 62).toFixed(1);
-    const y1 = (150 + Math.sin(a) * 62).toFixed(1);
-    const x2 = (150 + Math.cos(a) * 116).toFixed(1);
-    const y2 = (150 + Math.sin(a) * 116).toFixed(1);
+  for (let i = 0; i < 24; i++) {
+    const a = (i * 15 * Math.PI) / 180;
+    const inner = i % 2 === 0 ? 44 : 64;
+    const outer = i % 2 === 0 ? 128 : 112;
+    const x1 = (150 + Math.cos(a) * inner).toFixed(1);
+    const y1 = (150 + Math.sin(a) * inner).toFixed(1);
+    const x2 = (150 + Math.cos(a) * outer).toFixed(1);
+    const y2 = (150 + Math.sin(a) * outer).toFixed(1);
     rays += '<path d="M' + x1 + ' ' + y1 + 'L' + x2 + ' ' + y2 + '"/>';
   }
   let dots = '';
-  for (let i = 0; i < 8; i++) {
-    const a = (i * 45 * Math.PI) / 180;
-    const x = (150 + Math.cos(a) * 132).toFixed(1);
-    const y = (150 + Math.sin(a) * 132).toFixed(1);
-    dots += '<path d="M' + x + ' ' + (Number(y) - 5).toFixed(1) + 'l5 5-5 5-5-5z"/>';
+  for (let i = 0; i < 12; i++) {
+    const a = (i * 30 * Math.PI) / 180;
+    const x = (150 + Math.cos(a) * 134).toFixed(1);
+    const y = (150 + Math.sin(a) * 134).toFixed(1);
+    dots += '<path d="M' + x + ' ' + (Number(y) - 4.5).toFixed(1) + 'l4.5 4.5-4.5 4.5-4.5-4.5z"/>';
   }
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">' +
-    '<g fill="none" stroke="#f0cf8d" stroke-width="1.2" opacity=".85">' +
-      '<circle cx="150" cy="150" r="138"/><circle cx="150" cy="150" r="126"/><circle cx="150" cy="150" r="58"/>' +
-      '<path d="M150 18L282 150 150 282 18 150z"/>' +
-      '<path d="M150 48L252 150 150 252 48 150z"/>' +
-      '<path d="M150 84L216 150 150 216 84 150z"/>' +
+    '<g fill="none" stroke="#f3d48b" stroke-width="1.2" opacity=".9">' +
+      '<circle cx="150" cy="150" r="144"/><circle cx="150" cy="150" r="138" stroke-dasharray="4 3"/>' +
+      '<circle cx="150" cy="150" r="126"/><circle cx="150" cy="150" r="92" stroke-dasharray="2 3"/>' +
+      '<circle cx="150" cy="150" r="62"/><circle cx="150" cy="150" r="42"/>' +
+      '<path d="M150 12L288 150 150 288 12 150z"/>' +
+      '<path d="M52 52h196v196H52z"/>' +
+      '<path d="M150 44L256 150 150 256 44 150z"/>' +
+      '<path d="M150 78L222 150 150 222 78 150z"/>' +
       rays +
     '</g>' +
-    '<g fill="#f0cf8d" opacity=".8">' + dots + '</g>' +
-    '<path d="M150 108l34 42-34 42-34-42z" fill="none" stroke="#f0cf8d" stroke-width="1.6"/>' +
+    '<g fill="#f3d48b" opacity=".85">' + dots + '</g>' +
+    '<path d="M150 104l46 46-46 46-46-46z" fill="none" stroke="#ffe7ad" stroke-width="1.8"/>' +
+    '<circle cx="150" cy="150" r="14" fill="none" stroke="#ffe7ad" stroke-width="1.6"/>' +
+    '</svg>';
+}
+
+/* 牌桌四角黄铜雕花包角（带红宝石铆钉） */
+function cornerMountSVG() {
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">' +
+    '<defs>' +
+      '<linearGradient id="br" x1="0" y1="0" x2="1" y2="1">' +
+        '<stop offset="0" stop-color="#fff2c6"/><stop offset=".45" stop-color="#d9a650"/><stop offset="1" stop-color="#6e4414"/>' +
+      '</linearGradient>' +
+      '<radialGradient id="rb" cx="35%" cy="30%" r="70%">' +
+        '<stop offset="0" stop-color="#ffd0c8"/><stop offset=".45" stop-color="#d9383a"/><stop offset="1" stop-color="#590d16"/>' +
+      '</radialGradient>' +
+    '</defs>' +
+    '<path d="M2 2h38l-6 7H14v25l-7 6V2z" fill="url(#br)" stroke="#3b2008" stroke-width="1"/>' +
+    '<path d="M5 5h29l-3 3H11v23l-3 3V5z" fill="none" stroke="#fff6d6" stroke-opacity=".65" stroke-width=".9"/>' +
+    '<path d="M14 14q12 0 18 6t6 18q-8-10-14-14t-10-10z" fill="url(#br)" opacity=".88"/>' +
+    '<circle cx="11" cy="11" r="4.5" fill="url(#rb)" stroke="#fff0c0" stroke-width="1"/>' +
+    '<circle cx="28" cy="6" r="1.6" fill="#fff2c6"/><circle cx="6" cy="28" r="1.6" fill="#fff2c6"/>' +
+    '</svg>';
+}
+
+/* 首页皇家珠宝行会徽章：八芒星 + 金桂冠 + 宝石镶座 */
+function brandCrestSVG() {
+  let pts = '';
+  for (let i = 0; i < 16; i++) {
+    const a = (i * 22.5 * Math.PI) / 180;
+    const r = i % 2 === 0 ? 44 : 31;
+    const x = (48 + Math.cos(a) * r).toFixed(1);
+    const y = (48 + Math.sin(a) * r).toFixed(1);
+    pts += (i === 0 ? 'M' : 'L') + x + ' ' + y;
+  }
+  pts += 'Z';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">' +
+    '<defs>' +
+      '<radialGradient id="cg" cx="34%" cy="24%" r="76%">' +
+        '<stop offset="0" stop-color="#fff6d8"/><stop offset=".38" stop-color="#eab862"/>' +
+        '<stop offset=".75" stop-color="#9e681c"/><stop offset="1" stop-color="#452409"/>' +
+      '</radialGradient>' +
+      '<radialGradient id="in" cx="50%" cy="40%" r="60%">' +
+        '<stop offset="0" stop-color="#381c2c"/><stop offset="1" stop-color="#130811"/>' +
+      '</radialGradient>' +
+    '</defs>' +
+    '<path d="' + pts + '" fill="url(#cg)" stroke="#fff1c2" stroke-opacity=".75" stroke-width="1.2"/>' +
+    '<circle cx="48" cy="48" r="32" fill="url(#cg)" stroke="#522c0a" stroke-width="1.4"/>' +
+    '<circle cx="48" cy="48" r="29" fill="none" stroke="#fff5d6" stroke-opacity=".75" stroke-width="1"/>' +
+    '<circle cx="48" cy="48" r="24" fill="url(#in)" stroke="#eab862" stroke-width="1.5"/>' +
+    '<circle cx="48" cy="48" r="20" fill="none" stroke="#f3d48b" stroke-opacity=".45" stroke-width=".9" stroke-dasharray="2.5 2"/>' +
+    '<circle cx="48" cy="19" r="2" fill="#fff5d6"/><circle cx="48" cy="77" r="2" fill="#fff5d6"/>' +
+    '<circle cx="19" cy="48" r="2" fill="#fff5d6"/><circle cx="77" cy="48" r="2" fill="#fff5d6"/>' +
     '</svg>';
 }
 
@@ -328,39 +399,43 @@ function emblemSVG() {
  * 伪 3D 桌面素材
  * ------------------------------------------------------------------ */
 
-/** 底部用户工作台：S 形拱起的金色凹槽托盘上缘（参考图的标志性轮廓） */
+/** 底部用户工作台：S 形拱起的皇家乌木镶金托盘（四边全包金框 + 左右雕花翼板） */
 function trayRimSVG() {
-  const rim = 'M0 58 L196 58 C220 58 218 6 262 6 L680 6 C724 6 722 58 746 58 L950 58';
+  const outer = 'M4 124 L4 66 Q4 54 16 54 L196 54 C222 54 220 5 264 5 L686 5 C730 5 728 54 754 54 L934 54 Q946 54 946 66 L946 124 Q946 128 942 128 L8 128 Q4 128 4 124 Z';
+  const topRim = 'M6 64 Q6 54 16 54 L196 54 C222 54 220 5 264 5 L686 5 C730 5 728 54 754 54 L934 54 Q944 54 944 64';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 130" preserveAspectRatio="none">' +
     '<defs>' +
       '<linearGradient id="well" x1="0" y1="0" x2="0" y2="1">' +
-        '<stop offset="0" stop-color="#0b050a" stop-opacity=".97"/>' +
-        '<stop offset=".32" stop-color="#2a1622" stop-opacity=".94"/>' +
-        '<stop offset="1" stop-color="#070307" stop-opacity=".99"/>' +
+        '<stop offset="0" stop-color="#26111e" stop-opacity=".97"/>' +
+        '<stop offset=".42" stop-color="#311626" stop-opacity=".97"/>' +
+        '<stop offset="1" stop-color="#12070e" stop-opacity=".99"/>' +
       '</linearGradient>' +
       '<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">' +
-        '<stop offset="0" stop-color="#fff2cc"/><stop offset=".36" stop-color="#eac078"/>' +
-        '<stop offset=".74" stop-color="#a9762a"/><stop offset="1" stop-color="#5e3a0d"/>' +
+        '<stop offset="0" stop-color="#fff6d6"/><stop offset=".35" stop-color="#f0c372"/>' +
+        '<stop offset=".72" stop-color="#a87224"/><stop offset="1" stop-color="#5c370c"/>' +
       '</linearGradient>' +
       '<linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">' +
-        '<stop offset="0" stop-color="#fff0c0" stop-opacity=".08"/>' +
-        '<stop offset=".5" stop-color="#fff0c0" stop-opacity=".62"/>' +
-        '<stop offset="1" stop-color="#fff0c0" stop-opacity=".08"/>' +
+        '<stop offset="0" stop-color="#fff0c0" stop-opacity=".22"/>' +
+        '<stop offset=".25" stop-color="#fff5d6" stop-opacity=".68"/>' +
+        '<stop offset=".5" stop-color="#ffffff" stop-opacity=".88"/>' +
+        '<stop offset=".75" stop-color="#fff5d6" stop-opacity=".68"/>' +
+        '<stop offset="1" stop-color="#fff0c0" stop-opacity=".22"/>' +
       '</linearGradient>' +
     '</defs>' +
-    // 凹陷主体：上缘起伏，下方填深色，读起来像嵌进桌布的金属托盘
-    '<path d="' + rim + ' L950 130 L0 130 Z" fill="url(#well)"/>' +
     // 上缘外侧的桌布投影：让金边看起来是"压"在绒布上
-    '<path d="' + rim + '" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="10" transform="translate(0,-6)"/>' +
-    // 金色主描边 + 顶部高光细线
-    '<path d="' + rim + '" fill="none" stroke="url(#rim)" stroke-width="3"/>' +
-    '<path d="' + rim + '" fill="none" stroke="url(#sheen)" stroke-width="1.1" transform="translate(0,-1.7)"/>' +
+    '<path d="' + topRim + '" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="10" transform="translate(0,-4)"/>' +
+    // 凹陷主体：完整包边闭合，不再在左右两侧露出直角黑边
+    '<path d="' + outer + '" fill="url(#well)" stroke="url(#rim)" stroke-width="3.2"/>' +
     // 凹槽内壁阴影：金线下方一道暗边，产生深度
-    '<path d="' + rim + '" fill="none" stroke="#000" stroke-opacity=".66" stroke-width="4.5" transform="translate(0,4.5)"/>' +
-    // 拱内横向织纹与底部反光
-    '<path d="M278 54 H664" stroke="#f0cf8d" stroke-opacity=".12" stroke-width=".8"/>' +
-    '<path d="M0 124 H950" stroke="#e8bd72" stroke-opacity=".18" stroke-width="1"/>' +
-    '<path d="M262 6 H680" stroke="#fff3d0" stroke-opacity=".28" stroke-width=".7" transform="translate(0,3)"/>' +
+    '<path d="' + topRim + '" fill="none" stroke="#000" stroke-opacity=".68" stroke-width="4.5" transform="translate(0,4.5)"/>' +
+    // 顶部高光细线 + 内嵌细金线
+    '<path d="' + topRim + '" fill="none" stroke="url(#sheen)" stroke-width="1.2" transform="translate(0,-1.4)"/>' +
+    '<path d="' + topRim + '" fill="none" stroke="#f3d48b" stroke-opacity=".26" stroke-width=".9" transform="translate(0,7)"/>' +
+    // 左右分区雕花立柱与中拱装饰线
+    '<path d="M236 56 V122 M714 56 V122" stroke="#f3d48b" stroke-opacity=".26" stroke-width="1.2"/>' +
+    '<path d="M236 52l4 4-4 4-4-4zM714 52l4 4-4 4-4-4zM475 1l5 4-5 4-5-4z" fill="#ffe7ad" opacity=".86"/>' +
+    '<path d="M276 52 H674" stroke="#f0cf8d" stroke-opacity=".16" stroke-width=".9"/>' +
+    '<path d="M16 123 H934" stroke="#e8bd72" stroke-opacity=".24" stroke-width="1"/>' +
     '</svg>';
 }
 
@@ -412,69 +487,93 @@ function rivalPlaqueSVG() {
  * 数字与文字一律由 WXML 实时渲染，不烘焙进任何图片。
  * ================================================================== */
 
-/* ---------- 宝石：每种宝石有自己的轮廓与切面 ---------- */
+/* ---------- 宝石：每种宝石有自己的轮廓与切面（外冠高亮 + 内台深邃折射，兼顾立体感与叠字可读性） ---------- */
 const GEM_META = {
-  white: { hi: '#ffffff', mid: '#c7ddea', dark: '#6f8fa3', shape: 'diamond' },
-  blue:  { hi: '#c9e0ff', mid: '#3f74c8', dark: '#16356e', shape: 'oval' },
-  green: { hi: '#c9ffdc', mid: '#2fa86a', dark: '#0d4a2a', shape: 'rect' },
-  red:   { hi: '#ffd2c4', mid: '#d84a48', dark: '#701b25', shape: 'cushion' },
-  black: { hi: '#c9c1d2', mid: '#3b3340', dark: '#100e16', shape: 'octagon' },
-  gold:  { hi: '#fff6cf', mid: '#d8a33c', dark: '#7a4c0d', shape: 'coin' }
+  white: { hi: '#ffffff', mid: '#bfe0f5', dark: '#3d5a73', table0: '#6488a6', table1: '#2c4459', rim: '#1d2f40', shape: 'diamond' },
+  blue:  { hi: '#d6ecff', mid: '#3878d6', dark: '#0e2856', table0: '#275ead', table1: '#0c224a', rim: '#091936', shape: 'oval' },
+  green: { hi: '#d4ffe4', mid: '#28a866', dark: '#093d22', table0: '#1d824d', table1: '#08331c', rim: '#052413', shape: 'rect' },
+  red:   { hi: '#ffd8cc', mid: '#dc4244', dark: '#5e111b', table0: '#b3242b', table1: '#4d0d16', rim: '#380810', shape: 'cushion' },
+  black: { hi: '#dfd6eb', mid: '#564866', dark: '#140f1d', table0: '#3d314c', table1: '#120d1a', rim: '#09060e', shape: 'octagon' },
+  gold:  { hi: '#fff8d6', mid: '#e2a836', dark: '#6b4008', table0: '#b87d18', table1: '#593306', rim: '#3d2204', shape: 'coin' }
 };
 
 function gemSVG(key) {
   const m = GEM_META[key];
   let outline;
+  let table;
   let facets;
   if (m.shape === 'diamond') {
-    outline = 'M32 5L55 25 32 59 9 25Z';
-    facets = 'M9 25h46M32 5v54M20 25l12-20 12 20-12 34z';
+    outline = 'M32 4L57 25 32 60 7 25Z';
+    table = 'M32 14L46 26 32 48 18 26Z';
+    facets = 'M7 25h50M32 4v56M18 26L32 4l14 22-14 22zM7 25l11 1M57 25l-11 1';
   } else if (m.shape === 'oval') {
-    outline = 'M32 7c14 0 24 11 24 25S46 57 32 57 8 46 8 32 18 7 32 7Z';
-    facets = 'M32 7v50M8 32h48M14 18l18 14 18-14M14 46l18-14 18 14';
+    outline = 'M32 6c15 0 25 11.5 25 26S47 58 32 58 7 46.5 7 32 17 6 32 6Z';
+    table = 'M32 15c9.5 0 16 7.5 16 17s-6.5 17-16 17-16-7.5-16-17 6.5-17 16-17Z';
+    facets = 'M32 6v52M7 32h50M13 15l19 17 19-17M13 49l19-17 19 17';
   } else if (m.shape === 'rect') {
-    outline = 'M15 12h34l8 8v24l-8 8H15l-8-8V20Z';
-    facets = 'M15 12L7 20v24l8 8h34l8-8V20l-8-8zM20 19h24v26H20zM15 12l5 7M49 12l-5 7M15 52l5-7M49 52l-5-7';
+    outline = 'M14 10h36l9 9v26l-9 9H14l-9-9V19Z';
+    table = 'M19 17h26l5 5v20l-5 5H19l-5-5V22Z';
+    facets = 'M14 10l5 7M50 10l-5 7M14 54l5-7M50 54l-5-7M5 19l9 3M59 19l-9 3M5 45l9-3M59 45l-9-3';
   } else if (m.shape === 'cushion') {
-    outline = 'M21 9h22l13 13v20L43 55H21L8 42V22Z';
-    facets = 'M8 22h48M8 42h48M21 9v46M43 9v46M21 9L8 22M43 9l13 13M21 55L8 42M43 55l13-13';
+    outline = 'M20 8h24l14 14v20L44 56H20L6 42V22Z';
+    table = 'M23 16h18l8 8v16l-8 8H23l-8-8V24Z';
+    facets = 'M6 22l9 2M58 22l-9 2M6 42l9-2M58 42l-9-2M20 8l3 8M44 8l-3 8M20 56l3-8M44 56l-3-8';
   } else if (m.shape === 'octagon') {
-    outline = 'M22 7h20l15 15v20L42 57H22L7 42V22Z';
-    facets = 'M7 22h50M7 42h50M22 7v50M42 7v50M22 7L7 22M42 7l15 15M22 57L7 42M42 57l15-15';
+    outline = 'M21 6h22l15 15v22L43 58H21L6 43V21Z';
+    table = 'M24 15h16l10 10v14L40 49H24L14 39V25Z';
+    facets = 'M6 21l8 4M58 21l-8 4M6 43l8-4M58 43l-8-4M21 6l3 9M43 6l-3 9M21 58l3-9M43 58l-3-9';
   } else {
-    outline = 'M32 6a26 26 0 1 0 0 52a26 26 0 1 0 0-52Z';
-    facets = 'M32 13v38M13 32h38M19 19l26 26M45 19L19 45';
+    outline = 'M32 5a27 27 0 1 0 0 54a27 27 0 1 0 0-54Z';
+    table = 'M32 14a18 18 0 1 0 0 36a18 18 0 1 0 0-36Z';
+    facets = 'M32 5v54M5 32h54M13 13l38 38M51 13L13 51';
   }
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet">' +
-    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
-      '<stop offset="0" stop-color="' + m.hi + '"/><stop offset=".42" stop-color="' + m.mid + '"/>' +
-      '<stop offset="1" stop-color="' + m.dark + '"/></linearGradient></defs>' +
-    '<path d="' + outline + '" fill="url(#g)" stroke="' + m.dark + '" stroke-width="1.6"/>' +
-    '<path d="' + facets + '" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1"/>' +
-    '<path d="M32 5L9 25l23 34z" fill="#fff" opacity=".1"/>' +
-    '<ellipse cx="23" cy="18" rx="7" ry="3.6" transform="rotate(-30 23 18)" fill="#fff" opacity=".5"/>' +
+    '<defs>' +
+      '<linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+        '<stop offset="0" stop-color="' + m.hi + '"/><stop offset=".38" stop-color="' + m.mid + '"/>' +
+        '<stop offset="1" stop-color="' + m.dark + '"/></linearGradient>' +
+      '<radialGradient id="tb" cx="38%" cy="32%" r="72%">' +
+        '<stop offset="0" stop-color="' + m.table0 + '"/><stop offset="1" stop-color="' + m.table1 + '"/></radialGradient>' +
+    '</defs>' +
+    '<path d="' + outline + '" fill="url(#g)" stroke="' + m.rim + '" stroke-width="2"/>' +
+    '<path d="' + facets + '" fill="none" stroke="#fff" stroke-opacity=".42" stroke-width="1.1"/>' +
+    '<path d="' + table + '" fill="url(#tb)" stroke="#fff" stroke-opacity=".55" stroke-width="1.1"/>' +
+    '<path d="M32 5L9 25l23 10z" fill="#fff" opacity=".18"/>' +
+    '<ellipse cx="22" cy="16" rx="7.5" ry="3.5" transform="rotate(-28 22 16)" fill="#fff" opacity=".68"/>' +
+    '<circle cx="42" cy="44" r="2.2" fill="' + m.hi + '" opacity=".55"/>' +
     '</svg>';
 }
 
-/* ---------- 筹码顶面：浅色内盘 + 资源色外圈 + 三层金属倒角 ---------- */
+/* ---------- 筹码顶面：象牙羊皮内盘 + 珐琅宝石外圈 + 皇家珠边金环 ---------- */
 function coinFaceSVG(key) {
   const m = GEM_META[key];
+  let lugs = '';
+  for (let i = 0; i < 8; i++) {
+    const a = (i * 45 * Math.PI) / 180;
+    const x1 = (60 + Math.cos(a) * 47).toFixed(1);
+    const y1 = (60 + Math.sin(a) * 47).toFixed(1);
+    const x2 = (60 + Math.cos(a) * 57).toFixed(1);
+    const y2 = (60 + Math.sin(a) * 57).toFixed(1);
+    lugs += '<path d="M' + x1 + ' ' + y1 + 'L' + x2 + ' ' + y2 + '" stroke="#fff3cf" stroke-opacity=".65" stroke-width="2.4" stroke-linecap="round"/>';
+  }
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">' +
     '<defs>' +
       '<linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + m.hi + '"/>' +
-        '<stop offset=".42" stop-color="' + m.mid + '"/><stop offset="1" stop-color="' + m.dark + '"/></linearGradient>' +
-      '<radialGradient id="face" cx="36%" cy="28%" r="78%"><stop offset="0" stop-color="#fff8e6"/>' +
-        '<stop offset=".62" stop-color="#f0e2c4"/><stop offset="1" stop-color="#cdb894"/></radialGradient>' +
+        '<stop offset=".4" stop-color="' + m.mid + '"/><stop offset="1" stop-color="' + m.dark + '"/></linearGradient>' +
+      '<radialGradient id="face" cx="35%" cy="28%" r="76%"><stop offset="0" stop-color="#fffaf0"/>' +
+        '<stop offset=".58" stop-color="#f3e4c6"/><stop offset="1" stop-color="#c4a678"/></radialGradient>' +
+      '<linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff4cc"/>' +
+        '<stop offset=".5" stop-color="#d8a44c"/><stop offset="1" stop-color="#694210"/></linearGradient>' +
     '</defs>' +
-    '<circle cx="60" cy="60" r="58" fill="url(#ring)"/>' +
-    '<circle cx="60" cy="60" r="57" fill="none" stroke="#fff2c8" stroke-opacity=".55" stroke-width="1.6"/>' +
-    '<circle cx="60" cy="60" r="52" fill="none" stroke="' + m.dark + '" stroke-opacity=".45" stroke-width="2"/>' +
-    '<circle cx="60" cy="60" r="48" fill="url(#face)"/>' +
-    '<circle cx="60" cy="60" r="48" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.4"/>' +
-    '<circle cx="60" cy="60" r="30" fill="#2b2026" opacity=".14"/>' +
-    '<circle cx="60" cy="60" r="30" fill="none" stroke="' + m.dark + '" stroke-opacity=".35" stroke-width="1.2"/>' +
-    '<path d="M20 44a44 44 0 0 1 80 0" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>' +
-    '<path d="M22 88a44 44 0 0 0 76 0" fill="none" stroke="#3a2418" stroke-opacity=".22" stroke-width="3"/>' +
+    '<circle cx="60" cy="60" r="58" fill="url(#ring)" stroke="url(#gold)" stroke-width="2.2"/>' +
+    '<circle cx="60" cy="60" r="55" fill="none" stroke="#fff5d6" stroke-opacity=".55" stroke-width="1.2" stroke-dasharray="4 3"/>' +
+    '<g>' + lugs + '</g>' +
+    '<circle cx="60" cy="60" r="46" fill="url(#face)" stroke="url(#gold)" stroke-width="2.4"/>' +
+    '<circle cx="60" cy="60" r="41" fill="none" stroke="#8c6430" stroke-opacity=".42" stroke-width="1" stroke-dasharray="2.5 2"/>' +
+    '<circle cx="60" cy="60" r="31" fill="#2b1d24" opacity=".16"/>' +
+    '<circle cx="60" cy="60" r="31" fill="none" stroke="url(#gold)" stroke-width="1.6"/>' +
+    '<path d="M22 42a43 43 0 0 1 76 0" fill="none" stroke="#fff" stroke-opacity=".62" stroke-width="2.6"/>' +
+    '<path d="M24 88a43 43 0 0 0 72 0" fill="none" stroke="#3a2214" stroke-opacity=".28" stroke-width="2.6"/>' +
     '</svg>';
 }
 
@@ -546,6 +645,8 @@ for (let i = 0; i < 3; i++) {
 lines.push('');
 lines.push('.turn-banner::after { background-image: ' + bg(bannerSVG()) + '; }');
 lines.push('.table-emblem { background-image: ' + bg(emblemSVG()) + '; }');
+lines.push('.corner { background-image: ' + bg(cornerMountSVG()) + '; }');
+lines.push('.home-brand .brand-crest { background-image: ' + bg(brandCrestSVG()) + '; }');
 lines.push('');
 // 伪 3D 桌面素材。rival-plaque 用双类提权：art.wxss 由 @import 置于最前，
 // 否则会被 index.wxss 里同名的 background 简写反向覆盖。

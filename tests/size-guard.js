@@ -23,7 +23,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const LIMIT = 2 * 1024 * 1024;
-const SKIP_DIRS = ['.git', '.workbuddy'];
+const SKIP_DIRS = ['.git', '.workbuddy', '.agents'];
 
 const oversized = [];
 let total = 0;
