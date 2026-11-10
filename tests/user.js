@@ -21,15 +21,16 @@ async function checkAsync(label, fn) {
 
 function tick() { return new Promise(function (r) { setTimeout(r, 0); }); }
 
-/* ---------- 最小 PostgREST mock：只实现 user.js 用到的 upsert / select ---------- */
+/* ---------- 最小 PostgREST mock：只实现 user.js 用到的 upsert / select / gte ---------- */
 function mockCloud() {
-  const store = { splendor_players: [], splendor_records: [] };
+  const store = { splendor_players: [], splendor_records: [], splendor_presence: [] };
   // 记录每次查询用过的过滤条件，用于断言「不是整表拉」
   const meta = { queries: [] };
   function from(table) {
     if (!store[table]) store[table] = [];
     const filters = [];
     let writeRow = null;
+    let countMode = false;
     const q = {};
     function rows() {
       let list = store[table].slice();
@@ -39,14 +40,23 @@ function mockCloud() {
           list = list.filter(function (r) { return want.indexOf(String(r[f.k])) >= 0; });
           return;
         }
+        if (f && f.gte) {
+          list = list.filter(function (r) { return String(r[f.k]) >= String(f.gte); });
+          return;
+        }
         list = list.filter(function (r) { return String(r[f[0]]) === String(f[1]); });
       });
       return list;
     }
     q.upsert = function (row) { writeRow = row; return q; };
-    q.select = function () { return q; };
+    q.select = function (cols, opts) {
+      // count: 'exact', head: true —— countOnline 用这个拿总数而不拉行
+      if (opts && opts.count === 'exact') countMode = true;
+      return q;
+    };
     q.eq = function (k, v) { filters.push([k, v]); return q; };
     q.in = function (k, list) { filters.push({ k: k, in: list }); return q; };
+    q.gte = function (k, v) { filters.push({ k: k, gte: v }); return q; };
     q.maybeSingle = function () {
       const r = rows()[0];
       return Promise.resolve({ data: r || null, error: null });
@@ -56,7 +66,10 @@ function mockCloud() {
         meta.queries.push({
           table: table,
           filters: filters.map(function (f) {
-            return f && f.in ? { k: f.k, in: f.in.slice() } : { k: f[0], v: f[1] };
+            if (!f) return f;
+            if (f.in) return { k: f.k, in: f.in.slice() };
+            if (f.gte) return { k: f.k, gte: f.gte };
+            return { k: f[0], v: f[1] };
           })
         });
         if (writeRow) {
@@ -66,6 +79,8 @@ function mockCloud() {
           if (i >= 0) store[table][i] = Object.assign({}, store[table][i], writeRow);
           else store[table].push(Object.assign({}, writeRow));
           resolve({ data: [writeRow], error: null });
+        } else if (countMode) {
+          resolve({ data: null, error: null, count: rows().length });
         } else {
           resolve({ data: rows(), error: null });
         }
@@ -230,6 +245,68 @@ async function run() {
     const row = mock._store.splendor_players.filter(function (r) { return r.uid === p.uid; })[0];
     assert.equal(row.avatar_url, 'data:image/jpeg;base64,CCC', '云端只存 data URI：本机路径对别人无意义');
     assert.equal(row.avatar_url.indexOf('wxfile'), -1, '不能把本机文件路径写进云端');
+  });
+
+  /* ---------- 在线心跳：写自己的 last_seen，按窗口统计人数 ---------- */
+  await checkAsync('在线心跳：upsert 自身 / 窗口外不计入 / 离线时优雅降级', async function () {
+    const mock = mockCloud();
+    R.attachCloud(mock);
+    const me = R.getProfile();
+
+    // 首次上报：应写入自己一行
+    const first = await U.heartbeat(me);
+    assert.equal(first.ok, true, '有心跳应成功');
+    const mine = mock._store.splendor_presence.filter(function (r) { return r.uid === me.uid; })[0];
+    assert.ok(mine, '心跳应写入 splendor_presence');
+    assert.ok(mine.last_seen, '必须带 last_seen 时间戳');
+
+    // 重复上报不产生第二行（uid 是主键，走 upsert）
+    await U.heartbeat(me);
+    const mineRows = mock._store.splendor_presence.filter(function (r) { return r.uid === me.uid; });
+    assert.equal(mineRows.length, 1, '同一 uid 只能有一行心跳');
+
+    // 造两个「窗口内」和一个「窗口外」
+    mock._store.splendor_presence.push({ uid: 'fresh-1', nickname: '甲', last_seen: new Date(Date.now() - 10 * 1000).toISOString() });
+    mock._store.splendor_presence.push({ uid: 'fresh-2', nickname: '乙', last_seen: new Date(Date.now() - 60 * 1000).toISOString() });
+    mock._store.splendor_presence.push({ uid: 'stale', nickname: '丙', last_seen: new Date(Date.now() - 30 * 60 * 1000).toISOString() });
+
+    const online = await U.countOnline();
+    assert.equal(online.ok, true, '在线统计应成功');
+    assert.equal(online.count, 3, '只统计近 2 分钟：自己 + 10s + 60s，30 分钟前的不算');
+
+    // 必须带 last_seen >= 过滤条件，不能整表拉回来在本地筛
+    const q = mock._meta.queries.filter(function (x) { return x.table === 'splendor_presence'; }).pop();
+    assert.ok(q && q.filters.some(function (f) { return f && f.k === 'last_seen' && f.gte; }),
+      'countOnline 必须用 gte(last_seen) 过滤，而不是拉全表');
+
+    // 没有云客户端时不能抛错，返回 offline + 0
+    R.attachCloud(null);
+    const off = await U.countOnline();
+    assert.equal(off.ok, false, '离线时应如实返回 ok:false');
+    assert.equal(off.count, 0, '离线时计数为 0，界面据此显示「—」');
+    const offBeat = await U.heartbeat(R.getProfile());
+    assert.equal(offBeat.ok, false, '离线时心跳静默失败，不抛错');
+  });
+
+  /* ---------- 心跳定时器：无 setInterval 的环境不能打断调用方 ---------- */
+  check('心跳定时器：缺少 setInterval 时安全降级', function () {
+    const realSet = global.setInterval;
+    const realClear = global.clearInterval;
+    try {
+      delete global.setInterval;
+      delete global.clearInterval;
+      // 预览沙箱没有这两个函数；startHeartbeat 直接调会抛 ReferenceError，
+      // 把 onShow 整个打断 —— 在线人数是锦上添花，不该拖垮大厅。
+      let threw = null;
+      try { U.startHeartbeat(R.getProfile()); } catch (e) { threw = e; }
+      assert.equal(threw, null, 'startHeartbeat 不能在缺 setInterval 时抛错');
+      let threw2 = null;
+      try { U.stopHeartbeat(); } catch (e) { threw2 = e; }
+      assert.equal(threw2, null, 'stopHeartbeat 不能抛错');
+    } finally {
+      global.setInterval = realSet;
+      global.clearInterval = realClear;
+    }
   });
 
   console.log('ALL USER CHECKS PASSED');

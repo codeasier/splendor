@@ -459,6 +459,15 @@
         <view class="guild-brand-sub"><view class="guild-title-line"></view><text>商会大厅</text><view class="guild-title-line"></view></view>
       </view>
 
+      <!-- 实时在线人数：挂在标题正下方（标题区 y3~120，此处 y≈124 起是空白带）。
+           数据来自 splendor_presence 心跳表，统计近 2 分钟内有心跳的客户端。
+           onlineReady=false 时显示「—」而不是 0：还没查到时不能谎报「没人在线」。 -->
+      <view class="guild-online {{home.onlineReady ? 'is-ready' : 'is-pending'}}">
+        <view class="guild-online-dot"></view>
+        <text class="guild-online-num">{{home.onlineText}}</text>
+        <text class="guild-online-label">人在线</text>
+      </view>
+
       <view class="guild-panel" style="top:{{topRightTop > 82 ? topRightTop : 82}}px;">
         <text class="guild-panel-title">经典对局</text>
         <view class="guild-rule"><text>◇</text></view>
@@ -484,6 +493,13 @@
 
       <text wx:if="{{home.notice && !home.dialog}}" class="guild-notice">{{home.notice}}</text>
       <view class="guild-nav">
+        <view class="guild-nav-item" bindtap="onOpenFriends" hover-class="guild-nav-hover">
+          <!-- 好友图标用字符而不是新烘焙一张 SVG：图标集中在 art.wxss 由构建生成，
+               临时加一个图标会让「图标源」和「样式文件」两处不同步。 -->
+          <view class="guild-icon guild-icon-text">⚭</view>
+          <text>好友</text>
+          <view wx:if="{{friendsPanel.onlineCount > 0}}" class="guild-nav-badge">{{friendsPanel.onlineCount}}</view>
+        </view>
         <view class="guild-nav-item" bindtap="onOpenRecords" hover-class="guild-nav-hover"><view class="guild-icon guild-icon-records"></view><text>对局战绩</text></view>
         <view class="guild-nav-item" bindtap="onShowRules" hover-class="guild-nav-hover"><view class="guild-icon guild-icon-book"></view><text>游戏规则</text></view>
         <view class="guild-nav-item" bindtap="onOpenHomeDialog" data-kind="solo" hover-class="guild-nav-hover"><view class="guild-icon guild-icon-settings"></view><text>对局设置</text></view>
@@ -589,6 +605,7 @@
       <view class="room-bottom">
         <view class="room-invite">
           <button class="btn share-btn" open-type="share">分享到群</button>
+          <view class="btn" bindtap="onOpenFriends">邀请好友</view>
           <view class="btn" bindtap="onCopyRoomCode">复制房间号</view>
           <text class="invite-tip">好友点分享卡片即自动入席</text>
         </view>
@@ -1013,5 +1030,84 @@
         </view>
       </view>
     </view>
+
+  <!-- 好友弹层：全局层，大厅 / 房间 / 牌桌都能打开。
+       不做成 screen 分支内的节点 —— 三处各放一份必然漏改其中一处（本轮已经踩到）。 -->
+  <view wx:if="{{showFriends}}" class="overlay overlay-top" bindtap="onCloseFriends">
+    <view class="dialog friends-dialog" catchtap="noop">
+      <view class="dialog-head">
+        <text class="dialog-title">好友</text>
+        <text class="dialog-sub">{{friendsPanel.count}} 位好友 · {{friendsPanel.onlineCount}} 人在线</text>
+      </view>
+
+      <!-- 加好友：按账号 ID 精确查找，不做模糊搜索 -->
+      <view class="friends-add">
+        <input class="friends-input" value="{{friendsPanel.query}}" placeholder="输入好友的账号 ID"
+               placeholder-class="friends-input-ph" bindinput="onFriendQueryInput" />
+        <view class="btn friends-search" bindtap="onSearchFriend">查找</view>
+      </view>
+
+      <view wx:if="{{friendsPanel.found}}" class="friends-found">
+        <view class="friends-avatar" style="{{friendsPanel.found.avatarStyle}}">
+          <text wx:if="{{!friendsPanel.found.avatarUrl}}" class="friends-avatar-initial">{{friendsPanel.found.initial}}</text>
+        </view>
+        <text class="friends-found-name">{{friendsPanel.found.nickname}}</text>
+        <view class="btn btn-primary friends-add-btn" bindtap="onAddFriend">加为好友</view>
+      </view>
+
+      <text wx:if="{{friendsPanel.notice}}" class="friends-notice">{{friendsPanel.notice}}</text>
+
+      <view class="friends-list">
+        <view wx:for="{{friendsPanel.list}}" wx:key="uid" class="friends-row">
+          <view class="friends-avatar {{item.online ? 'is-online' : ''}}" style="{{item.avatarStyle}}">
+            <text wx:if="{{!item.avatarUrl}}" class="friends-avatar-initial">{{item.initial}}</text>
+          </view>
+          <view class="friends-info">
+            <text class="friends-name">{{item.nickname}}</text>
+            <view class="friends-meta">
+              <view class="friends-dot {{item.online ? 'is-online' : ''}}"></view>
+              <text class="friends-status">{{item.statusText}}</text>
+              <text class="friends-id">· ID {{item.shortId}}</text>
+            </view>
+          </view>
+          <!-- 邀请：房间里且对方在线才给按钮；否则用文字说明原因，不摆灰按钮 -->
+          <view wx:if="{{item.canInvite}}" class="btn btn-primary friends-invite" bindtap="onInviteFriend" data-uid="{{item.uid}}">邀请</view>
+          <text wx:if="{{!item.canInvite && !friendsPanel.canInvite}}" class="friends-invite-hint">房间里可邀请</text>
+          <text wx:if="{{!item.canInvite && friendsPanel.canInvite}}" class="friends-invite-hint">离线</text>
+          <view class="btn friends-remove" bindtap="onRemoveFriend" data-uid="{{item.uid}}">删</view>
+        </view>
+        <view wx:if="{{friendsPanel.empty}}" class="friends-empty">
+          <text wx:if="{{!friendsPanel.ready}}">正在加载好友…</text>
+          <text wx:if="{{friendsPanel.ready}}">还没有好友。把下面这串 ID 发给朋友，让他输入后互加。</text>
+        </view>
+      </view>
+
+      <!-- 自己的账号 ID：好友靠它互加，必须完整可复制 -->
+      <view class="friends-myid">
+        <text class="friends-myid-label">我的账号 ID</text>
+        <text class="friends-myid-value">{{friendsPanel.myId}}</text>
+        <view class="btn friends-copy" bindtap="onCopyMyId">复制</view>
+      </view>
+
+      <view class="dialog-btns">
+        <view class="btn btn-primary" bindtap="onCloseFriends">关闭</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 邀请提醒：舞台级浮层，大厅 / 房间 / 牌桌三屏都可见。
+       曾把这份写在 home-screen 里，进牌桌就收不到提醒；写成两份又必然漏改一处。
+       位置固定，不随屏幕切换，占的是左侧陈列区的空白。 -->
+  <view wx:if="{{invitePop}}" class="invite-toast" catchtap="noop">
+    <view class="invite-toast-head">
+      <view class="invite-toast-dot"></view>
+      <text class="invite-toast-title">{{invitePop.fromName}} 邀请你联机</text>
+    </view>
+    <text class="invite-toast-sub">房间号 {{invitePop.roomCode}} · {{invitePop.moreText}}</text>
+    <view class="invite-toast-btns">
+      <view class="btn btn-primary invite-toast-go" bindtap="onAcceptInvite">加入</view>
+      <view class="btn invite-toast-no" bindtap="onDeclineInvite">忽略</view>
+    </view>
+  </view>
   </view>
 </view>

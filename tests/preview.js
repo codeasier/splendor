@@ -113,6 +113,20 @@ const onlineHomeHtml = a.sandbox.renderStage(Object.assign({}, a.page.data, {
 }));
 assert(onlineHomeHtml.indexOf('暂不可跨设备邀请') < 0, '云端可用时不应误报离线');
 assert(onlineHomeHtml.indexOf('浏览器预览') < 0, '云端可用时不应误报预览环境');
+
+// 实时在线人数：必须真的渲染出「N 人在线」，未就绪时是「—」而不是 0
+{
+  const pendingHtml = a.host.innerHTML;
+  assert(pendingHtml.indexOf('guild-online') > 0, '大厅应渲染在线人数条');
+  assert(pendingHtml.indexOf('guild-online is-pending') > 0, '未查到在线人数时应是 pending 态');
+  assert(pendingHtml.indexOf('—') > 0, '未就绪时显示「—」，不能谎报 0');
+  const readyHtml = a.sandbox.renderStage(Object.assign({}, a.page.data, {
+    home: Object.assign({}, a.page.data.home, { onlineReady: true, online: 7, onlineText: '7' })
+  }));
+  assert(readyHtml.indexOf('guild-online is-ready') > 0, '拿到数据后应切到 ready 态');
+  assert(readyHtml.indexOf('人在线') > 0, '应有「人在线」文案');
+  assert(readyHtml.indexOf('>7<') > 0, '应渲染真实在线人数 7');
+}
 a.page.onSelectRoomCount({ currentTarget: { dataset: { n: 4 } } });
 assert(a.page.data.home.roomCount === 4, '房间人数选择应生效');
 a.page.onSelectRoomCount({ currentTarget: { dataset: { n: 3 } } });
@@ -288,6 +302,70 @@ click('onShowReserved');
 assert(a.host.innerHTML.indexOf('我的预留卡') > 0, '预留卡弹层应渲染');
 click('onCloseReserved');
 console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
+
+// 3.05 好友弹层：必须渲染出「我的账号 ID」与空态说明（预览环境无云端）
+{
+  click('onOpenFriends');
+  const fh = a.host.innerHTML;
+  assert(page.data.showFriends === true, '好友弹层应打开');
+  assert(fh.indexOf('好友') > 0, '弹层标题应含「好友」');
+  assert(fh.indexOf('我的账号 ID') > 0, '必须露出自己的账号 ID 供好友互加');
+  assert(fh.indexOf('friends-myid-value') > 0, '账号 ID 值节点应渲染');
+  assert(fh.indexOf(' friendships') < 0, '不应出现占位类名');
+  // 列表为空时给的是「还没有好友」而不是空白弹层
+  assert(fh.indexOf('还没有好友') > 0 || fh.indexOf('正在加载好友') > 0, '空列表应给说明');
+  click('onCloseFriends');
+  assert(page.data.showFriends === false, '关闭后应收起');
+
+  // 有好友 + 有邀请时的渲染。注意顺序：
+  // 必须先 onOpenFriends() 再注入 friendInviteCode —— onOpenFriends 会按「当前是否在房间里」
+  // 重置 inviteCode，先设后开会被清掉。
+  click('onOpenFriends');
+  page.ui.friends = [
+    { uid: 'fx-online', nickname: '在线甲', avatar: 'a1' },
+    { uid: 'fx-offline', nickname: '离线乙', avatar: 'a2' }
+  ];
+  page.ui.onlineUids = { 'fx-online': true };
+  page.ui.friendsReady = true;
+  page.ui.friendInviteCode = 'ABC234';
+  page.ui.invites = [{ id: 'iv-x', fromUid: 'fx-online', fromName: '在线甲', roomCode: 'ABC234', at: '' }];
+  page.refresh('');
+  const fh2 = a.host.innerHTML;
+  assert(page.data.friendsPanel.list.length === 2, '两位好友应进入视图模型');
+  assert(fh2.indexOf('在线甲') > 0 && fh2.indexOf('离线乙') > 0, '好友行应渲染昵称');
+  assert(fh2.indexOf('邀请你联机') > 0, '有邀请时应渲染提醒');
+  assert(fh2.indexOf('ABC234') > 0, '提醒里应带房间号');
+  assert(fh2.indexOf('onAcceptInvite') > 0 || fh2.indexOf('data-tap="onAcceptInvite"') > 0,
+    '提醒应有「加入」入口');
+  // 邀请提醒必须是舞台级浮层，不能写在某个 screen-layer 里 ——
+  // 写在 home-screen 内，进牌桌就收不到；命中深度必须等于 stage 的直接子层。
+  {
+    const tagOf = /<div class="invite-toast[^"]*"/;
+    const at = fh2.search(tagOf);
+    assert(at > 0, '邀请提醒节点应渲染');
+    let depth = 0;
+    const re = /<\/?(?:div|text)\b[^>]*>/g;
+    let mm;
+    const before = fh2.slice(0, at);
+    while ((mm = re.exec(before)) !== null) {
+      if (mm[0].startsWith('</')) depth -= 1; else depth += 1;
+    }
+    // viewport > stage > invite-toast（host 不在 innerHTML 字符串内）
+    assert(depth === 2, '邀请提醒必须挂在 stage 下（实际深度 ' + depth + '），否则换屏会消失');
+  }
+  // 房间里在线好友可邀请，离线的不可以
+  const r0 = page.data.friendsPanel.list[0];
+  const r1 = page.data.friendsPanel.list[1];
+  assert(r0.canInvite === true, '房间内在线的可邀请');
+  assert(r1.canInvite === false, '离线不可邀请');
+  click('onCloseFriends');
+  page.ui.friends = [];
+  page.ui.onlineUids = {};
+  page.ui.invites = [];
+  page.ui.friendInviteCode = '';
+  page.refresh('');
+  console.log('好友弹层：账号 ID / 空态 / 在线态 / 邀请提醒 OK');
+}
 
 // 3.1 预留卡可购买时，弹层必须渲染出购买按钮（本轮 bug 回归）
 //     买得起：只有「购买此卡（实付 n 枚）」+「返回牌桌」，不得出现「预留此卡」

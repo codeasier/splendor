@@ -2318,6 +2318,47 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .guild-brand-sub { display: flex; align-items: center; justify-content: center; gap: 13px; margin-top: 3px; }
 .guild-brand-sub text { font-family: "Songti SC", Georgia, serif; font-size: 18px; letter-spacing: 5px; color: #f6d18a; }
 .guild-title-line { width: 38px; height: 1px; background: linear-gradient(90deg, transparent, #dcba71, transparent); }
+/* 实时在线人数：标题正下方那一条空白带（y≈124 起，左侧身份卡底边 91、
+   右侧操作面板从 x682 开始，所以这条只能落在 x≈300~660 之间）。
+   与标题同一套古金色系，但刻意压低字号与亮度 —— 它是氛围信息，不该抢「快速开始」的视线。 */
+.guild-online {
+  position: absolute; left: 414px; top: 122px; width: 262px; height: 22px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  box-sizing: border-box;
+  border-radius: 11px;
+  /* 底板要压过大厅场景图：原来 .55 透明度叠在深色帷幔上几乎看不出边界，
+     看起来像一行裸字浮在场景里。加深到 .78 并补一圈内描边。 */
+  background: linear-gradient(180deg, rgba(46, 18, 26, .92), rgba(22, 8, 14, .88));
+  border: 1px solid rgba(220, 186, 113, .45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, .16),
+    0 2px 6px rgba(0, 0, 0, .5);
+}
+/* 呼吸绿点：只有拿到真实数字才跳，未就绪时是静态暗点，避免「还在转圈」的错觉 */
+.guild-online-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: #4fd08a;
+  box-shadow: 0 0 6px rgba(79, 208, 138, .8);
+  animation: onlinePulse 2s ease-in-out infinite;
+}
+.guild-online.is-pending .guild-online-dot {
+  background: #8a7562; box-shadow: none; animation: none;
+}
+@keyframes onlinePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .5; transform: scale(.82); }
+}
+.guild-online-num {
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 15px; font-weight: 700; line-height: 1;
+  color: #ffe3a0; text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
+  min-width: 12px; text-align: right;
+}
+.guild-online.is-pending .guild-online-num { color: #c9ae88; }
+.guild-online-label {
+  font-size: 10.5px; line-height: 1; color: #dcc39a; letter-spacing: 1px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+}
 .guild-panel {
   position: absolute; left: 682px; width: 384px; height: 386px; box-sizing: border-box;
   padding: 27px 24px 25px; display: flex; flex-direction: column; align-items: stretch;
@@ -2615,6 +2656,147 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .setup-state { margin-top: 3px; font-size: 9px; color: #cba8b6; }
 .setup-state.is-ok { color: #a4f0bc; }
+
+/* ---------- 好友体系：大厅入口徽标 / 好友弹层 / 邀请提醒 ---------- */
+
+/* 好友图标用字符，字号与图形图标对齐（图形图标是 22×22 的 SVG） */
+.guild-icon-text {
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1; color: #eac876;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, .85);
+}
+/* 在线好友数：压在「好友」文字右上，不占布局宽度 */
+.guild-nav-badge {
+  position: absolute; right: 22%; top: 6px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: Georgia, serif; font-size: 11px; font-weight: 700; line-height: 1;
+  color: #2b1504;
+  background: linear-gradient(180deg, #ffe39a, #c78f2a);
+  border: 1px solid rgba(255, 248, 220, .9);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .6);
+}
+
+.friends-dialog { width: 620px; max-height: 470px; display: flex; flex-direction: column; }
+.friends-add { display: flex; gap: 8px; margin-top: 12px; flex-shrink: 0; }
+.friends-input {
+  flex: 1; min-width: 0; height: 38px; padding: 0 12px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  border: 1px solid rgba(243, 212, 139, .45);
+  background: rgba(18, 8, 14, .8);
+  color: #ffeecd; font-size: 14px;
+}
+.friends-input-ph { color: rgba(220, 186, 145, .55); }
+.friends-search { flex-shrink: 0; min-height: 38px; padding: 0 18px; font-size: 13px; }
+
+/* 查找结果：头像 + 昵称 + 加为好友 */
+.friends-found {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 8px; padding: 8px 10px; flex-shrink: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(124, 226, 247, .45);
+  background: rgba(30, 48, 56, .5);
+}
+.friends-found-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: #fff3d6;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friends-add-btn { flex-shrink: 0; min-height: 32px; padding: 0 14px; font-size: 12.5px; }
+.friends-notice {
+  display: block; margin-top: 8px; flex-shrink: 0;
+  font-size: 12px; color: #ffc9a2; line-height: 1.3;
+}
+
+.friends-avatar {
+  width: 34px; height: 34px; flex-shrink: 0; border-radius: 4px;
+  border: 1.5px solid #8a6a3c; overflow: hidden;
+  background-size: cover; background-position: center;
+  display: flex; align-items: center; justify-content: center;
+}
+/* 在线好友头像描青边，与牌桌「行动中」同一套颜色语言 */
+.friends-avatar.is-online { border-color: #7ce2f7; box-shadow: 0 0 7px rgba(124, 226, 247, .35); }
+.friends-avatar-initial {
+  font-family: Georgia, serif; font-size: 15px; font-weight: 700;
+  color: #fff1d5; text-shadow: 0 1px 3px #1a0d14;
+}
+
+.friends-list {
+  margin-top: 10px; flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.friends-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 9px; border-radius: 7px;
+  border: 1px solid rgba(243, 212, 139, .18);
+  background: linear-gradient(180deg, rgba(60, 32, 46, .55), rgba(24, 11, 18, .7));
+}
+.friends-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.friends-name {
+  font-size: 14px; font-weight: 700; color: #fff3d6;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.friends-meta { display: flex; align-items: center; gap: 4px; }
+.friends-dot { width: 6px; height: 6px; border-radius: 50%; background: #7a6754; flex-shrink: 0; }
+.friends-dot.is-online { background: #4fd08a; box-shadow: 0 0 6px rgba(79, 208, 138, .8); }
+.friends-status { font-size: 11px; color: #c9ae8c; line-height: 1; }
+.friends-id { font-size: 11px; color: #a08c76; line-height: 1; }
+.friends-invite { flex-shrink: 0; min-height: 32px; padding: 0 16px; font-size: 12.5px; }
+.friends-invite-hint {
+  flex-shrink: 0; font-size: 11px; color: #9d8a74; line-height: 1.2;
+  max-width: 68px; text-align: right;
+}
+.friends-remove {
+  flex-shrink: 0; min-height: 32px; padding: 0 10px; font-size: 12px;
+  color: #e0a894; border-color: rgba(200, 120, 100, .45);
+}
+.friends-empty { padding: 22px 10px; text-align: center; font-size: 12.5px; color: #c2a68e; line-height: 1.6; }
+
+/* 我的账号 ID：好友靠它互加，必须完整可复制 */
+.friends-myid {
+  display: flex; align-items: center; gap: 9px;
+  margin-top: 10px; padding: 8px 10px; flex-shrink: 0;
+  border-radius: 7px;
+  border: 1px dashed rgba(243, 212, 139, .45);
+  background: rgba(20, 8, 14, .6);
+}
+.friends-myid-label { font-size: 11.5px; color: #c9ae8c; flex-shrink: 0; }
+.friends-myid-value {
+  flex: 1; min-width: 0; font-family: Georgia, monospace; font-size: 13px;
+  color: #ffe9b8; letter-spacing: .3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.friends-copy { flex-shrink: 0; min-height: 30px; padding: 0 12px; font-size: 12px; }
+
+/* 邀请提醒：浮在大厅 / 房间上方，不挡主要操作 */
+.invite-toast {
+  /* 落在左侧「卡牌/筹码陈列区」上方：右侧操作面板从 x=682 起、底部导航从 y=503 起，
+     所以提示卡只能占 x≈150~670、y≈150~330 这块真正的空白。
+     放居中会压住操作面板（实测 ovPanel=true），放底部会压住导航。 */
+  position: absolute; left: 150px; top: 150px;
+  z-index: 26; width: 320px;
+  box-sizing: border-box; padding: 10px 14px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 214, 130, .72);
+  background: linear-gradient(180deg, rgba(92, 52, 40, .97), rgba(36, 16, 12, .97));
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .75), 0 0 16px rgba(243, 198, 108, .28);
+  display: flex; flex-direction: column; gap: 5px;
+  animation: dialogIn 180ms ease-out both;
+}
+/* 邀请提醒是舞台级浮层（三屏共用一份），不再区分大厅/房间偏移 */
+.invite-toast-head { display: flex; align-items: center; gap: 6px; }
+.invite-toast-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: #ffd77e; box-shadow: 0 0 8px rgba(255, 215, 126, .9);
+  animation: onlinePulse 1.6s ease-in-out infinite;
+}
+.invite-toast-title {
+  flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: #ffe9c0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.invite-toast-sub { font-size: 11.5px; color: #e0c4a2; line-height: 1.3; }
+.invite-toast-btns { display: flex; gap: 8px; margin-top: 2px; }
+.invite-toast-go { flex: 1; min-height: 34px; justify-content: center; font-size: 13.5px; }
+.invite-toast-no { flex-shrink: 0; min-height: 34px; padding: 0 14px; font-size: 12.5px; }
 
 
 #host .viewport { width: 100%; height: 100%; }
@@ -4605,6 +4787,120 @@ async function syncProfile(profile) {
   }
 }
 
+/**
+ * 在线心跳：每 45s 用 uid upsert 一行 last_seen，大厅按「近 2 分钟」统计在线人数。
+ *
+ * 为什么不能直接数 splendor_players：那张表的 updated_at 只在「保存资料 / 同步战绩」
+ * 时写入，一个正在牌桌上连打三局的人，updated_at 会停在很久以前，统计出来是 0。
+ * 在线必须是「客户端还活着」的主动信号，所以单独建 splendor_presence。
+ *
+ * 容错：任何失败都静默返回 ok:false —— 在线人数是锦上添花，不能因为它让大厅卡住，
+ * 更不该把用户从本机模式踢出去。
+ */
+const PRESENCE_TABLE = 'splendor_presence';
+/* 心跳间隔：比在线窗口短得多，避免刚好卡在窗口边界上被算成离线 */
+const HEARTBEAT_MS = 45 * 1000;
+/* 在线窗口：2 分钟内有过心跳即视为在线。窗口太短会让切后台回来的玩家瞬间「消失」 */
+const ONLINE_WINDOW_MS = 2 * 60 * 1000;
+
+let heartbeatTimer = null;
+let heartbeatUid = '';
+
+/** 上报一次自己的在线时间；失败不抛错 */
+async function heartbeat(profile) {
+  const database = db();
+  if (!database) return { ok: false, offline: true };
+  const p = profile || R.getProfile();
+  if (!p || !p.uid) return { ok: false, error: '缺少账号 ID' };
+  try {
+    const res = await database.from(PRESENCE_TABLE).upsert({
+      uid: p.uid,
+      nickname: p.nickname || '珠宝商',
+      last_seen: nowIso()
+    });
+    if (res && res.error) return { ok: false, error: errText(res.error) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errText(e) };
+  }
+}
+
+/** 统计近 2 分钟内有心跳的人数；同时把自己算进去，避免首次查询时自己还不存在 */
+async function countOnline() {
+  const database = db();
+  if (!database) return { ok: false, offline: true, count: 0 };
+  try {
+    const since = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+    const res = await database
+      .from(PRESENCE_TABLE)
+      .select('*', { count: 'exact', head: true })
+      .gte('last_seen', since);
+    if (res && res.error) return { ok: false, error: errText(res.error), count: 0 };
+    return { ok: true, count: Number(res && res.count) || 0 };
+  } catch (e) {
+    return { ok: false, error: errText(e), count: 0 };
+  }
+}
+
+/**
+ * 启动心跳：立即报一次，之后定时续期。
+ * 同一 uid 重复调用只保留一个定时器 —— 大厅进出多次不会叠出多个 timer。
+ *
+ * ⚠️ 必须防御 setInterval 不存在：H5 预览的沙箱（node:vm）与桩环境里没有它，
+ * 直接调会抛 ReferenceError，把整个 onShow 打断 —— 在线人数只是锦上添花，
+ * 绝不该让大厅因此进不去。
+ */
+function startHeartbeat(profile) {
+  const p = profile || R.getProfile();
+  const uid = (p && p.uid) || '';
+  if (!uid) return false;
+  if (heartbeatTimer && heartbeatUid === uid) return true;
+  stopHeartbeat();
+  heartbeatUid = uid;
+  heartbeat(p);
+  if (typeof setInterval === 'function') {
+    heartbeatTimer = setInterval(function () { heartbeat(p); }, HEARTBEAT_MS);
+  }
+  return true;
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    if (typeof clearInterval === 'function') clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+  heartbeatUid = '';
+}
+
+/**
+ * 按 uid 列表反查谁在线：一次 `in(uid)` + 窗口过滤，返回 {uid: true} 映射。
+ * 不要在本地拿全量在线表逐个比对 —— 好友 200 人时那是 200 次判断，
+ * 而这里只要一次查询、只取需要的列。
+ */
+async function listOnlineUids(uids) {
+  const database = db();
+  if (!database) return { ok: false, offline: true, map: {} };
+  const list = (uids || []).map(String).filter(Boolean);
+  if (!list.length) return { ok: true, map: {} };
+  try {
+    const since = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+    const res = await database
+      .from(PRESENCE_TABLE)
+      .select('uid,last_seen')
+      .in('uid', list)
+      .gte('last_seen', since);
+    if (res && res.error) return { ok: false, error: errText(res.error), map: {} };
+    const map = {};
+    const rows = (res && res.data) || [];
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i] && rows[i].uid) map[rows[i].uid] = true;
+    }
+    return { ok: true, map: map };
+  } catch (e) {
+    return { ok: false, error: errText(e), map: {} };
+  }
+}
+
 /** 战绩上云：失败静默，本地记录才是可读的那一份 */
 async function pushRecord(rec) {
   const database = db();
@@ -4835,13 +5131,293 @@ module.exports = {
   syncProfile: syncProfile,
   pushRecord: pushRecord,
   pullRecords: pullRecords,
-  syncAll: syncAll
+  syncAll: syncAll,
+
+  heartbeat: heartbeat,
+  countOnline: countOnline,
+  listOnlineUids: listOnlineUids,
+  startHeartbeat: startHeartbeat,
+  stopHeartbeat: stopHeartbeat
+};
+
+});
+__def("friend", function (module, exports, require) {
+/**
+ * 好友体系与联机邀请。
+ *
+ * 数据表：
+ *   splendor_friends(id PK, uid, friend_uid, created_at)
+ *     —— **每个方向一行**：A 加 B 成功时同时写 A→B 与 B→A。
+ *        单行双向的写法（一条记录两支 uid）无法让双方各自独立删除，
+ *        一方删好友会把对方的列表也清空，这是好友系统最常见的返工点。
+ *   splendor_invites(id PK, from_uid, to_uid, room_code, status, created_at)
+ *     —— 好友点「邀请」写一行 pending；被邀方轮询到后一键加入。
+ *
+ * 身份说明（重要，别改错）：
+ *   当前项目是游客 AppID（touristappid），拿不到真实 openid。
+ *   uid 由本机随机生成并存在 storage 里，**清缓存 / 换设备就是另一个人**。
+ *   好友关系因此绑定在这个 uid 上。`identityReady` 字段明确标注这一点，
+ *   界面据此提示「本机账号」，避免玩家误以为好友永久有效。
+ *   接入正式 AppID 后，只需在 ensureIdentity() 里用 openid 覆盖 uid，
+ *   本文件全部逻辑不用改一行 —— 所有查询都按 uid 走。
+ *
+ * 边界：
+ *   没有云客户端时全部返回 offline，不抛错、不发请求。
+ *   H5 预览与 Node 测试天然处于 offline，因此不影响回归。
+ */
+
+const R = require('./room.js');
+
+const FRIEND_TABLE = 'splendor_friends';
+const INVITE_TABLE = 'splendor_invites';
+/* 邀请有效期：10 分钟。超过这个时间的邀请再弹出来会让玩家莫名加入一局陌生牌局 */
+const INVITE_TTL_MS = 10 * 60 * 1000;
+/* 好友上限：单机桌游不需要社交广度，200 足够，也避免一次拉回上千行 */
+const MAX_FRIENDS = 200;
+
+function db() {
+  const cloud = R.getCloud ? R.getCloud() : null;
+  return cloud && cloud.database ? cloud.database : null;
+}
+function offline(reason) {
+  return { ok: false, offline: true, error: reason || '云端未连接' };
+}
+function errText(e) {
+  if (!e) return '未知错误';
+  return e.message || e.error_description || e.error || String(e);
+}
+function nowIso() { return new Date().toISOString(); }
+function rid(prefix) {
+  return String(prefix || 'x') + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+/**
+ * 好友关系主键：由「较小 uid + 较大 uid」拼成，保证 A→B 与 B→A 各一个稳定 id。
+ * 用随机 id 会让「重复添加」无法被 id 挡住，只能靠查询后判断，容易并发出双份。
+ */
+function friendId(a, b) {
+  const x = String(a || '');
+  const y = String(b || '');
+  return x < y ? (x + '__' + y) : (y + '__' + x);
+}
+/** 反向边单独一个 id 后缀，与正向边区分开 */
+function friendIdRev(a, b) { return friendId(a, b) + '__rev'; }
+
+/** 加好友：双向各写一行。已存在则视为成功（幂等） */
+async function addFriend(me, targetUid, targetNickname) {
+  const database = db();
+  if (!database) return offline();
+  const myUid = (me && me.uid) || '';
+  const other = String(targetUid || '').trim();
+  if (!myUid) return { ok: false, error: '缺少自己的账号 ID' };
+  if (!other) return { ok: false, error: '请输入好友账号 ID' };
+  if (other === myUid) return { ok: false, error: '不能添加自己为好友' };
+
+  try {
+    // 两条边分两次写，而不是 upsert(数组)：
+    // 参考文档只承诺「单对象 upsert」，批量数组的行为需以官方文档核实。
+    // 好友关系必须准确，不能赌一个没被文档保证的写法。
+    const myName = ((me && me.nickname) || '珠宝商').slice(0, 24);
+    const otherName = (targetNickname || '').slice(0, 24);
+    const edges = [
+      { id: friendId(myUid, other), uid: myUid, friend_uid: other, friend_name: otherName, created_at: nowIso() },
+      { id: friendIdRev(myUid, other), uid: other, friend_uid: myUid, friend_name: myName, created_at: nowIso() }
+    ];
+    for (let i = 0; i < edges.length; i++) {
+      const res = await database.from(FRIEND_TABLE).upsert(edges[i]);
+      if (res && res.error) {
+        const code = String((res.error && (res.error.code || res.error.message)) || '');
+        // 23505 = 主键冲突。upsert 理论上不该出现，但并发双击可能撞上，
+        // 此时这条边已经建成，继续写另一条，不要中途放弃留下半条关系。
+        if (code.indexOf('23505') < 0) {
+          return { ok: false, error: errText(res.error) };
+        }
+      }
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errText(e) };
+  }
+}
+
+/** 我的好友列表（只含 uid/昵称，头像与在线状态由上层补齐） */
+async function listFriends(myUid) {
+  const database = db();
+  if (!database) return Object.assign(offline(), { list: [] });
+  const uid = String(myUid || '');
+  if (!uid) return { ok: false, error: '缺少账号 ID', list: [] };
+  try {
+    const res = await database
+      .from(FRIEND_TABLE)
+      .select('*')
+      .eq('uid', uid)
+      .limit(MAX_FRIENDS);
+    if (res && res.error) return { ok: false, error: errText(res.error), list: [] };
+    const rows = (res && res.data) || [];
+    const list = rows.map(function (r) {
+      return {
+        uid: r.friend_uid,
+        nickname: r.friend_name || '',
+        since: r.created_at || ''
+      };
+    }).filter(function (f) { return !!f.uid; });
+    return { ok: true, list: list };
+  } catch (e) {
+    return { ok: false, error: errText(e), list: [] };
+  }
+}
+
+/**
+ * 删好友：只删「我这一侧」那一条边。
+ * 对方列表里仍然保留我 —— 否则单方面删好友会让对方的好友凭空消失且毫无解释，
+ * 这是多数社交产品的既定行为（被删方看到的是「对方已不是你好友」而不是整条记录消失）。
+ */
+async function removeFriend(myUid, targetUid) {
+  const database = db();
+  if (!database) return offline();
+  const a = String(myUid || '');
+  const b = String(targetUid || '');
+  if (!a || !b) return { ok: false, error: '缺少参数' };
+  try {
+    const res = await database.from(FRIEND_TABLE).delete().eq('id', friendId(a, b));
+    if (res && res.error) return { ok: false, error: errText(res.error) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errText(e) };
+  }
+}
+
+/** 发邀请：写一行 pending，被邀方轮询到后弹窗 */
+async function sendInvite(fromUid, toUid, roomCode, fromName) {
+  const database = db();
+  if (!database) return offline();
+  const f = String(fromUid || '');
+  const t = String(toUid || '');
+  const code = String(roomCode || '').toUpperCase();
+  if (!f || !t) return { ok: false, error: '缺少邀请双方' };
+  if (!/^[A-Z0-9]{6}$/.test(code)) return { ok: false, error: '房间号无效' };
+  try {
+    const res = await database.from(INVITE_TABLE).upsert({
+      id: rid('iv'),
+      from_uid: f,
+      to_uid: t,
+      room_code: code,
+      from_name: (fromName || '好友').slice(0, 24),
+      status: 'pending',
+      created_at: nowIso()
+    });
+    if (res && res.error) return { ok: false, error: errText(res.error) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errText(e) };
+  }
+}
+
+/**
+ * 拉取「发给我的」待处理邀请，只取 10 分钟内。
+ * 过期的邀请不弹窗、也不主动删（删除需要额外写权限，收益不大），
+ * 只是不再返回 —— 玩家不会莫名被拉进一局十分钟前的旧房间。
+ */
+async function listInvites(myUid) {
+  const database = db();
+  if (!database) return Object.assign(offline(), { list: [] });
+  const uid = String(myUid || '');
+  if (!uid) return { ok: false, error: '缺少账号 ID', list: [] };
+  try {
+    const since = new Date(Date.now() - INVITE_TTL_MS).toISOString();
+    const res = await database
+      .from(INVITE_TABLE)
+      .select('*')
+      .eq('to_uid', uid)
+      .eq('status', 'pending')
+      .gte('created_at', since);
+    if (res && res.error) return { ok: false, error: errText(res.error), list: [] };
+    const rows = (res && res.data) || [];
+    const list = rows.map(function (r) {
+      return {
+        id: r.id,
+        fromUid: r.from_uid,
+        fromName: r.from_name || '好友',
+        roomCode: r.room_code,
+        at: r.created_at
+      };
+    });
+    return { ok: true, list: list };
+  } catch (e) {
+    return { ok: false, error: errText(e), list: [] };
+  }
+}
+
+/** 把邀请标记为已处理（accepted / declined），避免重复弹窗 */
+async function markInvite(id, status) {
+  const database = db();
+  if (!database) return offline();
+  if (!id) return { ok: false, error: '缺少邀请 ID' };
+  try {
+    const res = await database
+      .from(INVITE_TABLE)
+      .update({ status: String(status || 'accepted') })
+      .eq('id', id);
+    if (res && res.error) return { ok: false, error: errText(res.error) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errText(e) };
+  }
+}
+
+/**
+ * 按账号 ID 精确查找一个人（用于「加好友」）。
+ * 只在资料表里查 —— 不提供模糊搜索：桌游不需要社交发现，
+ * 模糊搜索会把所有玩家的昵称暴露成可枚举列表，属于过度收集。
+ */
+async function findPlayer(uid) {
+  const database = db();
+  if (!database) return offline();
+  const target = String(uid || '').trim();
+  if (!target) return { ok: false, error: '请输入账号 ID' };
+  try {
+    const res = await database
+      .from('splendor_players')
+      .select('uid,nickname,avatar,avatar_url')
+      .eq('uid', target)
+      .maybeSingle();
+    if (res && res.error) return { ok: false, error: errText(res.error) };
+    const row = res && res.data;
+    if (!row) return { ok: false, notFound: true, error: '没找到这个账号，请确认 ID 是否正确' };
+    return {
+      ok: true,
+      player: {
+        uid: row.uid,
+        nickname: row.nickname || '珠宝商',
+        avatar: row.avatar || 'a0',
+        avatarUrl: row.avatar_url || ''
+      }
+    };
+  } catch (e) {
+    return { ok: false, error: errText(e) };
+  }
+}
+
+module.exports = {
+  FRIEND_TABLE: FRIEND_TABLE,
+  INVITE_TABLE: INVITE_TABLE,
+  INVITE_TTL_MS: INVITE_TTL_MS,
+  MAX_FRIENDS: MAX_FRIENDS,
+  friendId: friendId,
+  friendIdRev: friendIdRev,
+  addFriend: addFriend,
+  listFriends: listFriends,
+  removeFriend: removeFriend,
+  sendInvite: sendInvite,
+  listInvites: listInvites,
+  markInvite: markInvite,
+  findPlayer: findPlayer
 };
 
 });
 
 
-var EXPR_TEXTS = ["stageRotate","stageScale","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.autoPlay ? 'is-auto' : ''","item.avatarHue","item.initial","item.autoPlay","item.seatNo","item.name","item.reservedCount","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","lastMove.text","turnClock.pct","topRightTop","goldCount","roomMode","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meSeatLabel","me.nameText","me.pointsReached ? 'is-reached' : ''","me.pointsText","me.reservedText","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && !item.zero) ? 'is-picked' : ''","isMyTurn ? '' : 'is-idle'","pick.kind","pick.delta > 0","pick.delta","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? pick.label : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","canAutoPlay","meAutoPlay ? 'is-on' : ''","meAutoPlay ? '收回' : '托管'","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","screen === 'home'","home.avatarUrl","home.nickname","home.rankTitle","topRightTop > 82 ? topRightTop : 82","home.notice && !home.dialog","home.notice","home.dialog","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))","home.dialog === 'quick'","home.soloCounts","item.active ? 'is-active' : ''","item.n","item.n === 2 ? '1 名对手' : (item.n === 3 ? '2 名对手' : '3 名对手')","home.dialog === 'solo'","home.dialog === 'create'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint","home.cloudHint","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.isSelf ? 'is-self' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.actionNote","detail.canBuy && detail.canAct","detail.buyLabel","!detail.canBuy && detail.canReserve && detail.canAct","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","endNotice","endNotice.leaderSeat","endNotice.leaderName","endNotice.leftText","gameOver","resultTitle","resultDetail","resultBoard","resultBoard.rows","item.isWinner ? 'is-winner' : ''","item.isMe ? 'is-me' : ''","item.rank === 1 ? 'is-first' : ''","item.rank","item.isMe","item.seat + 1","item.cardCount","item.cardPoints","item.nobleCount","item.noblePoints","item.totalTokens","item.disc","item.tok","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'"];
+var EXPR_TEXTS = ["stageRotate","stageScale","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.autoPlay ? 'is-auto' : ''","item.avatarHue","item.initial","item.autoPlay","item.seatNo","item.name","item.reservedCount","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","lastMove.text","turnClock.pct","topRightTop","goldCount","roomMode","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meSeatLabel","me.nameText","me.pointsReached ? 'is-reached' : ''","me.pointsText","me.reservedText","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && !item.zero) ? 'is-picked' : ''","isMyTurn ? '' : 'is-idle'","pick.kind","pick.delta > 0","pick.delta","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? pick.label : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","canAutoPlay","meAutoPlay ? 'is-on' : ''","meAutoPlay ? '收回' : '托管'","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","screen === 'home'","home.avatarUrl","home.nickname","home.rankTitle","home.onlineReady ? 'is-ready' : 'is-pending'","home.onlineText","topRightTop > 82 ? topRightTop : 82","home.notice && !home.dialog","home.notice","friendsPanel.onlineCount > 0","friendsPanel.onlineCount","home.dialog","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))","home.dialog === 'quick'","home.soloCounts","item.active ? 'is-active' : ''","item.n","item.n === 2 ? '1 名对手' : (item.n === 3 ? '2 名对手' : '3 名对手')","home.dialog === 'solo'","home.dialog === 'create'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint","home.cloudHint","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.isSelf ? 'is-self' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.actionNote","detail.canBuy && detail.canAct","detail.buyLabel","!detail.canBuy && detail.canReserve && detail.canAct","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","endNotice","endNotice.leaderSeat","endNotice.leaderName","endNotice.leftText","gameOver","resultTitle","resultDetail","resultBoard","resultBoard.rows","item.isWinner ? 'is-winner' : ''","item.isMe ? 'is-me' : ''","item.rank === 1 ? 'is-first' : ''","item.rank","item.isMe","item.seat + 1","item.cardCount","item.cardPoints","item.nobleCount","item.noblePoints","item.totalTokens","item.disc","item.tok","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'","showFriends","friendsPanel.count","friendsPanel.query","friendsPanel.found","friendsPanel.found.avatarStyle","!friendsPanel.found.avatarUrl","friendsPanel.found.initial","friendsPanel.found.nickname","friendsPanel.notice","friendsPanel.list","item.online ? 'is-online' : ''","item.avatarStyle","!item.avatarUrl","item.nickname","item.statusText","item.shortId","item.canInvite","item.uid","!item.canInvite && !friendsPanel.canInvite","!item.canInvite && friendsPanel.canInvite","friendsPanel.empty","!friendsPanel.ready","friendsPanel.ready","friendsPanel.myId","invitePop","invitePop.fromName","invitePop.roomCode","invitePop.moreText"];
 var EXPR_CACHE = {};
 function EV(id, scope) {
   var fn = EXPR_CACHE[id] || (EXPR_CACHE[id] = new Function('$s', 'with ($s) { return (' + EXPR_TEXTS[id] + '); }'));
@@ -6959,10 +7535,36 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
+    $h.push(ESC(("guild-online " + String(EV(173, $s)))));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("guild-online-dot"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("</div>");
+    $h.push("<text");
+    $h.push(" class=\"");
+    $h.push(ESC("guild-online-num"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(174, $s)));
+    $h.push("</text>");
+    $h.push("<text");
+    $h.push(" class=\"");
+    $h.push(ESC("guild-online-label"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("人在线");
+    $h.push("</text>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
     $h.push(ESC("guild-panel"));
     $h.push("\"");
     $h.push(" style=\"");
-    $h.push(ESC(("top:" + String(EV(173, $s)) + "px;")));
+    $h.push(ESC(("top:" + String(EV(175, $s)) + "px;")));
     $h.push("\"");
     $h.push(">");
     $h.push("<text");
@@ -7091,13 +7693,13 @@ window.renderStage = function (data) {
     $h.push("</text>");
     $h.push("</div>");
     $h.push("</div>");
-    if (EV(174, $s)) {
+    if (EV(176, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("guild-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(175, $s)));
+      $h.push(ESC(EV(177, $s)));
       $h.push("</text>");
     }
     $h.push("<div");
@@ -7105,6 +7707,36 @@ window.renderStage = function (data) {
     $h.push(ESC("guild-nav"));
     $h.push("\"");
     $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("guild-nav-item"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onOpenFriends\"");
+    $h.push(" hover-class=\"");
+    $h.push(ESC("guild-nav-hover"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("guild-icon guild-icon-text"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("⚭");
+    $h.push("</div>");
+    $h.push("<text");
+    $h.push(">");
+    $h.push("好友");
+    $h.push("</text>");
+    if (EV(178, $s)) {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("guild-nav-badge"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(179, $s)));
+      $h.push("</div>");
+    }
+    $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("guild-nav-item"));
@@ -7169,7 +7801,7 @@ window.renderStage = function (data) {
     $h.push("</text>");
     $h.push("</div>");
     $h.push("</div>");
-    if (EV(176, $s)) {
+    if (EV(180, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("overlay guild-overlay"));
@@ -7192,7 +7824,7 @@ window.renderStage = function (data) {
       $h.push(ESC("dialog-title"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(177, $s)));
+      $h.push(ESC(EV(181, $s)));
       $h.push("</text>");
       $h.push("<div");
       $h.push(" class=\"");
@@ -7208,7 +7840,7 @@ window.renderStage = function (data) {
       $h.push(ESC("guild-config"));
       $h.push("\"");
       $h.push(">");
-      if (EV(178, $s)) {
+      if (EV(182, $s)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("guild-config-row"));
@@ -7226,18 +7858,18 @@ window.renderStage = function (data) {
         $h.push(ESC("guild-seat-pick"));
         $h.push("\"");
         $h.push(">");
-        var $list23 = EV(179, $s) || [];
+        var $list23 = EV(183, $s) || [];
         for (var $i23 = 0; $i23 < $list23.length; $i23++) {
           var $s23 = Object.create($s);
           $s23.item = $list23[$i23];
           $s23.index = $i23;
           $h.push("<div");
           $h.push(" class=\"");
-          $h.push(ESC(("seat-pick " + String(EV(180, $s23)))));
+          $h.push(ESC(("seat-pick " + String(EV(184, $s23)))));
           $h.push("\"");
           $h.push(" data-tap=\"onPickSoloSeats\"");
           $h.push(" data-n=\"");
-          $h.push(ESC(String(EV(181, $s23))));
+          $h.push(ESC(String(EV(185, $s23))));
           $h.push("\"");
           $h.push(">");
           $h.push("<text");
@@ -7245,7 +7877,7 @@ window.renderStage = function (data) {
           $h.push(ESC("seat-pick-num"));
           $h.push("\"");
           $h.push(">");
-          $h.push(ESC(EV(181, $s23)));
+          $h.push(ESC(EV(185, $s23)));
           $h.push("</text>");
           $h.push("<text");
           $h.push(" class=\"");
@@ -7259,14 +7891,14 @@ window.renderStage = function (data) {
           $h.push(ESC("seat-pick-desc"));
           $h.push("\"");
           $h.push(">");
-          $h.push(ESC(EV(182, $s23)));
+          $h.push(ESC(EV(186, $s23)));
           $h.push("</text>");
           $h.push("</div>");
         }
         $h.push("</div>");
         $h.push("</div>");
       }
-      if (EV(183, $s)) {
+      if (EV(187, $s)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("guild-config-row"));
@@ -7284,18 +7916,18 @@ window.renderStage = function (data) {
         $h.push(ESC("guild-config-options"));
         $h.push("\"");
         $h.push(">");
-        var $list24 = EV(179, $s) || [];
+        var $list24 = EV(183, $s) || [];
         for (var $i24 = 0; $i24 < $list24.length; $i24++) {
           var $s24 = Object.create($s);
           $s24.item = $list24[$i24];
           $s24.index = $i24;
           $h.push("<div");
           $h.push(" class=\"");
-          $h.push(ESC(("count-chip " + String(EV(180, $s24)))));
+          $h.push(ESC(("count-chip " + String(EV(184, $s24)))));
           $h.push("\"");
           $h.push(" data-tap=\"onSelectSoloCount\"");
           $h.push(" data-n=\"");
-          $h.push(ESC(String(EV(181, $s24))));
+          $h.push(ESC(String(EV(185, $s24))));
           $h.push("\"");
           $h.push(">");
           $h.push(ESC(EV(76, $s24)));
@@ -7304,7 +7936,7 @@ window.renderStage = function (data) {
         $h.push("</div>");
         $h.push("</div>");
       }
-      if (EV(184, $s)) {
+      if (EV(188, $s)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("guild-config-row"));
@@ -7322,18 +7954,18 @@ window.renderStage = function (data) {
         $h.push(ESC("guild-config-options"));
         $h.push("\"");
         $h.push(">");
-        var $list25 = EV(185, $s) || [];
+        var $list25 = EV(189, $s) || [];
         for (var $i25 = 0; $i25 < $list25.length; $i25++) {
           var $s25 = Object.create($s);
           $s25.item = $list25[$i25];
           $s25.index = $i25;
           $h.push("<div");
           $h.push(" class=\"");
-          $h.push(ESC(("count-chip " + String(EV(180, $s25)))));
+          $h.push(ESC(("count-chip " + String(EV(184, $s25)))));
           $h.push("\"");
           $h.push(" data-tap=\"onSelectRoomCount\"");
           $h.push(" data-n=\"");
-          $h.push(ESC(String(EV(181, $s25))));
+          $h.push(ESC(String(EV(185, $s25))));
           $h.push("\"");
           $h.push(">");
           $h.push(ESC(EV(76, $s25)));
@@ -7342,7 +7974,7 @@ window.renderStage = function (data) {
         $h.push("</div>");
         $h.push("</div>");
       }
-      if (EV(184, $s)) {
+      if (EV(188, $s)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("guild-config-row"));
@@ -7360,18 +7992,18 @@ window.renderStage = function (data) {
         $h.push(ESC("guild-config-options"));
         $h.push("\"");
         $h.push(">");
-        var $list26 = EV(186, $s) || [];
+        var $list26 = EV(190, $s) || [];
         for (var $i26 = 0; $i26 < $list26.length; $i26++) {
           var $s26 = Object.create($s);
           $s26.item = $list26[$i26];
           $s26.index = $i26;
           $h.push("<div");
           $h.push(" class=\"");
-          $h.push(ESC(("timer-chip " + String(EV(180, $s26)))));
+          $h.push(ESC(("timer-chip " + String(EV(184, $s26)))));
           $h.push("\"");
           $h.push(" data-tap=\"onSelectTurnLimit\"");
           $h.push(" data-value=\"");
-          $h.push(ESC(String(EV(187, $s26))));
+          $h.push(ESC(String(EV(191, $s26))));
           $h.push("\"");
           $h.push(">");
           $h.push(ESC(EV(76, $s26)));
@@ -7380,7 +8012,7 @@ window.renderStage = function (data) {
         $h.push("</div>");
         $h.push("</div>");
       }
-      if (EV(188, $s)) {
+      if (EV(192, $s)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("guild-config-row"));
@@ -7404,7 +8036,7 @@ window.renderStage = function (data) {
         $h.push(ESC("6"));
         $h.push("\"");
         $h.push(" value=\"");
-        $h.push(ESC(String(EV(189, $s))));
+        $h.push(ESC(String(EV(193, $s))));
         $h.push("\"");
         $h.push(" placeholder=\"");
         $h.push(ESC("6 位房间号"));
@@ -7414,22 +8046,22 @@ window.renderStage = function (data) {
         $h.push("</input>");
         $h.push("</div>");
       }
-      if (EV(190, $s)) {
+      if (EV(194, $s)) {
         $h.push("<text");
         $h.push(" class=\"");
         $h.push(ESC("guild-config-note"));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(191, $s)));
+        $h.push(ESC(EV(195, $s)));
         $h.push("</text>");
       }
-      if (EV(175, $s)) {
+      if (EV(177, $s)) {
         $h.push("<text");
         $h.push(" class=\"");
         $h.push(ESC("home-notice"));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(175, $s)));
+        $h.push(ESC(EV(177, $s)));
         $h.push("</text>");
       }
       $h.push("</div>");
@@ -7446,7 +8078,7 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("取消");
       $h.push("</div>");
-      if (EV(183, $s)) {
+      if (EV(187, $s)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("btn btn-primary"));
@@ -7456,7 +8088,7 @@ window.renderStage = function (data) {
         $h.push("保存设置");
         $h.push("</div>");
       }
-      if (EV(184, $s)) {
+      if (EV(188, $s)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("btn btn-primary"));
@@ -7466,7 +8098,7 @@ window.renderStage = function (data) {
         $h.push("创建房间");
         $h.push("</div>");
       }
-      if (EV(188, $s)) {
+      if (EV(192, $s)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("btn btn-primary"));
@@ -7482,7 +8114,7 @@ window.renderStage = function (data) {
     }
     $h.push("</div>");
   }
-  if (EV(192, $s)) {
+  if (EV(196, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("screen-layer room-screen"));
@@ -7510,14 +8142,14 @@ window.renderStage = function (data) {
     $h.push(ESC("room-code-big"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(193, $s)));
+    $h.push(ESC(EV(197, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("room-backend"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(194, $s)));
+    $h.push(ESC(EV(198, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -7530,7 +8162,7 @@ window.renderStage = function (data) {
     $h.push(ESC("room-status-main"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(195, $s)));
+    $h.push(ESC(EV(199, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -7538,9 +8170,9 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("回合计时 ");
-    $h.push(ESC(EV(196, $s)));
+    $h.push(ESC(EV(200, $s)));
     $h.push(" · ");
-    $h.push(ESC(EV(197, $s)));
+    $h.push(ESC(EV(201, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -7557,14 +8189,14 @@ window.renderStage = function (data) {
     $h.push(ESC("room-seat-row"));
     $h.push("\"");
     $h.push(">");
-    var $list27 = EV(198, $s) || [];
+    var $list27 = EV(202, $s) || [];
     for (var $i27 = 0; $i27 < $list27.length; $i27++) {
       var $s27 = Object.create($s);
       $s27.item = $list27[$i27];
       $s27.index = $i27;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("room-seat " + String(EV(199, $s27)) + " " + String(EV(7, $s27)) + " " + String(EV(200, $s27)) + " " + String(EV(201, $s27)))));
+      $h.push(ESC(("room-seat " + String(EV(203, $s27)) + " " + String(EV(7, $s27)) + " " + String(EV(204, $s27)) + " " + String(EV(205, $s27)))));
       $h.push("\"");
       $h.push(" data-tap=\"onRoomSeatTap\"");
       $h.push(" data-index=\"");
@@ -7604,7 +8236,7 @@ window.renderStage = function (data) {
         $h.push(ESC("room-avatar-no"));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(202, $s27)));
+        $h.push(ESC(EV(206, $s27)));
         $h.push("</text>");
         $h.push("</div>");
       }
@@ -7624,15 +8256,15 @@ window.renderStage = function (data) {
       $h.push("</text>");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("room-seat-state " + String(EV(203, $s27)))));
+      $h.push(ESC(("room-seat-state " + String(EV(207, $s27)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(204, $s27)));
+      $h.push(ESC(EV(208, $s27)));
       $h.push("</text>");
       $h.push("</div>");
-      if (EV(205, $s27)) {
+      if (EV(209, $s27)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("room-seat-action"));
@@ -7642,7 +8274,7 @@ window.renderStage = function (data) {
         $h.push(ESC(String(EV(8, $s27))));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(206, $s27)));
+        $h.push(ESC(EV(210, $s27)));
         $h.push("</div>");
       }
       $h.push("</div>");
@@ -7650,10 +8282,10 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("room-tip " + String(EV(207, $s)))));
+    $h.push(ESC(("room-tip " + String(EV(211, $s)))));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(208, $s)));
+    $h.push(ESC(EV(212, $s)));
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -7679,6 +8311,14 @@ window.renderStage = function (data) {
     $h.push(" class=\"");
     $h.push(ESC("btn"));
     $h.push("\"");
+    $h.push(" data-tap=\"onOpenFriends\"");
+    $h.push(">");
+    $h.push("邀请好友");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn"));
+    $h.push("\"");
     $h.push(" data-tap=\"onCopyRoomCode\"");
     $h.push(">");
     $h.push("复制房间号");
@@ -7691,7 +8331,7 @@ window.renderStage = function (data) {
     $h.push("好友点分享卡片即自动入席");
     $h.push("</text>");
     $h.push("</div>");
-    if (EV(209, $s)) {
+    if (EV(213, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("room-counts"));
@@ -7704,18 +8344,18 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("人数");
       $h.push("</text>");
-      var $list28 = EV(210, $s) || [];
+      var $list28 = EV(214, $s) || [];
       for (var $i28 = 0; $i28 < $list28.length; $i28++) {
         var $s28 = Object.create($s);
         $s28.item = $list28[$i28];
         $s28.index = $i28;
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("count-chip " + String(EV(180, $s28)))));
+        $h.push(ESC(("count-chip " + String(EV(184, $s28)))));
         $h.push("\"");
         $h.push(" data-tap=\"onRoomCount\"");
         $h.push(" data-n=\"");
-        $h.push(ESC(String(EV(181, $s28))));
+        $h.push(ESC(String(EV(185, $s28))));
         $h.push("\"");
         $h.push(">");
         $h.push(ESC(EV(76, $s28)));
@@ -7723,7 +8363,7 @@ window.renderStage = function (data) {
       }
       $h.push("</div>");
     }
-    if (EV(209, $s)) {
+    if (EV(213, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("room-counts"));
@@ -7736,18 +8376,18 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("回合计时");
       $h.push("</text>");
-      var $list29 = EV(211, $s) || [];
+      var $list29 = EV(215, $s) || [];
       for (var $i29 = 0; $i29 < $list29.length; $i29++) {
         var $s29 = Object.create($s);
         $s29.item = $list29[$i29];
         $s29.index = $i29;
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("count-chip " + String(EV(180, $s29)))));
+        $h.push(ESC(("count-chip " + String(EV(184, $s29)))));
         $h.push("\"");
         $h.push(" data-tap=\"onRoomTurnLimit\"");
         $h.push(" data-value=\"");
-        $h.push(ESC(String(EV(187, $s29))));
+        $h.push(ESC(String(EV(191, $s29))));
         $h.push("\"");
         $h.push(">");
         $h.push(ESC(EV(76, $s29)));
@@ -7755,13 +8395,13 @@ window.renderStage = function (data) {
       }
       $h.push("</div>");
     }
-    if (EV(212, $s)) {
+    if (EV(216, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(212, $s)));
+      $h.push(ESC(EV(216, $s)));
       $h.push("</text>");
     }
     $h.push("</div>");
@@ -7775,31 +8415,31 @@ window.renderStage = function (data) {
     $h.push(ESC("room-action-note"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(213, $s)));
+    $h.push(ESC(EV(217, $s)));
     $h.push("</text>");
-    if (EV(209, $s)) {
+    if (EV(213, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("btn btn-primary room-start " + String(EV(214, $s)))));
+      $h.push(ESC(("btn btn-primary room-start " + String(EV(218, $s)))));
       $h.push("\"");
       $h.push(" data-tap=\"onRoomStart\"");
       $h.push(">");
-      $h.push(ESC(EV(215, $s)));
+      $h.push(ESC(EV(219, $s)));
       $h.push("</div>");
     } else {
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("btn btn-primary room-start " + String(EV(216, $s)))));
+      $h.push(ESC(("btn btn-primary room-start " + String(EV(220, $s)))));
       $h.push("\"");
       $h.push(" data-tap=\"onRoomToggleReady\"");
       $h.push(">");
-      $h.push(ESC(EV(215, $s)));
+      $h.push(ESC(EV(219, $s)));
       $h.push("</div>");
     }
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(217, $s)) {
+  if (EV(221, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -7822,7 +8462,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(218, $s)));
+    $h.push(ESC(EV(222, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -7830,11 +8470,11 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("第 ");
-    $h.push(ESC(EV(219, $s)));
+    $h.push(ESC(EV(223, $s)));
     $h.push(" 级发展卡 · ");
-    $h.push(ESC(EV(220, $s)));
+    $h.push(ESC(EV(224, $s)));
     $h.push(" · 产出");
-    $h.push(ESC(EV(221, $s)));
+    $h.push(ESC(EV(225, $s)));
     $h.push("红利");
     $h.push("</text>");
     $h.push("</div>");
@@ -7845,7 +8485,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card card-big " + String(EV(222, $s)))));
+    $h.push(ESC(("card card-big " + String(EV(226, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("<div");
@@ -7855,7 +8495,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card-photo " + String(EV(223, $s)) + " " + String(EV(224, $s)))));
+    $h.push(ESC(("card-photo " + String(EV(227, $s)) + " " + String(EV(228, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("</div>");
@@ -7870,21 +8510,21 @@ window.renderStage = function (data) {
     $h.push(ESC("card-name"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(218, $s)));
+    $h.push(ESC(EV(222, $s)));
     $h.push("</text>");
     $h.push("</div>");
-    if (EV(225, $s)) {
+    if (EV(229, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("card-points"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(225, $s)));
+      $h.push(ESC(EV(229, $s)));
       $h.push("</text>");
     }
     $h.push("<div");
     $h.push(" class=\"");
-    $h.push(ESC(("card-gem gem-icon " + String(EV(226, $s)))));
+    $h.push(ESC(("card-gem gem-icon " + String(EV(230, $s)))));
     $h.push("\"");
     $h.push(">");
     $h.push("</div>");
@@ -7893,7 +8533,7 @@ window.renderStage = function (data) {
     $h.push(ESC("card-foot"));
     $h.push("\"");
     $h.push(">");
-    var $list30 = EV(227, $s) || [];
+    var $list30 = EV(231, $s) || [];
     for (var $i30 = 0; $i30 < $list30.length; $i30++) {
       var $s30 = Object.create($s);
       $s30.item = $list30[$i30];
@@ -7927,14 +8567,14 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("卡面成本 · 逐色实付");
     $h.push("</text>");
-    var $list31 = EV(228, $s) || [];
+    var $list31 = EV(232, $s) || [];
     for (var $i31 = 0; $i31 < $list31.length; $i31++) {
       var $s31 = Object.create($s);
       $s31.item = $list31[$i31];
       $s31.index = $i31;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("cost-line " + String(EV(229, $s31)))));
+      $h.push(ESC(("cost-line " + String(EV(233, $s31)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<div");
@@ -7956,20 +8596,20 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("印刷 ");
-      $h.push(ESC(EV(230, $s31)));
+      $h.push(ESC(EV(234, $s31)));
       $h.push(" − 红利 ");
-      $h.push(ESC(EV(231, $s31)));
+      $h.push(ESC(EV(235, $s31)));
       $h.push(" = 实付 ");
-      $h.push(ESC(EV(232, $s31)));
+      $h.push(ESC(EV(236, $s31)));
       $h.push("</text>");
       $h.push("</div>");
     }
     $h.push("<text");
     $h.push(" class=\"");
-    $h.push(ESC(("detail-summary " + String(EV(233, $s)))));
+    $h.push(ESC(("detail-summary " + String(EV(237, $s)))));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(234, $s)));
+    $h.push(ESC(EV(238, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -7990,19 +8630,19 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-action-note"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(235, $s)));
+    $h.push(ESC(EV(239, $s)));
     $h.push("</text>");
-    if (EV(236, $s)) {
+    if (EV(240, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("btn btn-primary"));
       $h.push("\"");
       $h.push(" data-tap=\"onBuyFromDetail\"");
       $h.push(">");
-      $h.push(ESC(EV(237, $s)));
+      $h.push(ESC(EV(241, $s)));
       $h.push("</div>");
     }
-    if (EV(238, $s)) {
+    if (EV(242, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("btn"));
@@ -8024,7 +8664,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(239, $s)) {
+  if (EV(243, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -8152,7 +8792,7 @@ window.renderStage = function (data) {
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(240, $s)) {
+    if (EV(244, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -8179,7 +8819,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(241, $s)) {
+  if (EV(245, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -8203,20 +8843,20 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("战绩 · ");
-    $h.push(ESC(EV(242, $s)));
+    $h.push(ESC(EV(246, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(243, $s)));
+    $h.push(ESC(EV(247, $s)));
     $h.push(" 场对局 · 胜 ");
-    $h.push(ESC(EV(244, $s)));
+    $h.push(ESC(EV(248, $s)));
     $h.push(" · 胜率 ");
-    $h.push(ESC(EV(245, $s)));
+    $h.push(ESC(EV(249, $s)));
     $h.push("% · 最高 ");
-    $h.push(ESC(EV(246, $s)));
+    $h.push(ESC(EV(250, $s)));
     $h.push(" 声望");
     $h.push("</text>");
     $h.push("</div>");
@@ -8240,7 +8880,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-cell-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(243, $s)));
+    $h.push(ESC(EV(247, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -8260,7 +8900,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-cell-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(245, $s)));
+    $h.push(ESC(EV(249, $s)));
     $h.push("%");
     $h.push("</text>");
     $h.push("<text");
@@ -8281,7 +8921,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-cell-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(246, $s)));
+    $h.push(ESC(EV(250, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -8301,7 +8941,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-cell-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(247, $s)));
+    $h.push(ESC(EV(251, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -8321,7 +8961,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-cell-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(248, $s)));
+    $h.push(ESC(EV(252, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -8337,7 +8977,7 @@ window.renderStage = function (data) {
     $h.push(ESC("records-list"));
     $h.push("\"");
     $h.push(">");
-    var $list34 = EV(249, $s) || [];
+    var $list34 = EV(253, $s) || [];
     for (var $i34 = 0; $i34 < $list34.length; $i34++) {
       var $s34 = Object.create($s);
       $s34.item = $list34[$i34];
@@ -8349,12 +8989,12 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("records-result " + String(EV(250, $s34)))));
+      $h.push(ESC(("records-result " + String(EV(254, $s34)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(251, $s34)));
+      $h.push(ESC(EV(255, $s34)));
       $h.push("</text>");
       $h.push("</div>");
       $h.push("<div");
@@ -8367,24 +9007,24 @@ window.renderStage = function (data) {
       $h.push(ESC("records-title"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(252, $s34)));
+      $h.push(ESC(EV(256, $s34)));
       $h.push(" · ");
-      $h.push(ESC(EV(253, $s34)));
+      $h.push(ESC(EV(257, $s34)));
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("records-sub"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(254, $s34)));
+      $h.push(ESC(EV(258, $s34)));
       $h.push(" · ");
-      $h.push(ESC(EV(255, $s34)));
-      $h.push(ESC(EV(256, $s34)));
+      $h.push(ESC(EV(259, $s34)));
+      $h.push(ESC(EV(260, $s34)));
       $h.push("</text>");
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(257, $s)) {
+    if (EV(261, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -8394,13 +9034,13 @@ window.renderStage = function (data) {
       $h.push("</text>");
     }
     $h.push("</div>");
-    if (EV(258, $s)) {
+    if (EV(262, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(258, $s)));
+      $h.push(ESC(EV(262, $s)));
       $h.push("</text>");
     }
     $h.push("</div>");
@@ -8409,7 +9049,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-btns"));
     $h.push("\"");
     $h.push(">");
-    if (EV(259, $s)) {
+    if (EV(263, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("btn"));
@@ -8431,7 +9071,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(260, $s)) {
+  if (EV(264, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay overlay-top"));
@@ -8461,7 +9101,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(261, $s)));
+    $h.push(ESC(EV(265, $s)));
     $h.push(" 人对局 · 先达到 15 声望者胜 · 点击任意头像可查看详情");
     $h.push("</text>");
     $h.push("</div>");
@@ -8544,7 +9184,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(262, $s)) {
+  if (EV(266, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("end-notice"));
@@ -8562,9 +9202,9 @@ window.renderStage = function (data) {
     $h.push(ESC("end-notice-text"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(263, $s)));
+    $h.push(ESC(EV(267, $s)));
     $h.push(" 号位 · ");
-    $h.push(ESC(EV(264, $s)));
+    $h.push(ESC(EV(268, $s)));
     $h.push(" 已达 15 声望");
     $h.push("</text>");
     $h.push("<text");
@@ -8572,11 +9212,11 @@ window.renderStage = function (data) {
     $h.push(ESC("end-notice-left"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(265, $s)));
+    $h.push(ESC(EV(269, $s)));
     $h.push("</text>");
     $h.push("</div>");
   }
-  if (EV(266, $s)) {
+  if (EV(270, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -8600,16 +9240,16 @@ window.renderStage = function (data) {
     $h.push(ESC("result-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(267, $s)));
+    $h.push(ESC(EV(271, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("result-detail"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(268, $s)));
+    $h.push(ESC(EV(272, $s)));
     $h.push("</text>");
-    if (EV(269, $s)) {
+    if (EV(273, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("rank-board"));
@@ -8649,14 +9289,14 @@ window.renderStage = function (data) {
       $h.push("构成");
       $h.push("</text>");
       $h.push("</div>");
-      var $list35 = EV(270, $s) || [];
+      var $list35 = EV(274, $s) || [];
       for (var $i35 = 0; $i35 < $list35.length; $i35++) {
         var $s35 = Object.create($s);
         $s35.item = $list35[$i35];
         $s35.index = $i35;
         $h.push("<div");
         $h.push(" class=\"");
-        $h.push(ESC(("rank-row " + String(EV(271, $s35)) + " " + String(EV(272, $s35)))));
+        $h.push(ESC(("rank-row " + String(EV(275, $s35)) + " " + String(EV(276, $s35)))));
         $h.push("\"");
         $h.push(">");
         $h.push("<div");
@@ -8666,10 +9306,10 @@ window.renderStage = function (data) {
         $h.push(">");
         $h.push("<text");
         $h.push(" class=\"");
-        $h.push(ESC(("rank-num " + String(EV(273, $s35)))));
+        $h.push(ESC(("rank-num " + String(EV(277, $s35)))));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(274, $s35)));
+        $h.push(ESC(EV(278, $s35)));
         $h.push("</text>");
         $h.push("</div>");
         $h.push("<div");
@@ -8722,7 +9362,7 @@ window.renderStage = function (data) {
         $h.push(">");
         $h.push(ESC(EV(15, $s35)));
         $h.push("</text>");
-        if (EV(275, $s35)) {
+        if (EV(279, $s35)) {
           $h.push("<text");
           $h.push(" class=\"");
           $h.push(ESC("rank-me-tag"));
@@ -8746,7 +9386,7 @@ window.renderStage = function (data) {
         $h.push(ESC("rank-seat"));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(276, $s35)));
+        $h.push(ESC(EV(280, $s35)));
         $h.push(" 号位");
         $h.push("</text>");
         $h.push("</div>");
@@ -8775,15 +9415,15 @@ window.renderStage = function (data) {
         $h.push("\"");
         $h.push(">");
         $h.push("发展卡 ");
-        $h.push(ESC(EV(277, $s35)));
-        $h.push(" 张（");
-        $h.push(ESC(EV(278, $s35)));
-        $h.push(" 分）· 贵族 ");
-        $h.push(ESC(EV(279, $s35)));
-        $h.push(" 张（");
-        $h.push(ESC(EV(280, $s35)));
-        $h.push(" 分）· 筹码 ");
         $h.push(ESC(EV(281, $s35)));
+        $h.push(" 张（");
+        $h.push(ESC(EV(282, $s35)));
+        $h.push(" 分）· 贵族 ");
+        $h.push(ESC(EV(283, $s35)));
+        $h.push(" 张（");
+        $h.push(ESC(EV(284, $s35)));
+        $h.push(" 分）· 筹码 ");
+        $h.push(ESC(EV(285, $s35)));
         $h.push("/10");
         $h.push("</text>");
         $h.push("<div");
@@ -8803,7 +9443,7 @@ window.renderStage = function (data) {
         $h.push(">");
         $h.push("折");
         $h.push("</text>");
-        var $list36 = EV(282, $s35) || [];
+        var $list36 = EV(286, $s35) || [];
         for (var $i36 = 0; $i36 < $list36.length; $i36++) {
           var $s36 = Object.create($s35);
           $s36.item = $list36[$i36];
@@ -8833,7 +9473,7 @@ window.renderStage = function (data) {
         $h.push(">");
         $h.push("筹");
         $h.push("</text>");
-        var $list37 = EV(283, $s35) || [];
+        var $list37 = EV(287, $s35) || [];
         for (var $i37 = 0; $i37 < $list37.length; $i37++) {
           var $s37 = Object.create($s35);
           $s37.item = $list37[$i37];
@@ -8892,7 +9532,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(284, $s)) {
+  if (EV(288, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay overlay-top"));
@@ -8916,16 +9556,16 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("房间 · ");
-    $h.push(ESC(EV(193, $s)));
+    $h.push(ESC(EV(197, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(195, $s)));
+    $h.push(ESC(EV(199, $s)));
     $h.push(" · ");
-    $h.push(ESC(EV(194, $s)));
+    $h.push(ESC(EV(198, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -8950,7 +9590,7 @@ window.renderStage = function (data) {
     $h.push(ESC("seat-setup"));
     $h.push("\"");
     $h.push(">");
-    var $list38 = EV(198, $s) || [];
+    var $list38 = EV(202, $s) || [];
     for (var $i38 = 0; $i38 < $list38.length; $i38++) {
       var $s38 = Object.create($s);
       $s38.item = $list38[$i38];
@@ -8985,10 +9625,10 @@ window.renderStage = function (data) {
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
-      $h.push(ESC(("setup-state " + String(EV(285, $s38)))));
+      $h.push(ESC(("setup-state " + String(EV(289, $s38)))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(204, $s38)));
+      $h.push(ESC(EV(208, $s38)));
       $h.push("</text>");
       $h.push("</div>");
     }
@@ -9016,7 +9656,7 @@ window.renderStage = function (data) {
     $h.push(ESC("room-code"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(193, $s)));
+    $h.push(ESC(EV(197, $s)));
     $h.push("</text>");
     $h.push("<button");
     $h.push(" class=\"");
@@ -9049,16 +9689,16 @@ window.renderStage = function (data) {
     $h.push(ESC("room-hint"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(197, $s)));
+    $h.push(ESC(EV(201, $s)));
     $h.push("</text>");
     $h.push("</div>");
-    if (EV(212, $s)) {
+    if (EV(216, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(212, $s)));
+      $h.push(ESC(EV(216, $s)));
       $h.push("</text>");
     }
     $h.push("</div>");
@@ -9087,7 +9727,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(286, $s)) {
+  if (EV(290, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -9110,14 +9750,14 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(287, $s)));
+    $h.push(ESC(EV(291, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(288, $s)));
+    $h.push(ESC(EV(292, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<div");
@@ -9130,7 +9770,7 @@ window.renderStage = function (data) {
     $h.push(ESC("player-left"));
     $h.push("\"");
     $h.push(">");
-    if (EV(289, $s)) {
+    if (EV(293, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("player-avatar"));
@@ -9141,7 +9781,7 @@ window.renderStage = function (data) {
       $h.push(ESC("player-avatar-img"));
       $h.push("\"");
       $h.push(" src=\"");
-      $h.push(ESC(String(EV(289, $s))));
+      $h.push(ESC(String(EV(293, $s))));
       $h.push("\"");
       $h.push(" mode=\"");
       $h.push(ESC("aspectFill"));
@@ -9155,7 +9795,7 @@ window.renderStage = function (data) {
       $h.push(ESC("player-avatar"));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(290, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(294, $s)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -9165,7 +9805,7 @@ window.renderStage = function (data) {
     $h.push(ESC("player-score"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(291, $s)));
+    $h.push(ESC(EV(295, $s)));
     $h.push(" / 15 声望");
     $h.push("</text>");
     $h.push("<text");
@@ -9174,11 +9814,11 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("发展卡 ");
-    $h.push(ESC(EV(292, $s)));
+    $h.push(ESC(EV(296, $s)));
     $h.push(" · 预留 ");
-    $h.push(ESC(EV(293, $s)));
+    $h.push(ESC(EV(297, $s)));
     $h.push(" · 筹码 ");
-    $h.push(ESC(EV(294, $s)));
+    $h.push(ESC(EV(298, $s)));
     $h.push("/10");
     $h.push("</text>");
     $h.push("<text");
@@ -9188,7 +9828,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("声望构成");
     $h.push("</text>");
-    var $list39 = EV(295, $s) || [];
+    var $list39 = EV(299, $s) || [];
     for (var $i39 = 0; $i39 < $list39.length; $i39++) {
       var $s39 = Object.create($s);
       $s39.item = $list39[$i39];
@@ -9204,7 +9844,7 @@ window.renderStage = function (data) {
       $h.push("</text>");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(187, $s39)));
+      $h.push(ESC(EV(191, $s39)));
       $h.push("</text>");
       $h.push("</div>");
     }
@@ -9234,7 +9874,7 @@ window.renderStage = function (data) {
     $h.push("筹码");
     $h.push("</text>");
     $h.push("</div>");
-    var $list40 = EV(296, $s) || [];
+    var $list40 = EV(300, $s) || [];
     for (var $i40 = 0; $i40 < $list40.length; $i40++) {
       var $s40 = Object.create($s);
       $s40.item = $list40[$i40];
@@ -9247,22 +9887,22 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("pd-chip gem-icon " + String(EV(26, $s40)) + " " + String(EV(297, $s40)) + " " + String(EV(298, $s40)) + " " + String(EV(23, $s40)))));
+      $h.push(ESC(("pd-chip gem-icon " + String(EV(26, $s40)) + " " + String(EV(301, $s40)) + " " + String(EV(302, $s40)) + " " + String(EV(23, $s40)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(299, $s40)));
+      $h.push(ESC(EV(303, $s40)));
       $h.push("</text>");
       $h.push("</div>");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("pd-chip is-coin gem-icon " + String(EV(26, $s40)) + " " + String(EV(300, $s40)) + " " + String(EV(301, $s40)) + " " + String(EV(23, $s40)))));
+      $h.push(ESC(("pd-chip is-coin gem-icon " + String(EV(26, $s40)) + " " + String(EV(304, $s40)) + " " + String(EV(305, $s40)) + " " + String(EV(23, $s40)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<text");
       $h.push(">");
-      $h.push(ESC(EV(302, $s40)));
+      $h.push(ESC(EV(306, $s40)));
       $h.push("</text>");
       $h.push("</div>");
       $h.push("</div>");
@@ -9280,7 +9920,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("预留卡（");
-    $h.push(ESC(EV(303, $s)));
+    $h.push(ESC(EV(307, $s)));
     $h.push("/3）· 气泡为卡面印刷成本");
     $h.push("</text>");
     $h.push("<div");
@@ -9288,7 +9928,7 @@ window.renderStage = function (data) {
     $h.push(ESC("pd-cards"));
     $h.push("\"");
     $h.push(">");
-    var $list41 = EV(304, $s) || [];
+    var $list41 = EV(308, $s) || [];
     for (var $i41 = 0; $i41 < $list41.length; $i41++) {
       var $s41 = Object.create($s);
       $s41.item = $list41[$i41];
@@ -9376,16 +10016,16 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("第 ");
-      $h.push(ESC(EV(305, $s41)));
+      $h.push(ESC(EV(309, $s41)));
       $h.push(" 级 · ");
-      $h.push(ESC(EV(306, $s41)));
+      $h.push(ESC(EV(310, $s41)));
       $h.push(" · ");
-      $h.push(ESC(EV(307, $s41)));
+      $h.push(ESC(EV(311, $s41)));
       $h.push("红利");
       $h.push("</text>");
       $h.push("</div>");
     }
-    if (EV(308, $s)) {
+    if (EV(312, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -9401,7 +10041,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("贵族到访（");
-    $h.push(ESC(EV(309, $s)));
+    $h.push(ESC(EV(313, $s)));
     $h.push("）");
     $h.push("</text>");
     $h.push("<div");
@@ -9409,7 +10049,7 @@ window.renderStage = function (data) {
     $h.push(ESC("pd-list"));
     $h.push("\"");
     $h.push(">");
-    var $list43 = EV(310, $s) || [];
+    var $list43 = EV(314, $s) || [];
     for (var $i43 = 0; $i43 < $list43.length; $i43++) {
       var $s43 = Object.create($s);
       $s43.item = $list43[$i43];
@@ -9459,7 +10099,7 @@ window.renderStage = function (data) {
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(311, $s)) {
+    if (EV(315, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("empty-tip"));
@@ -9488,7 +10128,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(312, $s)) {
+  if (EV(316, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay"));
@@ -9531,7 +10171,7 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-current"));
     $h.push("\"");
     $h.push(">");
-    if (EV(313, $s)) {
+    if (EV(317, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("profile-avatar"));
@@ -9542,7 +10182,7 @@ window.renderStage = function (data) {
       $h.push(ESC("profile-avatar-img"));
       $h.push("\"");
       $h.push(" src=\"");
-      $h.push(ESC(String(EV(313, $s))));
+      $h.push(ESC(String(EV(317, $s))));
       $h.push("\"");
       $h.push(" mode=\"");
       $h.push(ESC("aspectFill"));
@@ -9568,7 +10208,7 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-nickname"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(314, $s)));
+    $h.push(ESC(EV(318, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -9576,7 +10216,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("当前头像：");
-    $h.push(ESC(EV(315, $s)));
+    $h.push(ESC(EV(319, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("</div>");
@@ -9602,14 +10242,14 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-id-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(316, $s)));
+    $h.push(ESC(EV(320, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("profile-id-tag"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(317, $s)));
+    $h.push(ESC(EV(321, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -9617,7 +10257,7 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("加入于 ");
-    $h.push(ESC(EV(318, $s)));
+    $h.push(ESC(EV(322, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("<text");
@@ -9625,7 +10265,7 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-id-detail"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(319, $s)));
+    $h.push(ESC(EV(323, $s)));
     $h.push("</text>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -9644,14 +10284,14 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-rank"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(320, $s)));
+    $h.push(ESC(EV(324, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("profile-stats"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(321, $s)));
+    $h.push(ESC(EV(325, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("</div>");
@@ -9678,7 +10318,7 @@ window.renderStage = function (data) {
     $h.push(ESC("12"));
     $h.push("\"");
     $h.push(" value=\"");
-    $h.push(ESC(String(EV(314, $s))));
+    $h.push(ESC(String(EV(318, $s))));
     $h.push("\"");
     $h.push(" placeholder=\"");
     $h.push(ESC("输入或选择微信昵称"));
@@ -9686,7 +10326,7 @@ window.renderStage = function (data) {
     $h.push(" data-input=\"onNicknameInput\"");
     $h.push(">");
     $h.push("</input>");
-    if (EV(322, $s)) {
+    if (EV(326, $s)) {
       $h.push("<button");
       $h.push(" class=\"");
       $h.push(ESC("native-avatar-btn"));
@@ -9705,7 +10345,7 @@ window.renderStage = function (data) {
     $h.push(ESC("preset-nicknames"));
     $h.push("\"");
     $h.push(">");
-    var $list45 = EV(323, $s) || [];
+    var $list45 = EV(327, $s) || [];
     for (var $i45 = 0; $i45 < $list45.length; $i45++) {
       var $s45 = Object.create($s);
       $s45.item = $list45[$i45];
@@ -9716,10 +10356,10 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(" data-tap=\"onPickNickname\"");
       $h.push(" data-name=\"");
-      $h.push(ESC(String(EV(324, $s45))));
+      $h.push(ESC(String(EV(328, $s45))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(324, $s45)));
+      $h.push(ESC(EV(328, $s45)));
       $h.push("</div>");
     }
     $h.push("</div>");
@@ -9735,17 +10375,17 @@ window.renderStage = function (data) {
     $h.push(ESC("preset-avatars"));
     $h.push("\"");
     $h.push(">");
-    var $list46 = EV(325, $s) || [];
+    var $list46 = EV(329, $s) || [];
     for (var $i46 = 0; $i46 < $list46.length; $i46++) {
       var $s46 = Object.create($s);
       $s46.item = $list46[$i46];
       $s46.index = $i46;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("preset-avatar " + String(EV(180, $s46)))));
+      $h.push(ESC(("preset-avatar " + String(EV(184, $s46)))));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(326, $s46)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(330, $s46)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(" data-tap=\"onPickAvatar\"");
       $h.push(" data-key=\"");
@@ -9759,13 +10399,13 @@ window.renderStage = function (data) {
       $h.push("</div>");
     }
     $h.push("</div>");
-    if (EV(327, $s)) {
+    if (EV(331, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(327, $s)));
+      $h.push(ESC(EV(331, $s)));
       $h.push("</text>");
     }
     $h.push("<text");
@@ -9789,7 +10429,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("保存资料");
     $h.push("</div>");
-    if (EV(328, $s)) {
+    if (EV(332, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("btn"));
@@ -9811,6 +10451,366 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
+  if (EV(333, $s)) {
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("overlay overlay-top"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onCloseFriends\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("dialog friends-dialog"));
+    $h.push("\"");
+    $h.push(" data-catchtap=\"noop\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("dialog-head"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<text");
+    $h.push(" class=\"");
+    $h.push(ESC("dialog-title"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("好友");
+    $h.push("</text>");
+    $h.push("<text");
+    $h.push(" class=\"");
+    $h.push(ESC("dialog-sub"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(334, $s)));
+    $h.push(" 位好友 · ");
+    $h.push(ESC(EV(179, $s)));
+    $h.push(" 人在线");
+    $h.push("</text>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("friends-add"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<input");
+    $h.push(" class=\"");
+    $h.push(ESC("friends-input"));
+    $h.push("\"");
+    $h.push(" value=\"");
+    $h.push(ESC(String(EV(335, $s))));
+    $h.push("\"");
+    $h.push(" placeholder=\"");
+    $h.push(ESC("输入好友的账号 ID"));
+    $h.push("\"");
+    $h.push(" placeholder-class=\"");
+    $h.push(ESC("friends-input-ph"));
+    $h.push("\"");
+    $h.push(" data-input=\"onFriendQueryInput\"");
+    $h.push(">");
+    $h.push("</input>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn friends-search"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onSearchFriend\"");
+    $h.push(">");
+    $h.push("查找");
+    $h.push("</div>");
+    $h.push("</div>");
+    if (EV(336, $s)) {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-found"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-avatar"));
+      $h.push("\"");
+      $h.push(" style=\"");
+      $h.push(ESC(String(EV(337, $s))));
+      $h.push("\"");
+      $h.push(">");
+      if (EV(338, $s)) {
+        $h.push("<text");
+        $h.push(" class=\"");
+        $h.push(ESC("friends-avatar-initial"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push(ESC(EV(339, $s)));
+        $h.push("</text>");
+      }
+      $h.push("</div>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-found-name"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(340, $s)));
+      $h.push("</text>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("btn btn-primary friends-add-btn"));
+      $h.push("\"");
+      $h.push(" data-tap=\"onAddFriend\"");
+      $h.push(">");
+      $h.push("加为好友");
+      $h.push("</div>");
+      $h.push("</div>");
+    }
+    if (EV(341, $s)) {
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-notice"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(341, $s)));
+      $h.push("</text>");
+    }
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("friends-list"));
+    $h.push("\"");
+    $h.push(">");
+    var $list47 = EV(342, $s) || [];
+    for (var $i47 = 0; $i47 < $list47.length; $i47++) {
+      var $s47 = Object.create($s);
+      $s47.item = $list47[$i47];
+      $s47.index = $i47;
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-row"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("friends-avatar " + String(EV(343, $s47)))));
+      $h.push("\"");
+      $h.push(" style=\"");
+      $h.push(ESC(String(EV(344, $s47))));
+      $h.push("\"");
+      $h.push(">");
+      if (EV(345, $s47)) {
+        $h.push("<text");
+        $h.push(" class=\"");
+        $h.push(ESC("friends-avatar-initial"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push(ESC(EV(12, $s47)));
+        $h.push("</text>");
+      }
+      $h.push("</div>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-info"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-name"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(346, $s47)));
+      $h.push("</text>");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-meta"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("friends-dot " + String(EV(343, $s47)))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("</div>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-status"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(347, $s47)));
+      $h.push("</text>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-id"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("· ID ");
+      $h.push(ESC(EV(348, $s47)));
+      $h.push("</text>");
+      $h.push("</div>");
+      $h.push("</div>");
+      if (EV(349, $s47)) {
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC("btn btn-primary friends-invite"));
+        $h.push("\"");
+        $h.push(" data-tap=\"onInviteFriend\"");
+        $h.push(" data-uid=\"");
+        $h.push(ESC(String(EV(350, $s47))));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("邀请");
+        $h.push("</div>");
+      }
+      if (EV(351, $s47)) {
+        $h.push("<text");
+        $h.push(" class=\"");
+        $h.push(ESC("friends-invite-hint"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("房间里可邀请");
+        $h.push("</text>");
+      }
+      if (EV(352, $s47)) {
+        $h.push("<text");
+        $h.push(" class=\"");
+        $h.push(ESC("friends-invite-hint"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("离线");
+        $h.push("</text>");
+      }
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("btn friends-remove"));
+      $h.push("\"");
+      $h.push(" data-tap=\"onRemoveFriend\"");
+      $h.push(" data-uid=\"");
+      $h.push(ESC(String(EV(350, $s47))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("删");
+      $h.push("</div>");
+      $h.push("</div>");
+    }
+    if (EV(353, $s)) {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("friends-empty"));
+      $h.push("\"");
+      $h.push(">");
+      if (EV(354, $s)) {
+        $h.push("<text");
+        $h.push(">");
+        $h.push("正在加载好友…");
+        $h.push("</text>");
+      }
+      if (EV(355, $s)) {
+        $h.push("<text");
+        $h.push(">");
+        $h.push("还没有好友。把下面这串 ID 发给朋友，让他输入后互加。");
+        $h.push("</text>");
+      }
+      $h.push("</div>");
+    }
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("friends-myid"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<text");
+    $h.push(" class=\"");
+    $h.push(ESC("friends-myid-label"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("我的账号 ID");
+    $h.push("</text>");
+    $h.push("<text");
+    $h.push(" class=\"");
+    $h.push(ESC("friends-myid-value"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(356, $s)));
+    $h.push("</text>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn friends-copy"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onCopyMyId\"");
+    $h.push(">");
+    $h.push("复制");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("dialog-btns"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn btn-primary"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onCloseFriends\"");
+    $h.push(">");
+    $h.push("关闭");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+  }
+  if (EV(357, $s)) {
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("invite-toast"));
+    $h.push("\"");
+    $h.push(" data-catchtap=\"noop\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("invite-toast-head"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("invite-toast-dot"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("</div>");
+    $h.push("<text");
+    $h.push(" class=\"");
+    $h.push(ESC("invite-toast-title"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push(ESC(EV(358, $s)));
+    $h.push(" 邀请你联机");
+    $h.push("</text>");
+    $h.push("</div>");
+    $h.push("<text");
+    $h.push(" class=\"");
+    $h.push(ESC("invite-toast-sub"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("房间号 ");
+    $h.push(ESC(EV(359, $s)));
+    $h.push(" · ");
+    $h.push(ESC(EV(360, $s)));
+    $h.push("</text>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("invite-toast-btns"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn btn-primary invite-toast-go"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onAcceptInvite\"");
+    $h.push(">");
+    $h.push("加入");
+    $h.push("</div>");
+    $h.push("<div");
+    $h.push(" class=\"");
+    $h.push(ESC("btn invite-toast-no"));
+    $h.push("\"");
+    $h.push(" data-tap=\"onDeclineInvite\"");
+    $h.push(">");
+    $h.push("忽略");
+    $h.push("</div>");
+    $h.push("</div>");
+    $h.push("</div>");
+  }
   $h.push("</div>");
   $h.push("</div>");
   return $h.join("");
@@ -9825,6 +10825,7 @@ const E = require('../../utils/game-engine.js');
 const AI = require('../../utils/ai.js');
 const R = require('../../utils/room.js');
 const U = require('../../utils/user.js');
+const F = require('../../utils/friend.js');
 
 // 设计稿舞台尺寸（与参考截图比例一致），运行时等比缩放适配屏幕
 const DESIGN_W = 1080;
@@ -10515,6 +11516,75 @@ function turnLimitVM(active, disabled) {
 }
 
 /** 游戏大厅以开局为主；档案与完整战绩按需打开，不占首页主操作区。 */
+/** 好友头像样式：有图用图，没图用预设色渐变。在 VM 里拼好，
+    模板里不写长三元 —— H5 预览编译器对内联长表达式支持不稳。 */
+function friendAvatarStyle(url, hue) {
+  if (url) return 'background-image:url(' + url + ');background-size:cover;background-position:center;';
+  return 'background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), ' +
+    (hue || '#c98a4b') + ' 52%, rgba(20,10,16,.92) 100%);';
+}
+
+/** 好友列表视图模型：把「好友 uid + 资料 + 在线状态」合成可渲染的行 */
+function friendsVM(ui) {
+  const list = ui.friends || [];
+  const online = ui.onlineUids || {};
+  const identity = U.getIdentity();
+  const rows = list.map(function (f, i) {
+    const isOnline = !!online[f.uid];
+    const hue = avatarHue(f.avatar || 'a0');
+    return {
+      uid: f.uid,
+      // 账号 ID 很长，界面上只露后 6 位，避免占满一行
+      shortId: String(f.uid || '').slice(-6),
+      nickname: f.nickname || ('玩家 ' + (i + 1)),
+      initial: String(f.nickname || '玩').slice(0, 1),
+      avatarUrl: f.avatarUrl || '',
+      avatarStyle: friendAvatarStyle(f.avatarUrl, hue),
+      online: isOnline,
+      statusText: isOnline ? '在线' : '离线',
+      // 邀请按钮只在「我开着房间」且对方在线时可点 —— 离线好友点了也收不到
+      canInvite: isOnline && !!ui.friendInviteCode,
+      sinceText: f.sinceText || ''
+    };
+  });
+  const found = ui.friendFound;
+  return {
+    list: rows,
+    count: rows.length,
+    onlineCount: rows.filter(function (r) { return r.online; }).length,
+    empty: rows.length === 0,
+    ready: ui.friendsReady === true,
+    notice: ui.friendsNotice || '',
+    query: ui.friendQuery || '',
+    found: found ? {
+      uid: found.uid,
+      nickname: found.nickname || '珠宝商',
+      initial: String(found.nickname || '珠').slice(0, 1),
+      avatarUrl: found.avatarUrl || '',
+      avatarStyle: friendAvatarStyle(found.avatarUrl, avatarHue(found.avatar || 'a0'))
+    } : null,
+    // 自己的完整账号 ID：好友靠它互加，必须完整展示可复制
+    myId: identity.uid || '',
+    // 邀请入口：只有房主且房间还在时才有房间号可发
+    inviteCode: ui.friendInviteCode || '',
+    canInvite: !!ui.friendInviteCode
+  };
+}
+
+/** 邀请弹窗数据：只取最新一条，其余排队 */
+function inviteVM(ui) {
+  const list = ui.invites || [];
+  if (!list.length) return null;
+  const it = list[0];
+  return {
+    id: it.id,
+    fromName: it.fromName,
+    roomCode: it.roomCode,
+    more: list.length - 1,
+    moreText: list.length > 1 ? ('另有 ' + (list.length - 1) + ' 条邀请') : ''
+  };
+}
+
 function lobbyVM(ui, profile) {
   function counts(active, key) {
     return [2, 3, 4].map(function (n) {
@@ -10578,7 +11648,17 @@ function lobbyVM(ui, profile) {
         : '浏览器预览环境，暂不可跨设备邀请'),
     joinCode: ui.joinCode || '',
     dialog: ui.homeDialog || '',
-    notice: ui.homeNotice || ''
+    notice: ui.homeNotice || '',
+    // 实时在线人数：由心跳表统计（近 2 分钟内有心跳），不是「历史玩家总数」。
+    // onlineReady=false 表示还没查到（首屏 / 离线 / 云不可用），界面据此显示「—」而不是假报 0。
+    online: (ui.onlineCount === undefined || ui.onlineCount === null) ? 0 : ui.onlineCount,
+    onlineReady: ui.onlineReady === true,
+    onlineText: ui.onlineReady === true
+      ? (ui.onlineCount > 0 ? String(ui.onlineCount) : '0')
+      : '—',
+    onlineNote: cloud
+      ? '实时在线 · 近 2 分钟有操作'
+      : '本机模式 · 在线人数需云端'
   };
 }
 
@@ -11018,6 +12098,10 @@ function buildViewModel(state, ui, layout, ctx) {
       roomScreen: roomScreenVM(ui, room, profile, seat, avatars),
       profileDialog: profileVM(ui, profile),
       records: recordsVM(ui),
+      // 好友体系：大厅与房间层都可打开（房间里正好用来一键邀请）
+      friendsPanel: friendsVM(ui),
+      showFriends: !!ui.showFriends,
+      invitePop: inviteVM(ui),
       showRecords: !!ui.showRecords,
       showProfile: !!ui.showProfile,
       showRules: !!ui.showRules,
@@ -11392,6 +12476,11 @@ function buildViewModel(state, ui, layout, ctx) {
     screen: 'game',
     home: lobbyVM(ui, profile),
     roomScreen: roomScreenVM(ui, room, profile, seat, avatars),
+    // 牌桌层也要声明好友字段：WXML 根变量缺声明会渲染成空，
+    // 从牌桌退回大厅时不会重新求值这些节点
+    friendsPanel: friendsVM(ui),
+    showFriends: !!ui.showFriends,
+    invitePop: inviteVM(ui),
     // 战绩只在入口 / 房间层可开；牌桌层保留占位避免 WXML 根变量缺声明
     records: null,
     showRecords: false,
@@ -11520,6 +12609,20 @@ function freshUI(config) {
     detail: null,
     showRules: false,
     showReserved: false,
+    // 好友体系：列表数据 + 弹层开关 + 加载/错误态
+    showFriends: false,
+    friends: [],
+    friendsReady: false,
+    friendsNotice: '',
+    friendQuery: '',
+    friendFound: null,
+    // 在线好友的 uid 集合（由心跳表反查得到，键存在即为在线）
+    onlineUids: {},
+    // 当前可用于邀请的房间号：只有自己在房里且是房主时才填
+    friendInviteCode: '',
+    // 待处理邀请（弹窗提醒）：只放最上面一条，处理完自动让位给下一条
+    invites: [],
+    inviteNotice: '',
     // 大厅：选中的对局模式（当前只有 standard 可用）
     lobbyMode: 'standard',
     // 战绩弹层
@@ -11674,6 +12777,9 @@ Page({
       this.scheduleAi();
     }
     this.startCloudPolling();
+    // 心跳与在线人数：切回前台立刻补一次心跳，否则回到大厅的前 45s 内自己不算在线
+    U.startHeartbeat(this.profile || R.getProfile());
+    if (this.ui && this.ui.screen === 'home') this.startOnlinePolling();
     if (this._cloudCode) {
       // 回前台立刻对齐一次版本，别等下一个轮询周期
       this.pollCloud(true);
@@ -11687,12 +12793,20 @@ Page({
     this.clearTimer();
     this.stopClock();
     this.stopCloudPolling();
+    // 在线人数是「大厅里看得见」的信息，切到后台就该停，
+    // 心跳也停 —— 后台的人不该继续被算作在线（避免人数虚高）。
+    this.stopOnlinePolling();
+    this.stopInvitePolling();
+    U.stopHeartbeat();
   },
 
   onUnload() {
     this.clearTimer();
     this.stopClock();
     this.stopCloudPolling();
+    this.stopOnlinePolling();
+    this.stopInvitePolling();
+    U.stopHeartbeat();
   },
 
   onResize() {
@@ -11773,6 +12887,33 @@ Page({
     // 席位里只有 uid：新面孔入席时补一次头像，能命中缓存就不发请求
     this.syncAvatars();
     this.startClock();
+    // 在线人数只在大厅有意义：进牌桌/房间就停掉轮询，回大厅再启。
+    // 挂在 refresh 里统一处理，避免在 9 处 ui.screen 赋值点上逐一手写（容易漏）。
+    if (this.ui.screen === 'home') this.startOnlinePolling();
+    else this.stopOnlinePolling();
+    // 邀请提醒：大厅与房间层都要收（在房间里也能被别的房主挖走，是正常的社交预期）；
+    // 牌桌层不弹，避免打断正在进行的对局。
+    if (this.ui.screen === 'home' || this.ui.screen === 'room') this.startInvitePolling();
+    else this.stopInvitePolling();
+  },
+
+  /** 邀请轮询：15s 一次。比好友心跳快，邀请要「立刻」被看到 */
+  startInvitePolling() {
+    if (!R.hasCloud()) return;
+    if (this._inviteTimer) return;
+    const that = this;
+    const tick = function () { that.pollInvites(); };
+    tick();
+    if (typeof setInterval === 'function') {
+      this._inviteTimer = setInterval(tick, 15000);
+    }
+  },
+
+  stopInvitePolling() {
+    if (this._inviteTimer) {
+      if (typeof clearInterval === 'function') clearInterval(this._inviteTimer);
+      this._inviteTimer = null;
+    }
   },
 
   /* ---------- 头像：按 uid 补齐，跨设备可见 ---------- */
@@ -12183,6 +13324,284 @@ Page({
       clearInterval(this._pollTimer);
       this._pollTimer = null;
     }
+  },
+
+  /**
+   * 大厅在线人数：每 20s 刷新一次（心跳本身 45s 一次、在线窗口 2 分钟，
+   * 查询比心跳快是必要的——否则别的玩家进来后要等半分钟才看得到数字跳）。
+   *
+   * 只在首页轮询：牌桌里这块数字不显示，白耗流量。
+   * 查询失败不清零、不改 onlineReady —— 网络抖一下就把在线人数从 12 掉成「—」很突兀。
+   */
+  startOnlinePolling() {
+    if (!R.hasCloud()) return;
+    if (this._onlineTimer) return;
+    const that = this;
+    const tick = function () {
+      U.countOnline().then(function (res) {
+        if (that.ui.screen !== 'home') return;
+        if (!res || !res.ok) return;
+        that.ui.onlineCount = res.count;
+        that.ui.onlineReady = true;
+        // 只推 home 分支，不整体 refresh：大厅每秒重绘会把滚动位置和动画全打断
+        that.setData({ home: lobbyVM(that.ui, that.profile || R.getProfile()) });
+      }).catch(function () {});
+    };
+    tick();
+    // 与心跳同理：预览沙箱里可能没有 setInterval，缺了它只影响「自动刷新」，
+    // 不能因此让 refresh → startOnlinePolling 抛错、把整个大厅渲染打断。
+    if (typeof setInterval === 'function') {
+      this._onlineTimer = setInterval(tick, 20000);
+    }
+  },
+
+  stopOnlinePolling() {
+    if (this._onlineTimer) {
+      if (typeof clearInterval === 'function') clearInterval(this._onlineTimer);
+      this._onlineTimer = null;
+    }
+  },
+
+  /* ---------- 好友体系：列表 / 添加 / 删除 / 邀请 ---------- */
+
+  /**
+   * 拉好友列表。顺带把「谁在线」算出来 —— 好友的在线状态来自 splendor_presence 心跳表，
+   * 与大厅在线人数同源，不额外造一套。
+   */
+  loadFriends() {
+    const that = this;
+    const me = this.profile || R.getProfile();
+    if (!R.hasCloud() || !me || !me.uid) {
+      this.ui.friendsReady = false;
+      this.ui.friendsNotice = R.hasCloud() ? '' : '本机模式：好友需要云端能力';
+      return Promise.resolve(false);
+    }
+    return F.listFriends(me.uid).then(function (res) {
+      if (!res || !res.ok) {
+        that.ui.friendsNotice = (res && res.error) || '好友列表加载失败';
+        that.ui.friendsReady = false;
+        return false;
+      }
+      that.ui.friends = res.list || [];
+      that.ui.friendsReady = true;
+      that.ui.friendsNotice = '';
+      return that.refreshFriendPresence();
+    }).catch(function () {
+      that.ui.friendsNotice = '好友列表加载失败';
+      that.ui.friendsReady = false;
+      return false;
+    });
+  },
+
+  /** 用在线心跳反查好友里谁在线：一次查询，不在本地逐个比对 */
+  refreshFriendPresence() {
+    const that = this;
+    const list = this.ui.friends || [];
+    if (!list.length) {
+      this.ui.onlineUids = {};
+      return Promise.resolve(true);
+    }
+    return U.listOnlineUids(list.map(function (f) { return f.uid; })).then(function (res) {
+      if (res && res.ok) that.ui.onlineUids = res.map || {};
+      return true;
+    }).catch(function () { return false; });
+  },
+
+  onOpenFriends() {
+    this.ui.showFriends = true;
+    this.ui.friendsNotice = '';
+    this.ui.friendFound = null;
+    this.ui.friendQuery = '';
+    // 房间层打开时把当前房间号作为可邀请目标；大厅里没有房间则不能邀请
+    this.ui.friendInviteCode = (this.room && this.room.mode === 'room' && this.room.code) ? this.room.code : '';
+    this.refresh('');
+    this.loadFriends().then(() => this.refresh(''));
+  },
+  onCloseFriends() {
+    this.ui.showFriends = false;
+    this.refresh('');
+  },
+
+  onFriendQueryInput(event) {
+    this.ui.friendQuery = String((event.detail && event.detail.value) || '');
+    this.ui.friendFound = null;
+    this.ui.friendsNotice = '';
+    this.refresh('');
+  },
+
+  /** 复制自己的账号 ID：好友体系靠它互加，必须能一键发出去 */
+  onCopyMyId() {
+    const id = U.getIdentity().uid || '';
+    if (!id) return;
+    if (typeof wx !== 'undefined' && wx.setClipboardData) {
+      wx.setClipboardData({
+        data: id,
+        success: () => this.refresh('账号 ID 已复制，发给好友即可互加'),
+        fail: () => this.refresh('复制失败，请手动长按选择')
+      });
+      return;
+    }
+    this.refresh('账号 ID：' + id);
+  },
+
+  /** 按账号 ID 精确查找。不做模糊搜索：避免把全站昵称变成可枚举列表 */
+  onSearchFriend() {
+    const that = this;
+    const uid = String(this.ui.friendQuery || '').trim();
+    if (!uid) {
+      this.ui.friendsNotice = '请输入好友的账号 ID';
+      this.refresh('');
+      return;
+    }
+    const me = this.profile || R.getProfile();
+    if (me && uid === me.uid) {
+      this.ui.friendsNotice = '这是你自己的账号 ID';
+      this.refresh('');
+      return;
+    }
+    F.findPlayer(uid).then(function (res) {
+      if (!res || !res.ok) {
+        that.ui.friendFound = null;
+        that.ui.friendsNotice = (res && res.error) || '没找到这个账号';
+        that.refresh('');
+        return;
+      }
+      that.ui.friendFound = res.player;
+      that.ui.friendsNotice = '';
+      that.refresh('');
+    }).catch(function () {
+      that.ui.friendsNotice = '查找失败，请重试';
+      that.refresh('');
+    });
+  },
+
+  onAddFriend() {
+    const that = this;
+    const found = this.ui.friendFound;
+    if (!found) return;
+    const me = this.profile || R.getProfile();
+    F.addFriend(me, found.uid, found.nickname).then(function (res) {
+      if (!res || !res.ok) {
+        that.ui.friendsNotice = (res && res.error) || '添加失败';
+        that.refresh('');
+        return;
+      }
+      that.ui.friendsNotice = '已添加 ' + found.nickname + ' 为好友';
+      that.ui.friendFound = null;
+      that.ui.friendQuery = '';
+      that.loadFriends().then(function () { that.refresh(''); });
+    }).catch(function () {
+      that.ui.friendsNotice = '添加失败，请重试';
+      that.refresh('');
+    });
+  },
+
+  onRemoveFriend(event) {
+    const that = this;
+    const uid = event.currentTarget.dataset.uid;
+    const row = (this.ui.friends || []).filter(function (f) { return f.uid === uid; })[0];
+    if (!row) return;
+    const me = this.profile || R.getProfile();
+    const doRemove = function () {
+      F.removeFriend(me.uid, uid).then(function (res) {
+        if (!res || !res.ok) {
+          that.ui.friendsNotice = (res && res.error) || '删除失败';
+          that.refresh('');
+          return;
+        }
+        that.loadFriends().then(function () { that.refresh(''); });
+      }).catch(function () {
+        that.ui.friendsNotice = '删除失败，请重试';
+        that.refresh('');
+      });
+    };
+    // 删除不可撤销（对方列表里还会保留这条边的反向记录），必须二次确认
+    if (typeof wx !== 'undefined' && wx.showModal) {
+      wx.showModal({
+        title: '删除好友',
+        content: '确定删除「' + row.nickname + '」吗？删除后需要重新添加才能再邀请。',
+        confirmText: '删除',
+        cancelText: '取消',
+        success: function (r) { if (r.confirm) doRemove(); }
+      });
+      return;
+    }
+    doRemove();
+  },
+
+  /** 一键邀请：给在线好友发一条邀请，对方大厅会弹窗，可直接加入 */
+  onInviteFriend(event) {
+    const that = this;
+    const uid = event.currentTarget.dataset.uid;
+    const row = (this.ui.friends || []).filter(function (f) { return f.uid === uid; })[0];
+    const code = this.ui.friendInviteCode;
+    if (!row) return;
+    if (!code) {
+      this.ui.friendsNotice = '先创建房间，再从房间里邀请好友';
+      this.refresh('');
+      return;
+    }
+    if (!row.online) {
+      this.ui.friendsNotice = row.nickname + ' 当前不在线，邀请会收不到';
+      this.refresh('');
+      return;
+    }
+    const me = this.profile || R.getProfile();
+    F.sendInvite(me.uid, uid, code, me.nickname).then(function (res) {
+      that.ui.friendsNotice = res && res.ok
+        ? ('已邀请 ' + row.nickname + ' 加入房间 ' + code)
+        : ((res && res.error) || '邀请发送失败');
+      that.refresh('');
+    }).catch(function () {
+      that.ui.friendsNotice = '邀请发送失败，请重试';
+      that.refresh('');
+    });
+  },
+
+  /**
+   * 拉取发给我的邀请。找到就弹窗提醒（大厅 / 房间层都生效），
+   * 点「加入」直接走与分享卡片相同的 joinCloudRoom 路径。
+   */
+  pollInvites() {
+    const that = this;
+    const me = this.profile || R.getProfile();
+    if (!R.hasCloud() || !me || !me.uid) return Promise.resolve(false);
+    return F.listInvites(me.uid).then(function (res) {
+      if (!res || !res.ok) return false;
+      const list = res.list || [];
+      // 已经在同一间房里就不必再提示自己人
+      const filtered = list.filter(function (it) {
+        return !(that.room && that.room.mode === 'room' && that.room.code === it.roomCode);
+      });
+      that.ui.invites = filtered;
+      that.refresh('');
+      return true;
+    }).catch(function () { return false; });
+  },
+
+  onAcceptInvite() {
+    const that = this;
+    const it = (this.ui.invites || [])[0];
+    if (!it) return;
+    F.markInvite(it.id, 'accepted');
+    this.ui.invites = (this.ui.invites || []).slice(1);
+    this.ui.inviteNotice = '';
+    this.refresh('');
+    if (!R.hasCloud()) {
+      this.refresh('当前设备未连接云端，无法加入房间');
+      return;
+    }
+    // 与分享卡片走同一个入口：清旧会话后按房间号加入
+    this.clearSession();
+    this.joinCloudRoom(it.roomCode);
+  },
+
+  onDeclineInvite() {
+    const it = (this.ui.invites || [])[0];
+    if (!it) return;
+    F.markInvite(it.id, 'declined');
+    this.ui.invites = (this.ui.invites || []).slice(1);
+    this.refresh('');
   },
 
   /**

@@ -2086,6 +2086,47 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .guild-brand-sub { display: flex; align-items: center; justify-content: center; gap: 13px; margin-top: 3px; }
 .guild-brand-sub text { font-family: "Songti SC", Georgia, serif; font-size: 18px; letter-spacing: 5px; color: #f6d18a; }
 .guild-title-line { width: 38px; height: 1px; background: linear-gradient(90deg, transparent, #dcba71, transparent); }
+/* 实时在线人数：标题正下方那一条空白带（y≈124 起，左侧身份卡底边 91、
+   右侧操作面板从 x682 开始，所以这条只能落在 x≈300~660 之间）。
+   与标题同一套古金色系，但刻意压低字号与亮度 —— 它是氛围信息，不该抢「快速开始」的视线。 */
+.guild-online {
+  position: absolute; left: 414px; top: 122px; width: 262px; height: 22px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  box-sizing: border-box;
+  border-radius: 11px;
+  /* 底板要压过大厅场景图：原来 .55 透明度叠在深色帷幔上几乎看不出边界，
+     看起来像一行裸字浮在场景里。加深到 .78 并补一圈内描边。 */
+  background: linear-gradient(180deg, rgba(46, 18, 26, .92), rgba(22, 8, 14, .88));
+  border: 1px solid rgba(220, 186, 113, .45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, .16),
+    0 2px 6px rgba(0, 0, 0, .5);
+}
+/* 呼吸绿点：只有拿到真实数字才跳，未就绪时是静态暗点，避免「还在转圈」的错觉 */
+.guild-online-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: #4fd08a;
+  box-shadow: 0 0 6px rgba(79, 208, 138, .8);
+  animation: onlinePulse 2s ease-in-out infinite;
+}
+.guild-online.is-pending .guild-online-dot {
+  background: #8a7562; box-shadow: none; animation: none;
+}
+@keyframes onlinePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .5; transform: scale(.82); }
+}
+.guild-online-num {
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 15px; font-weight: 700; line-height: 1;
+  color: #ffe3a0; text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
+  min-width: 12px; text-align: right;
+}
+.guild-online.is-pending .guild-online-num { color: #c9ae88; }
+.guild-online-label {
+  font-size: 10.5px; line-height: 1; color: #dcc39a; letter-spacing: 1px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+}
 .guild-panel {
   position: absolute; left: 682px; width: 384px; height: 386px; box-sizing: border-box;
   padding: 27px 24px 25px; display: flex; flex-direction: column; align-items: stretch;
@@ -2383,3 +2424,144 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .setup-state { margin-top: 3px; font-size: 9px; color: #cba8b6; }
 .setup-state.is-ok { color: #a4f0bc; }
+
+/* ---------- 好友体系：大厅入口徽标 / 好友弹层 / 邀请提醒 ---------- */
+
+/* 好友图标用字符，字号与图形图标对齐（图形图标是 22×22 的 SVG） */
+.guild-icon-text {
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1; color: #eac876;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, .85);
+}
+/* 在线好友数：压在「好友」文字右上，不占布局宽度 */
+.guild-nav-badge {
+  position: absolute; right: 22%; top: 6px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: Georgia, serif; font-size: 11px; font-weight: 700; line-height: 1;
+  color: #2b1504;
+  background: linear-gradient(180deg, #ffe39a, #c78f2a);
+  border: 1px solid rgba(255, 248, 220, .9);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .6);
+}
+
+.friends-dialog { width: 620px; max-height: 470px; display: flex; flex-direction: column; }
+.friends-add { display: flex; gap: 8px; margin-top: 12px; flex-shrink: 0; }
+.friends-input {
+  flex: 1; min-width: 0; height: 38px; padding: 0 12px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  border: 1px solid rgba(243, 212, 139, .45);
+  background: rgba(18, 8, 14, .8);
+  color: #ffeecd; font-size: 14px;
+}
+.friends-input-ph { color: rgba(220, 186, 145, .55); }
+.friends-search { flex-shrink: 0; min-height: 38px; padding: 0 18px; font-size: 13px; }
+
+/* 查找结果：头像 + 昵称 + 加为好友 */
+.friends-found {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 8px; padding: 8px 10px; flex-shrink: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(124, 226, 247, .45);
+  background: rgba(30, 48, 56, .5);
+}
+.friends-found-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: #fff3d6;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friends-add-btn { flex-shrink: 0; min-height: 32px; padding: 0 14px; font-size: 12.5px; }
+.friends-notice {
+  display: block; margin-top: 8px; flex-shrink: 0;
+  font-size: 12px; color: #ffc9a2; line-height: 1.3;
+}
+
+.friends-avatar {
+  width: 34px; height: 34px; flex-shrink: 0; border-radius: 4px;
+  border: 1.5px solid #8a6a3c; overflow: hidden;
+  background-size: cover; background-position: center;
+  display: flex; align-items: center; justify-content: center;
+}
+/* 在线好友头像描青边，与牌桌「行动中」同一套颜色语言 */
+.friends-avatar.is-online { border-color: #7ce2f7; box-shadow: 0 0 7px rgba(124, 226, 247, .35); }
+.friends-avatar-initial {
+  font-family: Georgia, serif; font-size: 15px; font-weight: 700;
+  color: #fff1d5; text-shadow: 0 1px 3px #1a0d14;
+}
+
+.friends-list {
+  margin-top: 10px; flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.friends-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 9px; border-radius: 7px;
+  border: 1px solid rgba(243, 212, 139, .18);
+  background: linear-gradient(180deg, rgba(60, 32, 46, .55), rgba(24, 11, 18, .7));
+}
+.friends-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.friends-name {
+  font-size: 14px; font-weight: 700; color: #fff3d6;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.friends-meta { display: flex; align-items: center; gap: 4px; }
+.friends-dot { width: 6px; height: 6px; border-radius: 50%; background: #7a6754; flex-shrink: 0; }
+.friends-dot.is-online { background: #4fd08a; box-shadow: 0 0 6px rgba(79, 208, 138, .8); }
+.friends-status { font-size: 11px; color: #c9ae8c; line-height: 1; }
+.friends-id { font-size: 11px; color: #a08c76; line-height: 1; }
+.friends-invite { flex-shrink: 0; min-height: 32px; padding: 0 16px; font-size: 12.5px; }
+.friends-invite-hint {
+  flex-shrink: 0; font-size: 11px; color: #9d8a74; line-height: 1.2;
+  max-width: 68px; text-align: right;
+}
+.friends-remove {
+  flex-shrink: 0; min-height: 32px; padding: 0 10px; font-size: 12px;
+  color: #e0a894; border-color: rgba(200, 120, 100, .45);
+}
+.friends-empty { padding: 22px 10px; text-align: center; font-size: 12.5px; color: #c2a68e; line-height: 1.6; }
+
+/* 我的账号 ID：好友靠它互加，必须完整可复制 */
+.friends-myid {
+  display: flex; align-items: center; gap: 9px;
+  margin-top: 10px; padding: 8px 10px; flex-shrink: 0;
+  border-radius: 7px;
+  border: 1px dashed rgba(243, 212, 139, .45);
+  background: rgba(20, 8, 14, .6);
+}
+.friends-myid-label { font-size: 11.5px; color: #c9ae8c; flex-shrink: 0; }
+.friends-myid-value {
+  flex: 1; min-width: 0; font-family: Georgia, monospace; font-size: 13px;
+  color: #ffe9b8; letter-spacing: .3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.friends-copy { flex-shrink: 0; min-height: 30px; padding: 0 12px; font-size: 12px; }
+
+/* 邀请提醒：浮在大厅 / 房间上方，不挡主要操作 */
+.invite-toast {
+  /* 落在左侧「卡牌/筹码陈列区」上方：右侧操作面板从 x=682 起、底部导航从 y=503 起，
+     所以提示卡只能占 x≈150~670、y≈150~330 这块真正的空白。
+     放居中会压住操作面板（实测 ovPanel=true），放底部会压住导航。 */
+  position: absolute; left: 150px; top: 150px;
+  z-index: 26; width: 320px;
+  box-sizing: border-box; padding: 10px 14px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 214, 130, .72);
+  background: linear-gradient(180deg, rgba(92, 52, 40, .97), rgba(36, 16, 12, .97));
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .75), 0 0 16px rgba(243, 198, 108, .28);
+  display: flex; flex-direction: column; gap: 5px;
+  animation: dialogIn 180ms ease-out both;
+}
+/* 邀请提醒是舞台级浮层（三屏共用一份），不再区分大厅/房间偏移 */
+.invite-toast-head { display: flex; align-items: center; gap: 6px; }
+.invite-toast-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: #ffd77e; box-shadow: 0 0 8px rgba(255, 215, 126, .9);
+  animation: onlinePulse 1.6s ease-in-out infinite;
+}
+.invite-toast-title {
+  flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: #ffe9c0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.invite-toast-sub { font-size: 11.5px; color: #e0c4a2; line-height: 1.3; }
+.invite-toast-btns { display: flex; gap: 8px; margin-top: 2px; }
+.invite-toast-go { flex: 1; min-height: 34px; justify-content: center; font-size: 13.5px; }
+.invite-toast-no { flex-shrink: 0; min-height: 34px; padding: 0 14px; font-size: 12.5px; }

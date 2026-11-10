@@ -5,6 +5,7 @@ const E = require('../../utils/game-engine.js');
 const AI = require('../../utils/ai.js');
 const R = require('../../utils/room.js');
 const U = require('../../utils/user.js');
+const F = require('../../utils/friend.js');
 
 // 设计稿舞台尺寸（与参考截图比例一致），运行时等比缩放适配屏幕
 const DESIGN_W = 1080;
@@ -695,6 +696,75 @@ function turnLimitVM(active, disabled) {
 }
 
 /** 游戏大厅以开局为主；档案与完整战绩按需打开，不占首页主操作区。 */
+/** 好友头像样式：有图用图，没图用预设色渐变。在 VM 里拼好，
+    模板里不写长三元 —— H5 预览编译器对内联长表达式支持不稳。 */
+function friendAvatarStyle(url, hue) {
+  if (url) return 'background-image:url(' + url + ');background-size:cover;background-position:center;';
+  return 'background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), ' +
+    (hue || '#c98a4b') + ' 52%, rgba(20,10,16,.92) 100%);';
+}
+
+/** 好友列表视图模型：把「好友 uid + 资料 + 在线状态」合成可渲染的行 */
+function friendsVM(ui) {
+  const list = ui.friends || [];
+  const online = ui.onlineUids || {};
+  const identity = U.getIdentity();
+  const rows = list.map(function (f, i) {
+    const isOnline = !!online[f.uid];
+    const hue = avatarHue(f.avatar || 'a0');
+    return {
+      uid: f.uid,
+      // 账号 ID 很长，界面上只露后 6 位，避免占满一行
+      shortId: String(f.uid || '').slice(-6),
+      nickname: f.nickname || ('玩家 ' + (i + 1)),
+      initial: String(f.nickname || '玩').slice(0, 1),
+      avatarUrl: f.avatarUrl || '',
+      avatarStyle: friendAvatarStyle(f.avatarUrl, hue),
+      online: isOnline,
+      statusText: isOnline ? '在线' : '离线',
+      // 邀请按钮只在「我开着房间」且对方在线时可点 —— 离线好友点了也收不到
+      canInvite: isOnline && !!ui.friendInviteCode,
+      sinceText: f.sinceText || ''
+    };
+  });
+  const found = ui.friendFound;
+  return {
+    list: rows,
+    count: rows.length,
+    onlineCount: rows.filter(function (r) { return r.online; }).length,
+    empty: rows.length === 0,
+    ready: ui.friendsReady === true,
+    notice: ui.friendsNotice || '',
+    query: ui.friendQuery || '',
+    found: found ? {
+      uid: found.uid,
+      nickname: found.nickname || '珠宝商',
+      initial: String(found.nickname || '珠').slice(0, 1),
+      avatarUrl: found.avatarUrl || '',
+      avatarStyle: friendAvatarStyle(found.avatarUrl, avatarHue(found.avatar || 'a0'))
+    } : null,
+    // 自己的完整账号 ID：好友靠它互加，必须完整展示可复制
+    myId: identity.uid || '',
+    // 邀请入口：只有房主且房间还在时才有房间号可发
+    inviteCode: ui.friendInviteCode || '',
+    canInvite: !!ui.friendInviteCode
+  };
+}
+
+/** 邀请弹窗数据：只取最新一条，其余排队 */
+function inviteVM(ui) {
+  const list = ui.invites || [];
+  if (!list.length) return null;
+  const it = list[0];
+  return {
+    id: it.id,
+    fromName: it.fromName,
+    roomCode: it.roomCode,
+    more: list.length - 1,
+    moreText: list.length > 1 ? ('另有 ' + (list.length - 1) + ' 条邀请') : ''
+  };
+}
+
 function lobbyVM(ui, profile) {
   function counts(active, key) {
     return [2, 3, 4].map(function (n) {
@@ -758,7 +828,17 @@ function lobbyVM(ui, profile) {
         : '浏览器预览环境，暂不可跨设备邀请'),
     joinCode: ui.joinCode || '',
     dialog: ui.homeDialog || '',
-    notice: ui.homeNotice || ''
+    notice: ui.homeNotice || '',
+    // 实时在线人数：由心跳表统计（近 2 分钟内有心跳），不是「历史玩家总数」。
+    // onlineReady=false 表示还没查到（首屏 / 离线 / 云不可用），界面据此显示「—」而不是假报 0。
+    online: (ui.onlineCount === undefined || ui.onlineCount === null) ? 0 : ui.onlineCount,
+    onlineReady: ui.onlineReady === true,
+    onlineText: ui.onlineReady === true
+      ? (ui.onlineCount > 0 ? String(ui.onlineCount) : '0')
+      : '—',
+    onlineNote: cloud
+      ? '实时在线 · 近 2 分钟有操作'
+      : '本机模式 · 在线人数需云端'
   };
 }
 
@@ -1198,6 +1278,10 @@ function buildViewModel(state, ui, layout, ctx) {
       roomScreen: roomScreenVM(ui, room, profile, seat, avatars),
       profileDialog: profileVM(ui, profile),
       records: recordsVM(ui),
+      // 好友体系：大厅与房间层都可打开（房间里正好用来一键邀请）
+      friendsPanel: friendsVM(ui),
+      showFriends: !!ui.showFriends,
+      invitePop: inviteVM(ui),
       showRecords: !!ui.showRecords,
       showProfile: !!ui.showProfile,
       showRules: !!ui.showRules,
@@ -1572,6 +1656,11 @@ function buildViewModel(state, ui, layout, ctx) {
     screen: 'game',
     home: lobbyVM(ui, profile),
     roomScreen: roomScreenVM(ui, room, profile, seat, avatars),
+    // 牌桌层也要声明好友字段：WXML 根变量缺声明会渲染成空，
+    // 从牌桌退回大厅时不会重新求值这些节点
+    friendsPanel: friendsVM(ui),
+    showFriends: !!ui.showFriends,
+    invitePop: inviteVM(ui),
     // 战绩只在入口 / 房间层可开；牌桌层保留占位避免 WXML 根变量缺声明
     records: null,
     showRecords: false,
@@ -1700,6 +1789,20 @@ function freshUI(config) {
     detail: null,
     showRules: false,
     showReserved: false,
+    // 好友体系：列表数据 + 弹层开关 + 加载/错误态
+    showFriends: false,
+    friends: [],
+    friendsReady: false,
+    friendsNotice: '',
+    friendQuery: '',
+    friendFound: null,
+    // 在线好友的 uid 集合（由心跳表反查得到，键存在即为在线）
+    onlineUids: {},
+    // 当前可用于邀请的房间号：只有自己在房里且是房主时才填
+    friendInviteCode: '',
+    // 待处理邀请（弹窗提醒）：只放最上面一条，处理完自动让位给下一条
+    invites: [],
+    inviteNotice: '',
     // 大厅：选中的对局模式（当前只有 standard 可用）
     lobbyMode: 'standard',
     // 战绩弹层
@@ -1854,6 +1957,9 @@ Page({
       this.scheduleAi();
     }
     this.startCloudPolling();
+    // 心跳与在线人数：切回前台立刻补一次心跳，否则回到大厅的前 45s 内自己不算在线
+    U.startHeartbeat(this.profile || R.getProfile());
+    if (this.ui && this.ui.screen === 'home') this.startOnlinePolling();
     if (this._cloudCode) {
       // 回前台立刻对齐一次版本，别等下一个轮询周期
       this.pollCloud(true);
@@ -1867,12 +1973,20 @@ Page({
     this.clearTimer();
     this.stopClock();
     this.stopCloudPolling();
+    // 在线人数是「大厅里看得见」的信息，切到后台就该停，
+    // 心跳也停 —— 后台的人不该继续被算作在线（避免人数虚高）。
+    this.stopOnlinePolling();
+    this.stopInvitePolling();
+    U.stopHeartbeat();
   },
 
   onUnload() {
     this.clearTimer();
     this.stopClock();
     this.stopCloudPolling();
+    this.stopOnlinePolling();
+    this.stopInvitePolling();
+    U.stopHeartbeat();
   },
 
   onResize() {
@@ -1953,6 +2067,33 @@ Page({
     // 席位里只有 uid：新面孔入席时补一次头像，能命中缓存就不发请求
     this.syncAvatars();
     this.startClock();
+    // 在线人数只在大厅有意义：进牌桌/房间就停掉轮询，回大厅再启。
+    // 挂在 refresh 里统一处理，避免在 9 处 ui.screen 赋值点上逐一手写（容易漏）。
+    if (this.ui.screen === 'home') this.startOnlinePolling();
+    else this.stopOnlinePolling();
+    // 邀请提醒：大厅与房间层都要收（在房间里也能被别的房主挖走，是正常的社交预期）；
+    // 牌桌层不弹，避免打断正在进行的对局。
+    if (this.ui.screen === 'home' || this.ui.screen === 'room') this.startInvitePolling();
+    else this.stopInvitePolling();
+  },
+
+  /** 邀请轮询：15s 一次。比好友心跳快，邀请要「立刻」被看到 */
+  startInvitePolling() {
+    if (!R.hasCloud()) return;
+    if (this._inviteTimer) return;
+    const that = this;
+    const tick = function () { that.pollInvites(); };
+    tick();
+    if (typeof setInterval === 'function') {
+      this._inviteTimer = setInterval(tick, 15000);
+    }
+  },
+
+  stopInvitePolling() {
+    if (this._inviteTimer) {
+      if (typeof clearInterval === 'function') clearInterval(this._inviteTimer);
+      this._inviteTimer = null;
+    }
   },
 
   /* ---------- 头像：按 uid 补齐，跨设备可见 ---------- */
@@ -2363,6 +2504,284 @@ Page({
       clearInterval(this._pollTimer);
       this._pollTimer = null;
     }
+  },
+
+  /**
+   * 大厅在线人数：每 20s 刷新一次（心跳本身 45s 一次、在线窗口 2 分钟，
+   * 查询比心跳快是必要的——否则别的玩家进来后要等半分钟才看得到数字跳）。
+   *
+   * 只在首页轮询：牌桌里这块数字不显示，白耗流量。
+   * 查询失败不清零、不改 onlineReady —— 网络抖一下就把在线人数从 12 掉成「—」很突兀。
+   */
+  startOnlinePolling() {
+    if (!R.hasCloud()) return;
+    if (this._onlineTimer) return;
+    const that = this;
+    const tick = function () {
+      U.countOnline().then(function (res) {
+        if (that.ui.screen !== 'home') return;
+        if (!res || !res.ok) return;
+        that.ui.onlineCount = res.count;
+        that.ui.onlineReady = true;
+        // 只推 home 分支，不整体 refresh：大厅每秒重绘会把滚动位置和动画全打断
+        that.setData({ home: lobbyVM(that.ui, that.profile || R.getProfile()) });
+      }).catch(function () {});
+    };
+    tick();
+    // 与心跳同理：预览沙箱里可能没有 setInterval，缺了它只影响「自动刷新」，
+    // 不能因此让 refresh → startOnlinePolling 抛错、把整个大厅渲染打断。
+    if (typeof setInterval === 'function') {
+      this._onlineTimer = setInterval(tick, 20000);
+    }
+  },
+
+  stopOnlinePolling() {
+    if (this._onlineTimer) {
+      if (typeof clearInterval === 'function') clearInterval(this._onlineTimer);
+      this._onlineTimer = null;
+    }
+  },
+
+  /* ---------- 好友体系：列表 / 添加 / 删除 / 邀请 ---------- */
+
+  /**
+   * 拉好友列表。顺带把「谁在线」算出来 —— 好友的在线状态来自 splendor_presence 心跳表，
+   * 与大厅在线人数同源，不额外造一套。
+   */
+  loadFriends() {
+    const that = this;
+    const me = this.profile || R.getProfile();
+    if (!R.hasCloud() || !me || !me.uid) {
+      this.ui.friendsReady = false;
+      this.ui.friendsNotice = R.hasCloud() ? '' : '本机模式：好友需要云端能力';
+      return Promise.resolve(false);
+    }
+    return F.listFriends(me.uid).then(function (res) {
+      if (!res || !res.ok) {
+        that.ui.friendsNotice = (res && res.error) || '好友列表加载失败';
+        that.ui.friendsReady = false;
+        return false;
+      }
+      that.ui.friends = res.list || [];
+      that.ui.friendsReady = true;
+      that.ui.friendsNotice = '';
+      return that.refreshFriendPresence();
+    }).catch(function () {
+      that.ui.friendsNotice = '好友列表加载失败';
+      that.ui.friendsReady = false;
+      return false;
+    });
+  },
+
+  /** 用在线心跳反查好友里谁在线：一次查询，不在本地逐个比对 */
+  refreshFriendPresence() {
+    const that = this;
+    const list = this.ui.friends || [];
+    if (!list.length) {
+      this.ui.onlineUids = {};
+      return Promise.resolve(true);
+    }
+    return U.listOnlineUids(list.map(function (f) { return f.uid; })).then(function (res) {
+      if (res && res.ok) that.ui.onlineUids = res.map || {};
+      return true;
+    }).catch(function () { return false; });
+  },
+
+  onOpenFriends() {
+    this.ui.showFriends = true;
+    this.ui.friendsNotice = '';
+    this.ui.friendFound = null;
+    this.ui.friendQuery = '';
+    // 房间层打开时把当前房间号作为可邀请目标；大厅里没有房间则不能邀请
+    this.ui.friendInviteCode = (this.room && this.room.mode === 'room' && this.room.code) ? this.room.code : '';
+    this.refresh('');
+    this.loadFriends().then(() => this.refresh(''));
+  },
+  onCloseFriends() {
+    this.ui.showFriends = false;
+    this.refresh('');
+  },
+
+  onFriendQueryInput(event) {
+    this.ui.friendQuery = String((event.detail && event.detail.value) || '');
+    this.ui.friendFound = null;
+    this.ui.friendsNotice = '';
+    this.refresh('');
+  },
+
+  /** 复制自己的账号 ID：好友体系靠它互加，必须能一键发出去 */
+  onCopyMyId() {
+    const id = U.getIdentity().uid || '';
+    if (!id) return;
+    if (typeof wx !== 'undefined' && wx.setClipboardData) {
+      wx.setClipboardData({
+        data: id,
+        success: () => this.refresh('账号 ID 已复制，发给好友即可互加'),
+        fail: () => this.refresh('复制失败，请手动长按选择')
+      });
+      return;
+    }
+    this.refresh('账号 ID：' + id);
+  },
+
+  /** 按账号 ID 精确查找。不做模糊搜索：避免把全站昵称变成可枚举列表 */
+  onSearchFriend() {
+    const that = this;
+    const uid = String(this.ui.friendQuery || '').trim();
+    if (!uid) {
+      this.ui.friendsNotice = '请输入好友的账号 ID';
+      this.refresh('');
+      return;
+    }
+    const me = this.profile || R.getProfile();
+    if (me && uid === me.uid) {
+      this.ui.friendsNotice = '这是你自己的账号 ID';
+      this.refresh('');
+      return;
+    }
+    F.findPlayer(uid).then(function (res) {
+      if (!res || !res.ok) {
+        that.ui.friendFound = null;
+        that.ui.friendsNotice = (res && res.error) || '没找到这个账号';
+        that.refresh('');
+        return;
+      }
+      that.ui.friendFound = res.player;
+      that.ui.friendsNotice = '';
+      that.refresh('');
+    }).catch(function () {
+      that.ui.friendsNotice = '查找失败，请重试';
+      that.refresh('');
+    });
+  },
+
+  onAddFriend() {
+    const that = this;
+    const found = this.ui.friendFound;
+    if (!found) return;
+    const me = this.profile || R.getProfile();
+    F.addFriend(me, found.uid, found.nickname).then(function (res) {
+      if (!res || !res.ok) {
+        that.ui.friendsNotice = (res && res.error) || '添加失败';
+        that.refresh('');
+        return;
+      }
+      that.ui.friendsNotice = '已添加 ' + found.nickname + ' 为好友';
+      that.ui.friendFound = null;
+      that.ui.friendQuery = '';
+      that.loadFriends().then(function () { that.refresh(''); });
+    }).catch(function () {
+      that.ui.friendsNotice = '添加失败，请重试';
+      that.refresh('');
+    });
+  },
+
+  onRemoveFriend(event) {
+    const that = this;
+    const uid = event.currentTarget.dataset.uid;
+    const row = (this.ui.friends || []).filter(function (f) { return f.uid === uid; })[0];
+    if (!row) return;
+    const me = this.profile || R.getProfile();
+    const doRemove = function () {
+      F.removeFriend(me.uid, uid).then(function (res) {
+        if (!res || !res.ok) {
+          that.ui.friendsNotice = (res && res.error) || '删除失败';
+          that.refresh('');
+          return;
+        }
+        that.loadFriends().then(function () { that.refresh(''); });
+      }).catch(function () {
+        that.ui.friendsNotice = '删除失败，请重试';
+        that.refresh('');
+      });
+    };
+    // 删除不可撤销（对方列表里还会保留这条边的反向记录），必须二次确认
+    if (typeof wx !== 'undefined' && wx.showModal) {
+      wx.showModal({
+        title: '删除好友',
+        content: '确定删除「' + row.nickname + '」吗？删除后需要重新添加才能再邀请。',
+        confirmText: '删除',
+        cancelText: '取消',
+        success: function (r) { if (r.confirm) doRemove(); }
+      });
+      return;
+    }
+    doRemove();
+  },
+
+  /** 一键邀请：给在线好友发一条邀请，对方大厅会弹窗，可直接加入 */
+  onInviteFriend(event) {
+    const that = this;
+    const uid = event.currentTarget.dataset.uid;
+    const row = (this.ui.friends || []).filter(function (f) { return f.uid === uid; })[0];
+    const code = this.ui.friendInviteCode;
+    if (!row) return;
+    if (!code) {
+      this.ui.friendsNotice = '先创建房间，再从房间里邀请好友';
+      this.refresh('');
+      return;
+    }
+    if (!row.online) {
+      this.ui.friendsNotice = row.nickname + ' 当前不在线，邀请会收不到';
+      this.refresh('');
+      return;
+    }
+    const me = this.profile || R.getProfile();
+    F.sendInvite(me.uid, uid, code, me.nickname).then(function (res) {
+      that.ui.friendsNotice = res && res.ok
+        ? ('已邀请 ' + row.nickname + ' 加入房间 ' + code)
+        : ((res && res.error) || '邀请发送失败');
+      that.refresh('');
+    }).catch(function () {
+      that.ui.friendsNotice = '邀请发送失败，请重试';
+      that.refresh('');
+    });
+  },
+
+  /**
+   * 拉取发给我的邀请。找到就弹窗提醒（大厅 / 房间层都生效），
+   * 点「加入」直接走与分享卡片相同的 joinCloudRoom 路径。
+   */
+  pollInvites() {
+    const that = this;
+    const me = this.profile || R.getProfile();
+    if (!R.hasCloud() || !me || !me.uid) return Promise.resolve(false);
+    return F.listInvites(me.uid).then(function (res) {
+      if (!res || !res.ok) return false;
+      const list = res.list || [];
+      // 已经在同一间房里就不必再提示自己人
+      const filtered = list.filter(function (it) {
+        return !(that.room && that.room.mode === 'room' && that.room.code === it.roomCode);
+      });
+      that.ui.invites = filtered;
+      that.refresh('');
+      return true;
+    }).catch(function () { return false; });
+  },
+
+  onAcceptInvite() {
+    const that = this;
+    const it = (this.ui.invites || [])[0];
+    if (!it) return;
+    F.markInvite(it.id, 'accepted');
+    this.ui.invites = (this.ui.invites || []).slice(1);
+    this.ui.inviteNotice = '';
+    this.refresh('');
+    if (!R.hasCloud()) {
+      this.refresh('当前设备未连接云端，无法加入房间');
+      return;
+    }
+    // 与分享卡片走同一个入口：清旧会话后按房间号加入
+    this.clearSession();
+    this.joinCloudRoom(it.roomCode);
+  },
+
+  onDeclineInvite() {
+    const it = (this.ui.invites || [])[0];
+    if (!it) return;
+    F.markInvite(it.id, 'declined');
+    this.ui.invites = (this.ui.invites || []).slice(1);
+    this.refresh('');
   },
 
   /**

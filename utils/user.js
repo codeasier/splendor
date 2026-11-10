@@ -307,6 +307,120 @@ async function syncProfile(profile) {
   }
 }
 
+/**
+ * 在线心跳：每 45s 用 uid upsert 一行 last_seen，大厅按「近 2 分钟」统计在线人数。
+ *
+ * 为什么不能直接数 splendor_players：那张表的 updated_at 只在「保存资料 / 同步战绩」
+ * 时写入，一个正在牌桌上连打三局的人，updated_at 会停在很久以前，统计出来是 0。
+ * 在线必须是「客户端还活着」的主动信号，所以单独建 splendor_presence。
+ *
+ * 容错：任何失败都静默返回 ok:false —— 在线人数是锦上添花，不能因为它让大厅卡住，
+ * 更不该把用户从本机模式踢出去。
+ */
+const PRESENCE_TABLE = 'splendor_presence';
+/* 心跳间隔：比在线窗口短得多，避免刚好卡在窗口边界上被算成离线 */
+const HEARTBEAT_MS = 45 * 1000;
+/* 在线窗口：2 分钟内有过心跳即视为在线。窗口太短会让切后台回来的玩家瞬间「消失」 */
+const ONLINE_WINDOW_MS = 2 * 60 * 1000;
+
+let heartbeatTimer = null;
+let heartbeatUid = '';
+
+/** 上报一次自己的在线时间；失败不抛错 */
+async function heartbeat(profile) {
+  const database = db();
+  if (!database) return { ok: false, offline: true };
+  const p = profile || R.getProfile();
+  if (!p || !p.uid) return { ok: false, error: '缺少账号 ID' };
+  try {
+    const res = await database.from(PRESENCE_TABLE).upsert({
+      uid: p.uid,
+      nickname: p.nickname || '珠宝商',
+      last_seen: nowIso()
+    });
+    if (res && res.error) return { ok: false, error: errText(res.error) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errText(e) };
+  }
+}
+
+/** 统计近 2 分钟内有心跳的人数；同时把自己算进去，避免首次查询时自己还不存在 */
+async function countOnline() {
+  const database = db();
+  if (!database) return { ok: false, offline: true, count: 0 };
+  try {
+    const since = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+    const res = await database
+      .from(PRESENCE_TABLE)
+      .select('*', { count: 'exact', head: true })
+      .gte('last_seen', since);
+    if (res && res.error) return { ok: false, error: errText(res.error), count: 0 };
+    return { ok: true, count: Number(res && res.count) || 0 };
+  } catch (e) {
+    return { ok: false, error: errText(e), count: 0 };
+  }
+}
+
+/**
+ * 启动心跳：立即报一次，之后定时续期。
+ * 同一 uid 重复调用只保留一个定时器 —— 大厅进出多次不会叠出多个 timer。
+ *
+ * ⚠️ 必须防御 setInterval 不存在：H5 预览的沙箱（node:vm）与桩环境里没有它，
+ * 直接调会抛 ReferenceError，把整个 onShow 打断 —— 在线人数只是锦上添花，
+ * 绝不该让大厅因此进不去。
+ */
+function startHeartbeat(profile) {
+  const p = profile || R.getProfile();
+  const uid = (p && p.uid) || '';
+  if (!uid) return false;
+  if (heartbeatTimer && heartbeatUid === uid) return true;
+  stopHeartbeat();
+  heartbeatUid = uid;
+  heartbeat(p);
+  if (typeof setInterval === 'function') {
+    heartbeatTimer = setInterval(function () { heartbeat(p); }, HEARTBEAT_MS);
+  }
+  return true;
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    if (typeof clearInterval === 'function') clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+  heartbeatUid = '';
+}
+
+/**
+ * 按 uid 列表反查谁在线：一次 `in(uid)` + 窗口过滤，返回 {uid: true} 映射。
+ * 不要在本地拿全量在线表逐个比对 —— 好友 200 人时那是 200 次判断，
+ * 而这里只要一次查询、只取需要的列。
+ */
+async function listOnlineUids(uids) {
+  const database = db();
+  if (!database) return { ok: false, offline: true, map: {} };
+  const list = (uids || []).map(String).filter(Boolean);
+  if (!list.length) return { ok: true, map: {} };
+  try {
+    const since = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+    const res = await database
+      .from(PRESENCE_TABLE)
+      .select('uid,last_seen')
+      .in('uid', list)
+      .gte('last_seen', since);
+    if (res && res.error) return { ok: false, error: errText(res.error), map: {} };
+    const map = {};
+    const rows = (res && res.data) || [];
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i] && rows[i].uid) map[rows[i].uid] = true;
+    }
+    return { ok: true, map: map };
+  } catch (e) {
+    return { ok: false, error: errText(e), map: {} };
+  }
+}
+
 /** 战绩上云：失败静默，本地记录才是可读的那一份 */
 async function pushRecord(rec) {
   const database = db();
@@ -537,5 +651,11 @@ module.exports = {
   syncProfile: syncProfile,
   pushRecord: pushRecord,
   pullRecords: pullRecords,
-  syncAll: syncAll
+  syncAll: syncAll,
+
+  heartbeat: heartbeat,
+  countOnline: countOnline,
+  listOnlineUids: listOnlineUids,
+  startHeartbeat: startHeartbeat,
+  stopHeartbeat: stopHeartbeat
 };

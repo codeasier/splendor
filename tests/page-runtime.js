@@ -64,6 +64,24 @@ assert(page.data.home.notice === '', '取消加入不遗留错误提示');
 // 三态文案：预览 / 云服务初始化失败都必须说清原因，不能笼统说「离线」。
 assert(page.data.home.cloudState === 'preview', '无 wx 环境应标记为预览');
 assert(page.data.home.cloudHint.indexOf('浏览器预览') >= 0, '预览环境应如实说明');
+// 在线人数：查到之前必须显示「—」，不能谎报 0（0 会被读成「一个人都没有」）
+assert(page.data.home.onlineReady === false, '首屏尚未查到在线人数');
+assert(page.data.home.onlineText === '—', '未就绪时应显示「—」而不是 0');
+{
+  // 拿到数据后应显示真实数字，并带上「人在线」语义
+  page.ui.onlineCount = 12;
+  page.ui.onlineReady = true;
+  page.refresh('');
+  assert(page.data.home.onlineText === '12', '有数据时应显示真实人数');
+  assert(page.data.home.online === 12, '数值字段应与文本一致');
+  // 真的 0 人在线（只剩自己也会是 1，这里测边界）也要显示 0 而不是「—」
+  page.ui.onlineCount = 0;
+  page.refresh('');
+  assert(page.data.home.onlineText === '0', '已查到但为 0 时应显示 0');
+  page.ui.onlineCount = undefined;
+  page.ui.onlineReady = false;
+  page.refresh('');
+}
 page.onOpenHomeDialog({ currentTarget: { dataset: { kind: 'create' } } });
 assert(page.data.home.cloudHint.length > 0, '预览环境建房应给出限制说明');
 page.onCloseHomeDialog();
@@ -370,6 +388,71 @@ page.onShowReserved();
 assert(page.data.showReserved === true, '预留卡弹层打开');
 page.onCloseReserved();
 console.log('OK  规则 / 预留卡弹层');
+
+/* ---------- 好友体系：弹层 / 列表渲染 / 邀请可点条件 ---------- */
+{
+  // 注意：不要在这里 onLeaveRoom() —— 它会清空 page.state，
+  // 后面「预留牌库」用例还要读 page.state.decks。好友弹层与牌局状态无关。
+  page.onOpenFriends();
+  assert(page.data.showFriends === true, '好友弹层应能打开');
+  const fp = page.data.friendsPanel;
+  assert(fp, '应有好友视图模型');
+  assert(fp.ready === false, '预览环境无云端，好友列表应为未就绪');
+  assert(fp.empty === true, '无好友时列表为空');
+  assert(typeof fp.myId === 'string' && fp.myId.length > 0, '必须展示自己的账号 ID 供好友互加');
+  // 大厅里没有房间 → 不能邀请，界面要给说明而不是灰按钮
+  assert(fp.canInvite === false, '大厅未建房时不可邀请');
+  page.onCloseFriends();
+  assert(page.data.showFriends === false, '关闭后弹层收起');
+
+  // 构造两位好友：一个在线、一个离线，验证按钮态分流
+  page.ui.friends = [
+    { uid: 'friend-online-001', nickname: '在线甲', avatar: 'a1' },
+    { uid: 'friend-offline-002', nickname: '离线乙', avatar: 'a2' }
+  ];
+  page.ui.onlineUids = { 'friend-online-001': true };
+  page.ui.friendsReady = true;
+  page.ui.friendInviteCode = '';      // 先在大厅
+  page.refresh('');
+  let rows = page.data.friendsPanel.list;
+  assert(rows.length === 2, '两位好友应各占一行');
+  assert(rows[0].online === true && rows[0].statusText === '在线', '在线好友应标在线');
+  assert(rows[1].online === false && rows[1].statusText === '离线', '离线好友应标离线');
+  assert(rows[0].canInvite === false, '大厅里没有房间号，在线也不能邀请');
+  assert(page.data.friendsPanel.onlineCount === 1, '在线数应为 1');
+
+  // 进入房间后带上房间号 → 在线好友可邀请，离线仍不可
+  page.ui.friendInviteCode = 'ABC234';
+  page.refresh('');
+  rows = page.data.friendsPanel.list;
+  assert(rows[0].canInvite === true, '房间里在线好友应可邀请');
+  assert(rows[1].canInvite === false, '离线好友不可邀请（点了也收不到）');
+  console.log('OK  好友弹层 · 列表 / 在线态 / 邀请可点条件');
+}
+
+/* ---------- 邀请提醒：展示、接受、忽略 ---------- */
+{
+  page.ui.invites = [
+    { id: 'iv-1', fromUid: 'friend-online-001', fromName: '在线甲', roomCode: 'ABC234', at: '' },
+    { id: 'iv-2', fromUid: 'friend-offline-002', fromName: '离线乙', roomCode: 'XYZ789', at: '' }
+  ];
+  page.refresh('');
+  const ip = page.data.invitePop;
+  assert(ip !== null, '有待处理邀请时应弹提醒');
+  assert(ip.fromName === '在线甲', '提醒里应写邀请人昵称');
+  assert(ip.roomCode === 'ABC234', '提醒里应写房间号');
+  assert(ip.more === 1 && ip.moreText.indexOf('另有 1 条') >= 0, '多条邀请应给出剩余数量');
+
+  // 忽略第一条：应让位给下一条而不是整块消失
+  page.onDeclineInvite();
+  assert(page.data.invitePop !== null, '忽略一条后仍有下一条');
+  assert(page.data.invitePop.fromName === '离线乙', '应轮到第二条');
+  page.onDeclineInvite();
+  assert(page.data.invitePop === null, '全部处理完提醒应消失');
+  page.ui.inviteNotice = '';
+  page.refresh('');
+  console.log('OK  邀请提醒 · 昵称/房间号/剩余条数 + 逐条忽略');
+}
 
 // 预留牌库（showModal 自动确认）
 const before = page.state.decks[0].length;

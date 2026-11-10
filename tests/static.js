@@ -54,6 +54,58 @@ while ((m = tagRe.exec(wxml)) !== null) {
 if (stack.length) fail('WXML 存在未闭合标签: ' + stack.join(','));
 else ok('WXML 标签闭合平衡');
 
+// 3.1 舞台必须包住全部屏幕层与弹层。
+// 顶层只有 [viewport] 一个节点、其次是 [stage]。任何一个 </view> 写多了，
+// 后面的 room-screen / 所有 overlay 就会掉出 .stage —— 它们不再被
+// transform:scale() 缩放，按 1080px 逻辑坐标 1:1 渲染，手机屏宽 844px，
+// 弹窗右边直接出屏（2026-11-10 好友弹窗事故）。标签仍然「平衡」，上面的
+// 检查抓不到，必须单独断言结构。
+(function () {
+  const tagRe2 = /<\/?view\b((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>/g;
+  const stack2 = [];
+  let m2;
+  let rootCount = 0;
+  let stageDepth = -1;
+  const stray = [];
+  while ((m2 = tagRe2.exec(wxml)) !== null) {
+    const attrs = m2[1];
+    const full = m2[0];
+    if (full.startsWith('</')) {
+      if (!stack2.length) break;
+      stack2.pop();
+      continue;
+    }
+    if (!stack2.length) {
+      rootCount += 1;
+      if (!/class="viewport"/.test(attrs)) stray.push('根节点不是 .viewport');
+    } else if (stack2.length === 1 && /\bclass="stage\b/.test(attrs)) {
+      stageDepth = 2;
+    }
+    stack2.push(attrs);
+  }
+  if (rootCount !== 1) stray.push('根节点数量=' + rootCount + '，应为 1');
+  if (stageDepth < 0) stray.push('.stage 不是 .viewport 的第二层');
+  // 每个屏幕层 / 弹层都必须在 .stage 内，即深度 ≥ 3
+  const deepRe = /<view\b((?:[^>"']|"[^"]*"|'[^']*')*?class="(?:screen-layer|overlay)[^"]*"(?:[^>"']|"[^"]*"|'[^']*')*?)>/g;
+  let dm2;
+  const depths = [];
+  while ((dm2 = deepRe.exec(wxml)) !== null) {
+    // 统计该位置之前未闭合的 view 数
+    let d = 0;
+    const before = wxml.slice(0, dm2.index);
+    const re3 = /<\/?view\b(?:[^>"']|"[^"]*"|'[^']*')*?>/g;
+    let m3;
+    while ((m3 = re3.exec(before)) !== null) {
+      if (m3[0].startsWith('</')) d -= 1; else if (!/\/>$/.test(m3[0])) d += 1;
+    }
+    depths.push({ cls: (dm2[1].match(/class="([^"]*)"/) || [])[1], depth: d });
+  }
+  const out = depths.filter(function (x) { return x.depth < 2; });
+  if (stray.length) fail('WXML 舞台结构异常: ' + stray.join('; '));
+  else if (out.length) fail('有屏幕层/弹层掉出 .stage（不再随舞台缩放，会 1:1 出屏）: ' + out.map(function (x) { return x.cls; }).join(', '));
+  else ok('WXML 舞台完整包住屏幕层与弹层 (' + depths.length + ' 个)');
+})();
+
 // 4. 事件绑定必须存在对应 JS 方法
 const pageJs = read('pages/index/index.js');
 const handlers = new Set();
