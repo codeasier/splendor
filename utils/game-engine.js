@@ -27,6 +27,10 @@ function newPlayer(name, isAI, seat) {
     avatarUrl: s.avatarUrl || '',
     type: s.type || (isAI ? 'bot' : 'human'),
     joined: s.joined !== false,
+    // 主动托管：真人临时交给 AI 代打，但**仍是真人席位**（可以随时收回）。
+    // 与 isAI 区分开是必须的——isAI 是「这个席位天生就是机器人」，
+    // 用它表达临时托管，玩家自己就再也拿不回操作权了。
+    autoPlay: !!s.autoPlay,
     tokens: zeroTokens(),
     cards: [],
     reserved: [],
