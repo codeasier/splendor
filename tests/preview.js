@@ -58,7 +58,7 @@ assert(a.page.data.screen === 'home', '默认应停在入口界面');
 ['guild-scenery', 'guild-panel', 'guild-nav'].forEach(function (cls) {
   assert(homeHtml.indexOf('class="' + cls + '"') > 0, '场景式大厅结构缺失：' + cls);
 });
-['onOpenProfile', 'onOpenRecords', 'onShowRules', 'onStartSolo'].forEach(function (handler) {
+['onOpenProfile', 'onOpenRecords', 'onShowRules', 'onQuickStart'].forEach(function (handler) {
   assert((homeHtml.match(new RegExp('data-tap="' + handler + '"', 'g')) || []).length === 1,
     '大厅入口应保留且不重复：' + handler);
 });
@@ -84,8 +84,21 @@ assert((a.host.innerHTML.match(/class="count-chip /g) || []).length === 3, '人�
 a.page.onSelectSoloCount({ currentTarget: { dataset: { n: 4 } } });
 assert(a.page.data.home.soloCount === 4, '人机人数选择应生效');
 a.page.onSaveHomeSettings();
-assert(a.host.innerHTML.indexOf('人机对战 · 4 人') > 0, '快速开始应展示已保存的人数');
+// 快速开始的副标题改为固定说明「可选 2–4 人」：人数在点击后即时选，不再回显旧默认值
+assert(a.host.innerHTML.indexOf('人机对战 · 可选 2–4 人') > 0, '快速开始应说明可选人数范围');
 assert(a.host.innerHTML.indexOf('guild-dialog"') < 0 && !a.page.state, '保存设置不应误开局');
+
+// 快速开始：先弹人数层，点人数才开局
+a.page.onQuickStart();
+assert(a.page.data.home.dialog === 'quick', '快速开始应打开人数弹层');
+assert(a.host.innerHTML.indexOf('选择对局人数') > 0, '弹层标题应说明是选人数');
+assert((a.host.innerHTML.match(/class="seat-pick /g) || []).length === 3, '人数弹层应给 2/3/4 三张大卡');
+assert(a.host.innerHTML.indexOf('1 名对手') > 0 && a.host.innerHTML.indexOf('3 名对手') > 0, '每档应标出对手数量');
+assert(a.page.state === null || !a.page.state, '仅打开弹层不应开局');
+// 人数弹层里不该混入与人数无关的云能力提示
+assert(a.host.innerHTML.indexOf('暂不可跨设备邀请') < 0, '人数弹层不应出现云能力提示');
+a.page.onCloseHomeDialog();
+assert(!a.page.state, '取消人数弹层不开局');
 openHome('solo');
 a.page.onSelectSoloCount({ currentTarget: { dataset: { n: 3 } } });
 a.page.onCloseHomeDialog();
@@ -206,11 +219,30 @@ assert(optHtml.indexOf('turn-flash') > 0, '轮到自己时应弹全屏换手提�
 assert(optHtml.indexOf('轮到你出牌') > 0, '换手提醒应写明「轮到你出牌」');
 // 对手席位卡：三行结构（头像+昵称+号位+声望 / 五色永久折扣 / 五色筹码+黄金+预购）
 assert((optHtml.match(/class="seat-row"/g) || []).length === 2, '席位卡应有折扣行与筹码行两行');
-assert((optHtml.match(/class="seat-sq/g) || []).length === 5, '折扣行应固定 5 个方形格');
+// 两行必须等槽数：折扣 5 色 + 1 个空占位 = 6，筹码 5 色 + 黄金 = 6。
+// 槽数不等时 flex 等分会给出不同宽度，逐列偏移会一路累积（曾达 33px）。
+assert((optHtml.match(/class="seat-sq/g) || []).length === 6, '折扣行应有 6 个槽位（5 色 + 空占位）');
+assert((optHtml.match(/seat-sq is-empty-slot/) || []).length >= 1, '折扣行第 6 槽应是空占位');
 assert((optHtml.match(/class="seat-coin/g) || []).length === 6, '筹码行应为 5 色 + 黄金共 6 个圆形格');
 assert(optHtml.indexOf('seat-row-tag') > 0, '两行应带「折 / 筹」行标');
-assert(optHtml.indexOf('seat-res') > 0 && optHtml.indexOf('seat-res-num') > 0, '筹码行末尾应显示预购数');
+assert(optHtml.indexOf('seat-res') > 0 && optHtml.indexOf('seat-res-num') > 0, '席位卡应显示预购数');
 assert(optHtml.indexOf('seat-score') > 0, '席位卡应有独立声望数字');
+// 预购数必须是「第一行内的正常流式元素」，不能绝对定位：
+// 卡片内宽仅 ~186px，两行 6 格已铺满，任何角落定位都会压住黄金格或昵称。
+{
+  const resIdx = optHtml.indexOf('class="seat-res"');
+  const topIdx = optHtml.indexOf('class="seat-top"');
+  const rowIdx = optHtml.indexOf('class="seat-row"');
+  assert(resIdx > 0 && resIdx < rowIdx, '预购数应渲染在第一行内（早于资源行）');
+  assert(topIdx > 0 && resIdx > topIdx, '预购数应在 seat-top 容器内');
+}
+// 折扣方卡与筹码圆格都是深底，不得带 is-light（浅底深墨），否则数字对比度不足
+{
+  const discSeg = optHtml.slice(optHtml.indexOf('class="seat-row"'));
+  const firstCoin = discSeg.indexOf('class="seat-coin');
+  const discOnly = discSeg.slice(0, firstCoin);
+  assert(discOnly.indexOf('is-light') < 0, '折扣方卡是深底，不应带 is-light');
+}
 
 const giveGem = GEM_KEYS.filter(function (g) { return printedCost[g] > 0; })[0];
 p3.state.players[0].tokens[giveGem] -= 1;
@@ -251,12 +283,43 @@ assert(a.host.innerHTML.indexOf('玩法速览') > 0, '规则弹层应渲染');
 click('onCloseRules');
 click('onTapCard', { lv: 2, index: 0 });
 assert(a.host.innerHTML.indexOf('逐色实付') > 0, '卡牌详情弹层应渲染成本明细');
-assert(a.host.innerHTML.indexOf('工作台右下的主按钮') > 0, '弹层应说明主操作在工作台');
 click('onCloseDetail');
 click('onShowReserved');
 assert(a.host.innerHTML.indexOf('我的预留卡') > 0, '预留卡弹层应渲染');
 click('onCloseReserved');
 console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
+
+// 3.1 预留卡可购买时，弹层必须渲染出购买按钮（本轮 bug 回归）
+//     买得起：只有「购买此卡（实付 n 枚）」+「返回牌桌」，不得出现「预留此卡」
+{
+  const st = page.state;
+  st.current = 0;
+  st.pendingDiscard = 0;
+  st.pendingNoble = null;
+  st.players[0].reserved = [
+    { gem: 'blue', points: 1, cost: { white: 0, blue: 4, green: 0, red: 0, black: 0 }, name: '暗河渡口', level: 1, art: 0 }
+  ];
+  st.players[0].tokens = { white: 0, blue: 5, green: 0, red: 0, black: 0, gold: 0 };
+  page.refresh('');
+  click('onTapReservedCard', { index: 0 });
+  const html = a.host.innerHTML;
+  assert(page.data.detail.canBuy === true, '预览环境：预留卡应判定可购买');
+  assert(html.indexOf('购买此卡（实付 4 枚）') > 0, '弹层必须渲染带实付的购买按钮');
+  assert(html.indexOf('预留此卡') < 0, '可购买时不应同时渲染「预留此卡」');
+  assert(html.indexOf('确认后立即获得该卡的红利与声望') > 0, '弹层应给出动作后果说明');
+  click('onCloseDetail');
+
+  // 买不起：不给假的主操作，只留返回 + 缺口说明
+  st.players[0].tokens = { white: 0, blue: 1, green: 0, red: 0, black: 0, gold: 0 };
+  page.refresh('');
+  click('onTapReservedCard', { index: 0 });
+  const html2 = a.host.innerHTML;
+  assert(page.data.detail.canBuy === false, '预览环境：筹码不足应判为不可购买');
+  assert(html2.indexOf('购买此卡（实付') < 0, '买不起时不应渲染购买主按钮');
+  assert(html2.indexOf('筹码不足，可稍后再来购买') > 0, '买不起时应说明可稍后再买');
+  click('onCloseDetail');
+  console.log('预留卡详情：可购买渲染主按钮 / 买不起只留返回 OK');
+}
 
 // 4.0 选篮门禁与「-」放回按钮（编译产物必须真的渲染出 catchtap 节点）
 click('onTapPile', { key: 'white' });

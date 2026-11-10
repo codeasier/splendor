@@ -313,7 +313,8 @@ function myResourceVM(state, idx) {
     const num = disc[g] || 0;
     return {
       key: g, num: num, numText: String(num), zero: num === 0,
-      wide: num >= 10, light: g === 'white',
+      // 折扣格是深色方卡（只有左侧竖色条带颜色），深墨字会糊在深底上，不能用 light
+      wide: num >= 10, light: false,
       // 方形卡左侧竖色条（sq-*）与圆形筹码共用同一套色序，但形状/色标不同
       sqClass: 'sq-' + g,
       label: META[g].label, gemClass: 'gem-' + g
@@ -323,7 +324,8 @@ function myResourceVM(state, idx) {
     const num = p.tokens[g] || 0;
     return {
       key: g, num: num, numText: String(num), zero: num === 0,
-      wide: num >= 10, light: g === 'white', isGold: g === 'gold',
+      // 筹码圆格统一深底 + 本色描边，数字恒白，不能用浅底深墨
+      wide: num >= 10, light: false, isGold: g === 'gold',
       label: META[g] ? META[g].label : '黄金', gemClass: 'gem-' + g
     };
   });
@@ -400,54 +402,83 @@ function pickVM(state, ui, seat, takeError, needDiscard) {
   const d = ui.detail;
   const card = d ? (d.kind === 'board' ? state.board[d.lv][d.index] : p.reserved[d.index]) : null;
   if (d && card && state.current === seat && !state.gameOver) {
-    const canAct = !state.pendingNoble;
-    if (d.kind === 'board') {
-      const pay = E.getPayment(state, seat, card);
-      if (pay) {
-        let paid = 0;
-        const paidLines = [];
-        for (let i = 0; i < ALL.length; i++) {
-          const g = ALL[i];
-          if (!pay[g]) continue;
-          paid += pay[g];
-          paidLines.push({
-            key: g, label: META[g] ? META[g].label : '黄金', count: pay[g],
-            gemClass: 'gem-' + g, light: g === 'white', isGold: g === 'gold'
-          });
-        }
-        out.mode = 'buy';
-        out.kind = '购买发展卡';
-        out.title = card.name + ' · 实付 ' + paid + ' 枚' + (pay.gold ? '（含黄金 ' + pay.gold + ' 枚）' : '');
-        out.lines = paidLines.map(function (l) {
-          l.sign = '−' + l.count;
-          l.negative = true;
-          return l;
+    const canAct = !state.pendingNoble && state.pendingDiscard === 0;
+    // 购买分支对桌面卡与预留卡一视同仁：预留卡买得起时必须是「购买此卡」。
+    // 旧版把这段包在 kind === 'board' 里，预留卡会掉进下面的预留分支，
+    // 于是主按钮显示成「确认预留」且灰着 —— 这就是「预留卡可买却没有购买按钮」的根因。
+    const pay = E.getPayment(state, seat, card);
+    if (pay) {
+      let paid = 0;
+      const paidLines = [];
+      for (let i = 0; i < ALL.length; i++) {
+        const g = ALL[i];
+        if (!pay[g]) continue;
+        paid += pay[g];
+        paidLines.push({
+          key: g, label: META[g] ? META[g].label : '黄金', count: pay[g],
+          gemClass: 'gem-' + g, light: g === 'white', isGold: g === 'gold'
         });
-        out.items = paidLines;
-        out.goldLine = pay.gold ? '黄金替代 ' + pay.gold + ' 枚（缺口用万能筹码补足）' : '';
-        out.fromText = String(total);
-        out.toText = String(total - paid);
-        out.delta = -paid;
-        out.label = '购买此卡';
-        out.canSubmit = canAct;
-        out.reason = canAct ? '' : '先挑选到访的贵族';
-        return out;
       }
+      out.mode = 'buy';
+      out.kind = '购买发展卡';
+      out.title = card.name + ' · 实付 ' + paid + ' 枚' + (pay.gold ? '（含黄金 ' + pay.gold + ' 枚）' : '');
+      out.lines = paidLines.map(function (l) {
+        l.sign = '−' + l.count;
+        l.negative = true;
+        return l;
+      });
+      out.items = paidLines;
+      out.goldLine = pay.gold ? '黄金替代 ' + pay.gold + ' 枚（缺口用万能筹码补足）' : '';
+      out.fromText = String(total);
+      out.toText = String(total - paid);
+      out.delta = -paid;
+      out.label = '购买此卡';
+      out.canSubmit = canAct;
+      out.reason = canAct ? '' : (state.pendingNoble ? '先挑选到访的贵族' : '先退还超出的筹码');
+      return out;
     }
-    const slotsLeft = 3 - p.reserved.length;
-    const getGold = state.bank.gold > 0 ? 1 : 0;
-    out.mode = 'reserve';
-    out.kind = '预留卡牌';
-    out.title = card.name + ' · 预留后名额 ' + (p.reserved.length + 1) + '/3';
-    out.lines = [{ key: 'gold', label: '黄金', count: getGold, gemClass: 'gem-gold', isGold: true, sign: '+' + getGold, positive: true }];
-    out.items = getGold ? out.lines : [];
-    out.goldLine = getGold ? '预留附赠 1 枚黄金万能筹码' : '银行黄金已发完，本次预留不再附赠黄金';
+    if (d.kind === 'board') {
+      const slotsLeft = 3 - p.reserved.length;
+      const getGold = state.bank.gold > 0 ? 1 : 0;
+      out.mode = 'reserve';
+      out.kind = '预留卡牌';
+      out.title = card.name + ' · 预留后名额 ' + (p.reserved.length + 1) + '/3';
+      out.lines = [{ key: 'gold', label: '黄金', count: getGold, gemClass: 'gem-gold', isGold: true, sign: '+' + getGold, positive: true }];
+      out.items = getGold ? out.lines : [];
+      out.goldLine = getGold ? '预留附赠 1 枚黄金万能筹码' : '银行黄金已发完，本次预留不再附赠黄金';
+      out.fromText = String(total);
+      out.toText = String(total + getGold);
+      out.delta = getGold;
+      out.label = '确认预留';
+      out.canSubmit = canAct && slotsLeft > 0;
+      out.reason = slotsLeft <= 0
+        ? '预留位已满（3/3），先购买或放弃一张'
+        : (canAct ? '' : (state.pendingNoble ? '先挑选到访的贵族' : '先退还超出的筹码'));
+      return out;
+    }
+    // 预留卡且买不起：这张卡已经在预留区里，再「预留」一次没有意义。
+    // 保持购买语义但不可提交，明确告诉玩家还差多少，而不是给出一个假动作。
+    let shortfall = 0;
+    for (let i = 0; i < GEMS.length; i++) {
+      const g = GEMS[i];
+      const rest = Math.max(0, (card.cost[g] || 0) - (disc[g] || 0));
+      shortfall += Math.max(0, rest - (p.tokens[g] || 0));
+    }
+    shortfall = Math.max(0, shortfall - (p.tokens.gold || 0));
+    out.mode = 'buy';
+    out.kind = '购买发展卡';
+    out.title = card.name + ' · 暂不可购买';
+    out.lines = [];
+    out.items = [];
+    out.goldLine = '';
     out.fromText = String(total);
-    out.toText = String(total + getGold);
-    out.delta = getGold;
-    out.label = '确认预留';
-    out.canSubmit = canAct && slotsLeft > 0 && d.kind === 'board';
-    out.reason = slotsLeft <= 0 ? '预留位已满（3/3），先购买或放弃一张' : (canAct ? '' : '先挑选到访的贵族');
+    out.toText = String(total);
+    out.delta = 0;
+    out.label = '购买此卡';
+    out.canSubmit = false;
+    out.reason = shortfall > 0
+      ? '筹码不足，还差 ' + shortfall + ' 枚（黄金已计入）'
+      : '筹码不足，暂时无法购买';
     return out;
   }
 
@@ -484,7 +515,8 @@ function seatRowsVM(state, idx) {
     const num = disc[g] || 0;
     return {
       key: g, numText: String(num), zero: num === 0, wide: num >= 10,
-      light: g === 'white',
+      // 折扣格恒为深色方卡，只有左侧竖色条带颜色 —— 不需要、也不能用浅底深墨
+      light: false,
       sqClass: 'sq-' + g,
       gemClass: 'gem-' + g
     };
@@ -493,7 +525,8 @@ function seatRowsVM(state, idx) {
     const num = p.tokens[g] || 0;
     return {
       key: g, numText: String(num), zero: num === 0, wide: num >= 10,
-      light: g === 'white', isGold: g === 'gold', gemClass: 'gem-' + g
+      // 筹码圆格统一深底 + 本色描边，数字恒白，不能用浅底深墨
+      light: false, isGold: g === 'gold', gemClass: 'gem-' + g
     };
   });
   return { discRow: discRow, tokenRow: tokenRow };
@@ -528,6 +561,8 @@ function seatVM(state, index, room, selfSeat, avatars) {
     type: type,
     isSelf: isSelf,
     isBot: !!p.isAI,
+    // 主动托管：席位仍是真人，只是暂时由 AI 代打，头像要盖「托管」角标
+    autoPlay: !!p.autoPlay,
     isCurrent: isCurrent,
     // 「行动中」文字与青色边框同时表达，只靠边框在小屏上会被误读成选中态
     turnTag: isCurrent ? '行动中' : '',
@@ -912,6 +947,30 @@ function detailVM(state, ui, seat) {
     summary = '筹码不足，暂时无法购买';
   }
 
+  // 弹层里的主行动入口：买得起时按钮文案直接带实付枚数，一眼对上上面的逐色明细
+  let buyLabel = '购买此卡';
+  if (pay) {
+    let paid = 0;
+    for (let i = 0; i < ALL.length; i++) paid += pay[ALL[i]];
+    buyLabel = '购买此卡（实付 ' + paid + ' 枚）';
+  }
+  const canActNow = state.current === s && !state.gameOver &&
+    state.pendingDiscard === 0 && !state.pendingNoble;
+  let actionNote;
+  if (canActNow) {
+    actionNote = pay
+      ? '确认后立即获得该卡的红利与声望'
+      : (d.kind === 'board' ? '买不起也可以先预留，并获 1 枚黄金' : '筹码不足，可稍后再来购买');
+  } else if (state.current !== s) {
+    actionNote = '当前不是你的回合，可先查看明细';
+  } else if (state.pendingDiscard > 0) {
+    actionNote = '先退还超出上限的筹码';
+  } else if (state.pendingNoble) {
+    actionNote = '先挑选到访的贵族';
+  } else {
+    actionNote = '对局已结束';
+  }
+
   return {
     kind: d.kind,
     lv: d.lv,
@@ -920,8 +979,10 @@ function detailVM(state, ui, seat) {
     costLines: costLines,
     summary: summary,
     canBuy: !!pay,
-    // 只有轮到自己且不在退还筹码阶段，按钮才真正可点；否则仍可查看卡片明细
-    canAct: state.current === s && !state.gameOver && state.pendingDiscard === 0,
+    buyLabel: buyLabel,
+    actionNote: actionNote,
+    // 只有轮到自己且不在退还筹码 / 挑选贵族阶段，按钮才真正可点；否则仍可查看卡片明细
+    canAct: canActNow,
     canReserve: d.kind === 'board' && state.players[s].reserved.length < 3,
     reserveHint: state.decks[d.lv] ? '' : ''
   };
@@ -1170,6 +1231,8 @@ function buildViewModel(state, ui, layout, ctx) {
       canConfirm: false,
       canPass: false,
       pickHint: '',
+      meAutoPlay: false,
+      canAutoPlay: false,
       pick: {
         mode: 'take', kind: '拿取筹码', title: '', lines: [], items: [], gain: [],
         hasGain: false, fromText: '0', toText: '0', delta: 0, arrow: '→',
@@ -1187,6 +1250,8 @@ function buildViewModel(state, ui, layout, ctx) {
       goldStyle: '',
       resultTitle: '',
       resultDetail: '',
+      resultBoard: null,
+      endNotice: null,
       showcaseList: [],
       turnFlash: null,
       turnClock: { on: false, text: '', left: 0, total: 0, pct: 0, urgent: false },
@@ -1424,6 +1489,7 @@ function buildViewModel(state, ui, layout, ctx) {
 
   let resultTitle = '';
   let resultDetail = '';
+  let resultBoard = null;
   if (state.gameOver) {
     if (state.winner === -2) resultTitle = '平局';
     else if (state.winner === seat) resultTitle = '你赢了';
@@ -1431,12 +1497,72 @@ function buildViewModel(state, ui, layout, ctx) {
       const w = state.players[state.winner];
       resultTitle = w ? (w.nickname || w.name) + ' 获胜' : '对局结束';
     }
-    const parts = [];
-    for (let i = 0; i < state.players.length; i++) {
-      const p = state.players[i];
-      parts.push((p.nickname || p.name) + ' ' + p.points + ' 声望 / ' + p.cards.length + ' 卡');
+    resultDetail = '共 ' + state.turnCount + ' 回合 · 声望高者胜，同分发展卡少者靠前';
+    // 排名表：与引擎 computeWinner 同口径（声望降序、同分发展卡少者靠前）
+    const order = state.players.map(function (p, i) {
+      let cardPts = 0;
+      for (let k = 0; k < p.cards.length; k++) cardPts += p.cards[k].points;
+      let noblePts = 0;
+      for (let k = 0; k < p.nobles.length; k++) noblePts += p.nobles[k].points;
+      return {
+        seat: i,
+        name: p.nickname || p.name || ('玩家 ' + (i + 1)),
+        initial: String(p.nickname || p.name || '玩').slice(0, 1),
+        avatarHue: avatarHue(p.avatar || 'a0'),
+        avatarUrl: (p.uid && avatars && avatars[p.uid]) || '',
+        points: p.points,
+        cardPoints: cardPts,
+        noblePoints: noblePts,
+        cardCount: p.cards.length,
+        nobleCount: p.nobles.length,
+        totalTokens: E.tokenTotal(p),
+        isMe: i === seat,
+        isAI: !!p.isAI,
+        autoPlay: !!p.autoPlay,
+        // 逐色明细：折扣与筹码各自五色（黄金只计入筹码）
+        disc: myResourceVM(state, i).discount,
+        tok: myResourceVM(state, i).tokens
+      };
+    });
+    order.sort(function (a, b) {
+      if (b.points !== a.points) return b.points - a.points;
+      if (a.cardCount !== b.cardCount) return a.cardCount - b.cardCount;
+      return a.seat - b.seat;
+    });
+    // 同名次（声望与卡数都相同）并列，否则按顺序 1..n
+    let rank = 0;
+    for (let i = 0; i < order.length; i++) {
+      if (i === 0) rank = 1;
+      else {
+        const prev = order[i - 1];
+        const cur = order[i];
+        if (cur.points !== prev.points || cur.cardCount !== prev.cardCount) rank = i + 1;
+      }
+      order[i].rank = rank;
+      order[i].rankText = rank === 1 ? '第 1 名' : ('第 ' + rank + ' 名');
+      order[i].isWinner = rank === 1 && state.winner !== -2;
     }
-    resultDetail = parts.join('　|　') + '　·　共 ' + state.turnCount + ' 回合';
+    resultBoard = {
+      rows: order,
+      champion: order.length ? order[0] : null,
+      turnCount: state.turnCount
+    };
+  }
+
+  // 终局提示：有人达到 15 声望、但牌局还要走完本轮时，必须明确告知
+  let endNotice = null;
+  if (!state.gameOver && state.endAtTurn > 0) {
+    const left = Math.max(0, state.endAtTurn - state.turnCount);
+    let leader = null;
+    for (let i = 0; i < state.players.length; i++) {
+      if (leader === null || state.players[i].points > state.players[leader].points) leader = i;
+    }
+    const lp = leader === null ? null : state.players[leader];
+    endNotice = {
+      leaderSeat: (leader === null ? 0 : leader) + 1,
+      leaderName: lp ? (lp.nickname || lp.name) : '',
+      leftText: left > 0 ? ('还剩 ' + left + ' 个回合') : '本轮即将结算'
+    };
   }
 
   return {
@@ -1525,6 +1651,9 @@ function buildViewModel(state, ui, layout, ctx) {
     pick: pick,
     // 操作区恒定一行解释文案（空态也要有，避免按钮上下跳动）
     pickHint: pickHint,
+    // 主动托管状态：自己是否托管、以及是否允许托管（人机局无意义）
+    meAutoPlay: !!(me && me.autoPlay),
+    canAutoPlay: !!(room && room.mode === 'room') && !state.gameOver,
     // 「跳过」是规则兜底，只在无合法动作时出现
     canPass: canPass,
     detail: detailVM(state, ui, seat),
@@ -1533,6 +1662,9 @@ function buildViewModel(state, ui, layout, ctx) {
     gameOver: state.gameOver,
     resultTitle: resultTitle,
     resultDetail: resultDetail,
+    // 结算排名表（含逐色资源明细）与终局提示
+    resultBoard: resultBoard,
+    endNotice: endNotice,
     showcaseList: ui.showcase ? [ui.showcase] : [],
     // 回合切换的全屏提醒：进入 / 离开自己的回合各一次
     turnFlash: ui.turnFlash || null,
@@ -1551,7 +1683,8 @@ function needsAutoPlay(state, ctx) {
   const p = state.players[state.current];
   const c = ctx || {};
   if (c.cloud && !c.isHost) return false;
-  return !!p && (p.isAI || (p.type === 'remote' && !p.joined));
+  // autoPlay：真人主动托管，席位仍是真人，只是这一段时间交给 AI 代打
+  return !!p && (p.isAI || p.autoPlay || (p.type === 'remote' && !p.joined));
 }
 
 function freshUI(config) {
@@ -2718,6 +2851,34 @@ Page({
     this.ui.homeNotice = '';
     this.refresh('');
   },
+
+  /**
+   * 快速开始：先选人数再开局。
+   *
+   * 上一版点一下就用 ui.soloCount（对局设置里的默认值）直接开局，
+   * 首屏没有任何地方能改人数，等于把 2/3/4 人的选择藏进了一个二级弹层。
+   * 这里单独开一个只含人数的弹层，点人数即开局，少一次「保存」。
+   */
+  onQuickStart() {
+    if (this.ui.screen !== 'home') return;
+    this.ui.homeDialogBefore = {
+      soloCount: this.ui.soloCount,
+      roomCount: this.ui.roomCount,
+      turnLimit: this.ui.turnLimit
+    };
+    this.ui.homeDialog = 'quick';
+    this.ui.homeNotice = '';
+    this.refresh('');
+  },
+
+  /** 快速开始弹层里点人数：直接以该人数开局（保留为下次默认） */
+  onPickSoloSeats(event) {
+    const n = Number(event.currentTarget.dataset.n);
+    if (n < 2 || n > 4) return;
+    this.ui.soloCount = n;
+    this.onStartSolo();
+  },
+
   onCloseHomeDialog() {
     // 取消 / 点遮罩不提交设置；只有保存或创建房间才保留选择。
     if (this.ui.homeDialogBefore) Object.assign(this.ui, this.ui.homeDialogBefore);
@@ -3091,9 +3252,132 @@ Page({
     this.startCloudPolling();
   },
 
-  /** 离开房间 / 退出当前牌局，统一回到首页 */
-  onLeaveRoom() {
+  /**
+   * 切换「托管」：把本席位临时交给 AI 代打，人留在牌桌上。
+   *
+   * 与「投降」的区别：
+   *  - 投降：离开牌局，席位转机器人，牌局继续；
+   *  - 托管：**不退出**，席位仍是真人（`isAI` 不变），只是这一段时间不出牌，
+   *    由房主设备按 `autoPlay` 代打，随时可以点回来自己接着打。
+   *
+   * 所以这里写的是 `players[seat].autoPlay`，而不是 `isAI`。
+   * 写 `isAI` 会让玩家自己永久失去操作权（席位被当成机器人），那是投降的语义。
+   */
+  onToggleAutoPlay() {
+    const s = this.state;
+    if (!s || s.gameOver) return;
+    if (this.ui.screen !== 'game') return;
+    // 只有联机局需要托管：人机局本来就全是 AI，托管没有意义
+    if (!(this.mode === 'room' && this.room)) {
+      this.refresh('人机局无需托管');
+      return;
+    }
+    const seat = this.mySeat || 0;
+    const p = s.players[seat];
+    if (!p) return;
+    p.autoPlay = !p.autoPlay;
+    // 托管时清掉本机的待确认选择，避免恢复后看见一堆过期选篮
+    if (p.autoPlay) {
+      this.ui.selectedGems = [];
+      this.ui.discardPlan = [];
+      this.ui.detail = null;
+    }
+    this.refresh(p.autoPlay ? '已开启托管 · 由机器人代打本席位' : '已取消托管 · 交回给你操作');
+    this.pushCloudState();
+    // 托管时若正好轮到自己，立刻让 AI 走一手，不让别人干等
+    if (p.autoPlay && s.current === seat) {
+      const that = this;
+      setTimeout(function () { that.runAi(true); }, 420);
+    }
+  },
+
+  /**
+   * 对局内「退出」：人机局＝放弃，联机局＝投降并转机器人托管。
+   *
+   * 为什么两种语义不同：
+   *  - 人机局没有其他真人，直接收摊回大厅即可，牌局不必留存。
+   *  - 联机局中途退出不能让牌局停摆（其他玩家还在等），所以把这个席位
+   *    转成机器人继续打，其余玩家的体验才不被一个人拖住。
+   *
+   * 联机投降的关键约束：**只有房主负责推进托管**。
+   * `needsAutoPlay` 在云端模式下对非房主返回 false，避免多台设备同时
+   * 替同一个席位出牌。因此这里先改本地席位再推送快照：
+   *  - 房主投降：自己仍是房主，推送后由本机（已回大厅但轮询仍在）继续托管；
+   *  - 非房主投降：只能推送席位与快照，之后由房主的设备接管该席位。
+   */
+  onQuitGame() {
+    const s = this.state;
+    if (!s || this.ui.screen !== 'game') return;
+    const isRoom = this.mode === 'room' && !!this.room;
+    const that = this;
+
+    const doQuit = function () {
+      if (!isRoom) {
+        // 人机局：放弃本局，回大厅。不写战绩（没打完就不算一场）。
+        that.quitToHome('已放弃本局');
+        return;
+      }
+
+      // 联机局：本席位转机器人托管，牌局继续
+      const seat = that.mySeat || 0;
+      const p = s.players[seat];
+      if (p) {
+        p.isAI = true;
+        p.type = 'bot';
+        p.joined = false;
+        // 名字保留原昵称，玩家回来还能认出「这是谁在托管」；
+        // 席位条会按 isAI 显示机器人语义
+      }
+      // 席位表同步一份，房间大厅里也显示为机器人
+      if (that.room && that.room.seats && that.room.seats[seat]) {
+        that.room.seats[seat].isAI = true;
+        that.room.seats[seat].joined = false;
+      }
+      that.pushCloudState();
+      if (R.hasCloud() && that._cloudCode) {
+        R.cloudUpdateSeats(that._cloudCode, that.room.seats, that._roomVersion || 1)
+          .then(function (res) { if (res.ok) that._roomVersion = res.version; });
+      }
+      that.quitToHome('已投降 · 该席位由机器人托管');
+    };
+
+    if (typeof wx === 'undefined' || !wx.showModal) { doQuit(); return; }
+    wx.showModal({
+      title: isRoom ? '投降并退出？' : '放弃本局？',
+      content: isRoom
+        ? '你的席位会交给机器人接管，牌局继续进行，其他玩家不受影响。'
+        : '本局不会计入战绩，返回大厅后可重新开始。',
+      confirmText: isRoom ? '投降' : '放弃',
+      cancelText: '继续对局',
+      success: function (res) { if (res.confirm) doQuit(); }
+    });
+  },
+
+  /**
+   * 收摊回大厅：停表、停轮询、作废会话，但不解散房间。
+   * 与 `onLeaveRoom` 的区别是后者会 `cloudUpdateRoom({status:'ended'})` 解散房间，
+   * 这里投降后牌局要留给其他玩家继续，所以只解除本机绑定。
+   */
+  quitToHome(message) {
     this.clearTimer();
+    this.resetTurnUI();
+    this.stopCloudPolling();
+    this.clearSession();
+    this.state = null;
+    this.room = null;
+    this.mySeat = 0;
+    this._cloudCode = '';
+    this._cloudVersion = 0;
+    this._roomVersion = 0;
+    this.mode = 'solo';
+    const solo = this.ui.soloCount;
+    const roomCount = this.ui.roomCount;
+    this.ui = freshUI({ screen: 'home', soloCount: solo, roomCount: roomCount });
+    this.refresh(message || '已返回大厅');
+  },
+
+  /** 离开房间 / 退出当前牌局，统一回到首页 */
+  onLeaveRoom() {    this.clearTimer();
     this.resetTurnUI();
     this.stopCloudPolling();
     // 房主离开即解散：云上置 ended，其他设备轮询到就直接回首页，

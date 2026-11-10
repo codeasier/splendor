@@ -33,38 +33,46 @@
           <!-- 第一行：小头像 + 短昵称 + 弱号位 + 醒目声望 -->
           <view class="seat-top">
             <view class="seat-avatar-wrap">
-              <view wx:if="{{item.avatarUrl}}" class="seat-avatar">
+              <view wx:if="{{item.avatarUrl}}" class="seat-avatar {{item.autoPlay ? 'is-auto' : ''}}">
                 <image class="seat-avatar-img" src="{{item.avatarUrl}}" mode="aspectFill"></image>
               </view>
-              <view wx:else class="seat-avatar"
+              <view wx:else class="seat-avatar {{item.autoPlay ? 'is-auto' : ''}}"
                     style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);">
                 <text class="seat-avatar-initial">{{item.initial}}</text>
               </view>
+              <!-- 托管角标：压在头像右下，一眼看出这个席位现在由 AI 代打 -->
+              <view wx:if="{{item.autoPlay}}" class="auto-badge"><text>托管</text></view>
             </view>
             <text class="seat-no {{item.isCurrent ? 'is-current' : ''}}">{{item.seatNo}}</text>
             <text class="seat-name">{{item.name}}</text>
+            <!-- 预购数：第一行内的正常 flex 项（不做绝对定位）。
+                 绝对定位无论贴右下还是贴右上，都会压到筹码行第 6 格或昵称；
+                 放进流里则自动把昵称挤窄，由昵称的 ellipsis 让位，永不重叠。 -->
+            <view class="seat-res" catchtap="onTapPlayer" data-index="{{item.index}}">
+              <text class="seat-res-tag">预</text>
+              <text class="seat-res-num">{{item.reservedCount}}</text>
+            </view>
             <view class="seat-score {{item.isCurrent ? 'is-current' : ''}} {{item.pointsReached ? 'is-reached' : ''}}">
               <text class="seat-score-num">{{item.pointsText}}</text>
             </view>
           </view>
-          <!-- 第二行：五色永久折扣（方形卡片样式，与工作台同一语言） -->
+          <!-- 第二行：五色永久折扣。第 6 槽是空占位——黄金没有永久折扣，
+               但槽位必须留着，否则这一行只有 5 格、下一行 6 格，
+               flex 等分会让两行的格子宽度不同，逐列就对不上了。 -->
           <view class="seat-row">
             <text class="seat-row-tag">折</text>
             <view wx:for="{{item.rows.discRow}}" wx:for-item="cell" wx:key="key"
                   class="seat-sq {{cell.sqClass}} {{cell.zero ? 'is-zero' : ''}} {{cell.wide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}}">
               <text>{{cell.numText}}</text>
             </view>
+            <view class="seat-sq is-empty-slot"></view>
           </view>
-          <!-- 第三行：五色持有筹码 + 黄金末位（圆形筹码样式） -->
+          <!-- 第三行：五色持有筹码 + 黄金（第 6 槽），与上行严格同列 -->
           <view class="seat-row">
             <text class="seat-row-tag">筹</text>
             <view wx:for="{{item.rows.tokenRow}}" wx:for-item="cell" wx:key="key"
-                  class="seat-coin gem-icon {{cell.gemClass}} {{cell.zero ? 'is-zero' : ''}} {{cell.wide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}} {{cell.isGold ? 'is-gold' : ''}}">
+                  class="seat-coin {{cell.gemClass}} {{cell.zero ? 'is-zero' : ''}} {{cell.wide ? 'is-wide' : ''}} {{cell.light ? 'is-light' : ''}} {{cell.isGold ? 'is-gold' : ''}}">
               <text>{{cell.numText}}</text>
-            </view>
-            <view class="seat-res" catchtap="onTapPlayer" data-index="{{item.index}}">
-              <text class="seat-res-num">{{item.reservedCount}}</text>
-              <text class="seat-res-tag">预</text>
             </view>
           </view>
           <!-- 行动中：贴在卡片左外沿的竖排小旗，不占任何数字的位置 -->
@@ -98,6 +106,9 @@
           <view class="gold-coin coin-face coin-gold"><view class="pile-gem gem-icon gem-gold"></view></view>
           <text class="gold-label">金 {{goldCount}}</text>
         </view>
+        <!-- 退出：人机局＝放弃本局，联机局＝投降并转机器人托管。
+             放在最左侧（远离胶囊），常驻可见，不再只在房间模式出现。 -->
+        <view class="round-btn quit-btn" bindtap="onQuitGame" hover-class="round-btn-hover"><text>⏻</text></view>
         <view wx:if="{{roomMode}}" class="round-btn room-btn" bindtap="onOpenLobby"><text>⚑</text></view>
         <view class="round-btn" bindtap="onOpenProfile"><text>☻</text></view>
         <view class="round-btn" bindtap="onShowRules"><text>?</text></view>
@@ -343,6 +354,10 @@
           <view class="btn pick-clear {{(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'}}"
                 bindtap="onCancelSelection">清除</view>
           <view wx:if="{{canPass}}" class="btn pick-pass" bindtap="onPass">跳过</view>
+          <!-- 托管：联机局专用。开启后不退出牌局，本席位由 AI 代打，可随时收回。 -->
+          <view wx:if="{{canAutoPlay}}" class="btn auto-btn {{meAutoPlay ? 'is-on' : ''}}" bindtap="onToggleAutoPlay">
+            {{meAutoPlay ? '收回' : '托管'}}
+          </view>
         </view>
         <text class="pick-reason">{{isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint}}</text>
       </view>
@@ -447,11 +462,11 @@
       <view class="guild-panel" style="top:{{topRightTop > 82 ? topRightTop : 82}}px;">
         <text class="guild-panel-title">经典对局</text>
         <view class="guild-rule"><text>◇</text></view>
-        <view class="guild-quick" bindtap="onStartSolo" hover-class="guild-pressed">
+        <view class="guild-quick" bindtap="onQuickStart" hover-class="guild-pressed">
           <view class="guild-quick-gem gem-icon gem-white"></view>
           <view class="guild-quick-copy">
             <text class="guild-quick-title">快速开始</text>
-            <text class="guild-quick-sub">人机对战 · {{home.soloCount}} 人</text>
+            <text class="guild-quick-sub">人机对战 · 可选 2–4 人</text>
           </view>
         </view>
         <view class="guild-room-actions">
@@ -478,10 +493,22 @@
       <view wx:if="{{home.dialog}}" class="overlay guild-overlay" bindtap="onCloseHomeDialog">
         <view class="dialog guild-dialog" catchtap="noop">
           <view class="guild-dialog-head">
-            <text class="dialog-title">{{home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'create' ? '创建房间' : '加入房间')}}</text>
+            <text class="dialog-title">{{home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))}}</text>
             <view class="guild-dialog-close" bindtap="onCloseHomeDialog">×</view>
           </view>
           <view class="guild-config">
+            <!-- 快速开始：人数是唯一需要选的东西，点一下直接开局，不再多一次「保存」 -->
+            <view wx:if="{{home.dialog === 'quick'}}" class="guild-config-row">
+              <text class="guild-config-label">对局人数</text>
+              <view class="guild-seat-pick">
+                <view wx:for="{{home.soloCounts}}" wx:key="n"
+                      class="seat-pick {{item.active ? 'is-active' : ''}}" bindtap="onPickSoloSeats" data-n="{{item.n}}">
+                  <text class="seat-pick-num">{{item.n}}</text>
+                  <text class="seat-pick-label">人</text>
+                  <text class="seat-pick-desc">{{item.n === 2 ? '1 名对手' : (item.n === 3 ? '2 名对手' : '3 名对手')}}</text>
+                </view>
+              </view>
+            </view>
             <view wx:if="{{home.dialog === 'solo'}}" class="guild-config-row">
               <text class="guild-config-label">对局人数</text>
               <view class="guild-config-options">
@@ -508,7 +535,7 @@
               <input class="room-input guild-join-input" type="text" maxlength="6" value="{{home.joinCode}}"
                      placeholder="6 位房间号" bindinput="onJoinCodeInput"></input>
             </view>
-            <text wx:if="{{home.dialog !== 'solo' && home.cloudHint}}" class="guild-config-note">{{home.cloudHint}}</text>
+            <text wx:if="{{home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint}}" class="guild-config-note">{{home.cloudHint}}</text>
             <text wx:if="{{home.notice}}" class="home-notice">{{home.notice}}</text>
           </view>
           <view class="dialog-btns">
@@ -624,12 +651,15 @@
             <text class="detail-note">卡面气泡恒为印刷成本；桌面上绿框＝现有筹码直接可买，金框＝缺口需用黄金补齐。买不起时仍可先预留，并获 1 枚黄金万能筹码。</text>
           </view>
         </view>
-        <!-- 主操作统一在工作台右下（唯一高亮按钮）。这里只留次级入口：
-             关闭弹层后可核对摘要再提交，避免两处高亮按钮让玩家分不清该点哪个。 -->
+        <!-- 弹层是全屏遮罩（z-index 20），会盖住工作台右下的主按钮。
+             所以「买得起」时必须把购买入口放在弹层里，否则玩家看不到任何可点的动作。
+             买不起时改为次级「预留此卡」（仅桌面卡），并给出缺口原因。
+             两个入口用互斥的 wx:if（不用 wx:elif：H5 预览编译器不支持，会两个都渲染）。 -->
         <view class="dialog-btns">
-          <text class="dialog-action-note">购买 / 预留请在弹层关闭后，用工作台右下的主按钮确认</text>
-          <view wx:if="{{detail.kind === 'board'}}" class="btn {{detail.canReserve && detail.canAct ? '' : 'btn-off'}}" bindtap="onReserveFromDetail">预留此卡</view>
-          <view class="btn btn-primary" bindtap="onCloseDetail">返回牌桌</view>
+          <text class="dialog-action-note">{{detail.actionNote}}</text>
+          <view wx:if="{{detail.canBuy && detail.canAct}}" class="btn btn-primary" bindtap="onBuyFromDetail">{{detail.buyLabel}}</view>
+          <view wx:if="{{!detail.canBuy && detail.canReserve && detail.canAct}}" class="btn" bindtap="onReserveFromDetail">预留此卡</view>
+          <view class="btn" bindtap="onCloseDetail">返回牌桌</view>
         </view>
       </view>
     </view>
@@ -739,12 +769,74 @@
       </view>
     </view>
 
+    <!-- ========== 终局提示：有人达到 15 声望，但本轮还没走完 ==========
+         这一条必须显眼——否则玩家会在「已经结束了？」和「怎么还在打」之间困惑。 -->
+    <view wx:if="{{endNotice}}" class="end-notice">
+      <text class="end-notice-tag">终局</text>
+      <text class="end-notice-text">{{endNotice.leaderSeat}} 号位 · {{endNotice.leaderName}} 已达 15 声望</text>
+      <text class="end-notice-left">{{endNotice.leftText}}</text>
+    </view>
+
     <!-- ========== 结算 ========== -->
     <view wx:if="{{gameOver}}" class="overlay">
       <view class="dialog result-dialog" catchtap="noop">
         <text class="result-crown">✦</text>
         <text class="result-title">{{resultTitle}}</text>
         <text class="result-detail">{{resultDetail}}</text>
+
+        <!-- 排名表：名次 / 玩家 / 声望构成 / 发展卡与贵族 / 五色折扣 + 五色筹码 -->
+        <view wx:if="{{resultBoard}}" class="rank-board">
+          <view class="rank-row rank-head">
+            <text class="rank-col-rank">名次</text>
+            <text class="rank-col-player">玩家</text>
+            <text class="rank-col-pt">声望</text>
+            <text class="rank-col-detail">构成</text>
+          </view>
+          <view wx:for="{{resultBoard.rows}}" wx:key="seat"
+                class="rank-row {{item.isWinner ? 'is-winner' : ''}} {{item.isMe ? 'is-me' : ''}}">
+            <view class="rank-col-rank">
+              <text class="rank-num {{item.rank === 1 ? 'is-first' : ''}}">{{item.rank}}</text>
+            </view>
+            <view class="rank-col-player">
+              <view class="rank-avatar">
+                <image wx:if="{{item.avatarUrl}}" class="rank-avatar-img" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+                <text wx:else class="rank-avatar-initial">{{item.initial}}</text>
+              </view>
+              <view class="rank-name-box">
+                <view class="rank-name-line">
+                  <text class="rank-name">{{item.name}}</text>
+                  <text wx:if="{{item.isMe}}" class="rank-me-tag">你</text>
+                  <text wx:if="{{item.autoPlay}}" class="rank-me-tag is-auto">托管</text>
+                </view>
+                <text class="rank-seat">{{item.seat + 1}} 号位</text>
+              </view>
+            </view>
+            <view class="rank-col-pt">
+              <text class="rank-pt">{{item.points}}</text>
+            </view>
+            <view class="rank-col-detail">
+              <text class="rank-detail-line">发展卡 {{item.cardCount}} 张（{{item.cardPoints}} 分）· 贵族 {{item.nobleCount}} 张（{{item.noblePoints}} 分）· 筹码 {{item.totalTokens}}/10</text>
+              <!-- 逐色资源：上行折扣（方）、下行筹码（圆），与牌桌同一套视觉语言 -->
+              <view class="rank-res">
+                <view class="rank-res-row">
+                  <text class="rank-res-tag">折</text>
+                  <view wx:for="{{item.disc}}" wx:for-item="cell" wx:key="key"
+                        class="rank-res-sq {{cell.sqClass}} {{cell.zero ? 'is-zero' : ''}} {{cell.light ? 'is-light' : ''}}">
+                    <text>{{cell.numText}}</text>
+                  </view>
+                </view>
+                <view class="rank-res-row">
+                  <text class="rank-res-tag">筹</text>
+                  <view wx:for="{{item.tok}}" wx:for-item="cell" wx:key="key"
+                        class="rank-res-coin gem-icon {{cell.gemClass}} {{cell.zero ? 'is-zero' : ''}} {{cell.light ? 'is-light' : ''}} {{cell.isGold ? 'is-gold' : ''}}">
+                    <text>{{cell.numText}}</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+
         <view class="dialog-btns">
           <view class="btn btn-primary" bindtap="onRestart">再来一局</view>
           <view wx:if="{{roomMode}}" class="btn" bindtap="onOpenLobby">房间信息</view>

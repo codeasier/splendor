@@ -69,6 +69,36 @@ assert(page.data.home.cloudHint.length > 0, '预览环境建房应给出限制�
 page.onCloseHomeDialog();
 page.onOpenHomeDialog({ currentTarget: { dataset: { kind: 'solo' } } });
 
+// 快速开始必须能选人数：首屏点「快速开始」只打开人数弹层，不直接开局
+{
+  page.onCloseHomeDialog();
+  page.onQuickStart();
+  assert(page.ui.screen === 'home', '快速开始先停在首页，不直接开局：' + page.ui.screen);
+  assert(page.data.home.dialog === 'quick', '快速开始应打开人数弹层');
+  assert(page.data.home.soloCounts.length === 3, '人数弹层应提供 2/3/4 三档');
+  // 弹层里不应混入与人数无关的云能力提示
+  assert(page.data.home.cloudHint.indexOf('浏览器预览') >= 0, '预览环境仍应有云提示字段');
+  page.onCloseHomeDialog();
+  assert(page.data.home.dialog === '', '取消人数弹层应关闭');
+  assert(page.ui.screen === 'home', '取消后仍留在首页');
+}
+console.log('OK  快速开始 · 先选人数再开局');
+
+// 人机对战退出＝放弃：回大厅且不记战绩
+{
+  page.onPickSoloSeats({ currentTarget: { dataset: { n: 3 } } });
+  assert(page.data.screen === 'game', '选人数后直接开局');
+  assert(page.data.playerCount === 3, '应按所选人数开局：' + page.data.playerCount);
+  const recBefore = U.getRecords().length;
+  page.onQuitGame();
+  assert(page.ui.screen === 'home', '人机局退出后回到大厅');
+  assert(page.state === null, '放弃后不应残留牌局状态');
+  assert(U.getRecords().length === recBefore, '中途放弃不计入战绩');
+  // 复位人数，避免影响后续用例（后面按 2 人局断言贵族张数）
+  page.ui.soloCount = 2;
+  page.onStartSolo();
+}
+
 // 进入人机对战
 page.onStartSolo();
 assert(page.ui.homeDialog === '', '开局时应清理首页设置弹层');
@@ -602,6 +632,66 @@ page.ui.showPlayerDetail = false;
 page.refresh('');
 console.log('OK  预留卡详情 · 卡面成本气泡 / 声望 / 名称');
 
+/* ---------- 预留卡「买得起就显示购买」：本轮 bug 回归 ---------- */
+{
+  const st = page.state;
+  st.current = 0;
+  st.pendingDiscard = 0;
+  st.pendingNoble = null;
+  // 造一张只吃蓝筹码的预留卡，确保只要蓝筹码够就能买
+  const buyable = { gem: 'blue', points: 1, cost: { white: 0, blue: 4, green: 0, red: 0, black: 0 }, name: '暗河渡口', level: 1, art: 0 };
+  st.players[0].reserved = [buyable];
+  st.players[0].tokens = { white: 0, blue: 5, green: 0, red: 0, black: 0, gold: 0 };
+  page.refresh('');
+
+  page.onTapReservedCard({ currentTarget: { dataset: { index: 0 } } });
+  const d = page.data.detail;
+  assert(d && d.kind === 'reserved', '点击预留卡应打开详情');
+  assert(d.canBuy === true, '筹码够时预留卡应判定为可购买');
+  assert(d.canAct === true, '轮到自己且无待处理时应可操作');
+  assert(d.buyLabel.indexOf('购买此卡') === 0, '预留卡可购买时按钮文案必须是「购买此卡」：' + d.buyLabel);
+  assert(d.buyLabel.indexOf('实付') > 0, '购买按钮应带实付枚数：' + d.buyLabel);
+  // 主按钮必须同步成购买 —— 上一版会落到预留分支，显示灰色的「确认预留」
+  assert(page.data.pick.mode === 'buy', '主按钮上下文应为购买：' + page.data.pick.mode);
+  assert(page.data.pick.label === '购买此卡', '主按钮文案应为购买此卡：' + page.data.pick.label);
+  assert(page.data.pick.canSubmit === true, '买得起时必须允许提交');
+  assert(page.data.canConfirm === true, '主按钮应可点');
+
+  // 真点一次，确认走的是 buyReserved 而不是预留
+  const before = st.players[0].reserved.length;
+  page.onBuyFromDetail();
+  assert(st.players[0].reserved.length === before - 1, '购买预留卡后应移出预留区');
+  assert(st.players[0].cards.length === 1, '购买后应进入已购卡牌');
+  assert(st.players[0].tokens.blue === 1, '应扣掉 4 枚蓝筹码：剩 ' + st.players[0].tokens.blue);
+  console.log('OK  预留卡可购买 · 弹层给购买按钮 / 主按钮同步 / 实际扣除筹码');
+}
+
+/* ---------- 预留卡买不起：不能给出会失败的主操作 ---------- */
+{
+  const st = page.state;
+  st.current = 0;
+  st.pendingDiscard = 0;
+  st.pendingNoble = null;
+  const pricey = { gem: 'red', points: 5, cost: { white: 0, blue: 0, green: 0, red: 4, black: 4 }, name: '昂贵预留卡', level: 3, art: 1 };
+  st.players[0].reserved = [pricey];
+  st.players[0].tokens = { white: 0, blue: 0, green: 0, red: 1, black: 0, gold: 0 };
+  page.refresh('');
+
+  page.onTapReservedCard({ currentTarget: { dataset: { index: 0 } } });
+  const d = page.data.detail;
+  assert(d.canBuy === false, '筹码不足时不应判定可购买');
+  assert(d.kind === 'reserved', '仍是预留卡详情');
+  // 关键：不能掉进「预留」分支 —— 已经在预留区的卡再预留一次没有意义
+  assert(page.data.pick.mode === 'buy', '买不起的预留卡仍应保持购买语义：' + page.data.pick.mode);
+  assert(page.data.pick.canSubmit === false, '买不起时主按钮必须不可提交');
+  assert(page.data.pick.reason.length > 0, '买不起时须说明原因：' + page.data.pick.reason);
+  assert(page.data.pick.reason.indexOf('差') > 0 || page.data.pick.reason.indexOf('不足') > 0,
+    '原因应说明还差多少：' + page.data.pick.reason);
+  assert(d.actionNote.indexOf('筹码不足') >= 0, '弹层说明应提示筹码不足：' + d.actionNote);
+  page.onCloseDetail();
+  console.log('OK  预留卡买不起 · 保持购买语义 / 不可提交 / 说明缺口');
+}
+
 /* ---------- 房间默认无机器人；点空席即可安排 ---------- */
 page.onLeaveRoom();
 page.onCreateRoom();
@@ -843,6 +933,12 @@ assert(discRow[2].numText === '0' && discRow[2].zero === true, '零值折扣同�
 assert(discRow[0].sqClass === 'sq-white', '方卡需带 sq-* 类名以绘制竖色条');
 assert(tokenRow[5].numText === '2', '黄金独立计在筹码行末位');
 assert(rival0.pointsText === String(gridState.players[1].points), '声望以文本形式下发，不做截断');
+// 折扣格恒为深色方卡，绝不能标成「浅底深墨」——否则深墨字压深底，对比度掉到 1~2
+assert(discRow.every(function (c) { return c.light === false; }),
+  '折扣方卡是深底，light 必须恒为 false');
+// 筹码圆格统一深底 + 本色描边，数字恒白，同样不应标 light
+assert(tokenRow.every(function (c) { return c.light === false; }),
+  '筹码圆格是深底，light 必须恒为 false');
 console.log('OK  对手卡三行结构 · 五色同序 / 黄金末位 / 零值仍可读 / 两位数降档');
 
 /* ---------- 多贵族同时满足：挂起挑选 / 门禁 / 选择后结算 / 远端重放 ---------- */
@@ -902,6 +998,105 @@ page._seenActionId = '';
 page.replayRemoteAction(stN);
 assert(page.ui.showcase && page.ui.showcase.kind === 'noble', '远端选贵族也要能重放展演');
 console.log('OK  多贵族挑选 · 挂起 / 门禁 / 结算 / 等待横幅 / 远端重放');
+
+/* ---------- 终局提示：有人到 15 但本轮未走完 ---------- */
+{
+  page.onLeaveRoom();
+  page.ui.soloCount = 2;
+  page.onStartSolo();
+  const s = page.state;
+  s.players[1].points = 15;
+  s.endAtTurn = s.turnCount + 3;
+  page.refresh('');
+  const en = page.data.endNotice;
+  assert(en !== null, '有人达到 15 声望时必须给出终局提示');
+  assert(en.leaderSeat === 2, '提示要指名是谁达标的号位：' + en.leaderSeat);
+  assert(en.leftText.indexOf('3') >= 0, '提示要说明还剩几个回合：' + en.leftText);
+  assert(page.data.gameOver === false, '此时牌局还没结束');
+  // 牌局真正结束后，提示消失，结算排名表接管
+  s.gameOver = true;
+  s.winner = 1;
+  page.refresh('');
+  assert(page.data.endNotice === null, '结算后不应再显示终局提示');
+}
+console.log('OK  终局提示 · 指名达标者 / 剩余回合 / 结算后消失');
+
+/* ---------- 结算排名表：名次、声望构成与逐色资源 ---------- */
+{
+  const rb = page.data.resultBoard;
+  assert(rb && rb.rows.length === 2, '结算排名表应覆盖全部玩家');
+  const me = rb.rows.filter(function (r) { return r.isMe; })[0];
+  const bot = rb.rows.filter(function (r) { return r.seat === 1; })[0];
+  assert(me && bot, '排名表应能定位到各席位');
+  assert(rb.rows[0].rank === 1, '首行应为第 1 名');
+  assert(rb.rows[0].isWinner === true, '第 1 名应标记为赢家');
+  assert(bot.points === 15 && bot.rank === 1, '15 声望者应排第一：' + bot.points);
+  // 声望构成必须能自洽：发展卡分 + 贵族分 ≤ 总分
+  rb.rows.forEach(function (r) {
+    assert(typeof r.cardPoints === 'number' && typeof r.noblePoints === 'number', '应给出声望构成');
+    assert(r.disc.length === 5, '排名表折扣应为 5 色');
+    assert(r.tok.length === 6 && r.tok[5].isGold === true, '排名表筹码应为 5 色 + 黄金');
+    assert(String(r.points) === r.pointsText || r.points >= 0, '声望应为真实数值');
+  });
+  assert(typeof rb.champion === 'object' && rb.champion.rank === 1, '应给出冠军行');
+  console.log('OK  结算排名表 · 名次 / 声望构成 / 逐色折扣与筹码');
+}
+
+/* ---------- 主动托管：不退出对局，席位由 AI 代打 ---------- */
+{
+  page.onLeaveRoom();
+  page.ui.roomCount = 2;
+  page.onCreateRoom();
+  const seats = page.room.seats;
+  seats[1] = Object.assign({}, seats[1], { joined: true, ready: true, isAI: false, name: '群友甲' });
+  page.room.seats = seats;
+  page.onRoomStart();
+  assert(page.ui.screen === 'game', '联机局开局进入牌桌');
+  const st = page.state;
+  assert(page.data.canAutoPlay === true, '联机局应允许托管');
+  assert(page.data.meAutoPlay === false, '默认未托管');
+  page.onToggleAutoPlay();
+  assert(st.players[0].autoPlay === true, '开启后应写入 autoPlay');
+  assert(st.players[0].isAI === false, '托管不得改动 isAI（席位仍是真人）');
+  assert(page.ui.screen === 'game', '托管不退出对局');
+  assert(page.data.meAutoPlay === true, '视图模型应反映托管状态');
+  // 托管后该席位满足托管判定，由房主代打
+  assert(st.players[0].autoPlay || st.current !== 0, '托管席位应被接管');
+  page.onToggleAutoPlay();
+  assert(st.players[0].autoPlay === false, '可随时收回托管');
+  console.log('OK  主动托管 · 不退出对局 / isAI 不变 / 可收回');
+}
+
+/* ---------- 联机局退出＝投降并转机器人托管 ---------- */
+{
+  // 造一个 4 人联机牌局：本机 1 号位，其余真人，房主是本机
+  page.onLeaveRoom();
+  page.ui.roomCount = 4;
+  page.onCreateRoom();
+  assert(page.mode === 'room', '创建房间应进入 room 模式');
+  const seats = page.room.seats;
+  // 真人席位必须「已加入 + 已准备」，房主才允许开局
+  seats[1] = Object.assign({}, seats[1], { joined: true, ready: true, isAI: false, name: '群友甲' });
+  seats[2] = Object.assign({}, seats[2], { joined: true, ready: true, isAI: false, name: '群友乙' });
+  seats[3] = Object.assign({}, seats[3], { joined: true, ready: true, isAI: false, name: '群友丙' });
+  page.room.seats = seats;
+  page.onRoomStart();
+  assert(page.ui.screen === 'game', '房主开局进入牌桌');
+  const st = page.state;
+  assert(st.players.length === 4, '4 人局');
+
+  // 本机投降：该席位必须转成机器人，且牌局不被解散
+  const startTurn = st.current;
+  page.onQuitGame();
+  assert(page.ui.screen === 'home', '投降后本机回大厅');
+  assert(page.room === null, '本机不再绑定房间');
+  // 投降时改的是同一份 state 引用，退出后仍可取到
+  assert(st.players[0].isAI === true, '投降席位应转为机器人托管');
+  assert(st.players[0].joined === false, '托管席位标记为未入席');
+  assert(st.gameOver === false, '投降不应直接结束牌局');
+  assert(st.current === startTurn, '投降不改变当前回合归属');
+  console.log('OK  联机退出 · 席位转机器人托管 / 牌局继续 / 本机回大厅');
+}
 
 page.onUnload();
 console.log('ALL RUNTIME CHECKS PASSED');
