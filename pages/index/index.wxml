@@ -1,7 +1,7 @@
 <!-- 璀璨宝石 · 横屏 2.5D 实体牌桌
      逻辑舞台 1080×560，按窗口等比缩放；所有数字、状态由 buildViewModel 实时驱动。
      绘制层级：桌布 → 接触投影 → 纸叠/筹码侧壁 → 卡面/筹码顶面 → 数字图标 → 选中轮廓 → 弹层。 -->
-<view class="viewport">
+<view class="viewport theme-{{themeId}}">
   <view class="stage" style="transform:rotate({{stageRotate}}deg) scale({{stageScale}});">
 
     <!-- ========== 场景层：酒红绒布、柔和光斑、边缘暗化、实体木框 ========== -->
@@ -18,6 +18,7 @@
     <view class="corner corner-tr"></view>
     <view class="corner corner-bl"></view>
     <view class="corner corner-br"></view>
+    <view wx:if="{{themeFallback}}" class="theme-fallback"><text>当前客户端暂不支持房间主题，已使用皇家商会显示</text></view>
 
     <!-- ========== 牌桌图层：仅在 screen === 'game' 时渲染 ========== -->
     <view wx:if="{{screen === 'game'}}" class="board-layer">
@@ -171,6 +172,7 @@
             <view class="card-photo {{item.photoClass}} {{item.artClass}}"></view>
             <view class="art-glaze"></view>
             <text class="card-name">{{item.name}}</text>
+            <text wx:if="{{item.themeCaption}}" class="theme-card-caption">{{item.themeCaption}}</text>
           </view>
           <text wx:if="{{item.pointsText}}" class="card-points">{{item.pointsText}}</text>
           <view class="card-gem gem-icon {{item.gemClass}}"></view>
@@ -218,6 +220,7 @@
               <view class="card-photo {{card.photoClass}} {{card.artClass}}"></view>
               <view class="art-glaze"></view>
               <text class="card-name">{{card.name}}</text>
+              <text wx:if="{{card.themeCaption}}" class="theme-card-caption">{{card.themeCaption}}</text>
             </view>
             <text wx:if="{{card.pointsText}}" class="card-points">{{card.pointsText}}</text>
             <view class="card-gem gem-icon {{card.gemClass}}"></view>
@@ -386,6 +389,7 @@
               <view class="card-photo {{item.card.photoClass}} {{item.card.artClass}}"></view>
               <view class="art-glaze"></view>
               <text class="card-name">{{item.card.name}}</text>
+              <text wx:if="{{item.card.themeCaption}}" class="theme-card-caption">{{item.card.themeCaption}}</text>
             </view>
             <text wx:if="{{item.card.pointsText}}" class="card-points">{{item.card.pointsText}}</text>
             <view class="card-gem gem-icon {{item.card.gemClass}}"></view>
@@ -507,12 +511,24 @@
 
       <!-- 人数、回合计时与房间号不常驻首页，只在执行相关操作时展开。 -->
       <view wx:if="{{home.dialog}}" class="overlay guild-overlay" bindtap="onCloseHomeDialog">
-        <view class="dialog guild-dialog" catchtap="noop">
+        <view class="dialog guild-dialog {{home.dialog === 'create' ? 'is-create' : ''}}" catchtap="noop">
           <view class="guild-dialog-head">
             <text class="dialog-title">{{home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))}}</text>
             <view class="guild-dialog-close" bindtap="onCloseHomeDialog">×</view>
           </view>
           <view class="guild-config">
+            <view wx:if="{{home.dialog === 'create'}}" class="theme-picker">
+              <view class="theme-picker-head"><text class="theme-picker-label">房间主题</text><text class="theme-picker-note">房主选择 · 全桌共享</text></view>
+              <view class="theme-choices">
+                <view wx:for="{{home.themes}}" wx:key="id"
+                      class="theme-choice {{item.active ? 'is-active' : ''}}"
+                      bindtap="onSelectRoomTheme" data-id="{{item.id}}" hover-class="theme-choice-hover">
+                  <view class="theme-choice-thumb theme-thumb-{{item.id}}"></view>
+                  <view class="theme-choice-copy"><text class="theme-choice-tag">{{item.tag}}</text><text class="theme-choice-name">{{item.name}}</text><text class="theme-choice-desc">{{item.description}}</text></view>
+                  <text wx:if="{{item.active}}" class="theme-choice-check">已选</text>
+                </view>
+              </view>
+            </view>
             <!-- 快速开始：人数是唯一需要选的东西，点一下直接开局，不再多一次「保存」 -->
             <view wx:if="{{home.dialog === 'quick'}}" class="guild-config-row">
               <text class="guild-config-label">对局人数</text>
@@ -574,6 +590,7 @@
         </view>
         <view class="room-status-block">
           <text class="room-status-main">{{roomScreen.statusText}}</text>
+          <text class="room-theme">主题 · {{roomScreen.themeName}} · 本房间固定</text>
           <text class="room-status-sub">回合计时 {{roomScreen.turnLimitText}} · {{roomScreen.backendHint}}</text>
         </view>
         <view class="btn room-leave" bindtap="onLeaveRoom">离开房间</view>
@@ -622,6 +639,8 @@
                 bindtap="onRoomTurnLimit" data-value="{{item.value}}">{{item.label}}</view>
         </view>
         <text wx:if="{{roomScreen.notice}}" class="room-notice">{{roomScreen.notice}}</text>
+        <text wx:if="{{roomScreen.creating}}" class="room-notice">正在保存房间与主题…</text>
+        <view wx:if="{{roomScreen.createFailed}}" class="btn btn-primary" bindtap="onRetryCreateRoom">重试创建</view>
       </view>
 
       <view class="room-actions">
@@ -647,6 +666,7 @@
               <view class="card-photo {{detail.card.photoClass}} {{detail.card.artClass}}"></view>
               <view class="art-glaze"></view>
               <text class="card-name">{{detail.card.name}}</text>
+              <text wx:if="{{detail.card.themeCaption}}" class="theme-card-caption">{{detail.card.themeCaption}}</text>
             </view>
             <text wx:if="{{detail.card.pointsText}}" class="card-points">{{detail.card.pointsText}}</text>
             <view class="card-gem gem-icon {{detail.card.gemClass}}"></view>
@@ -695,6 +715,7 @@
                 <view class="card-photo {{item.photoClass}} {{item.artClass}}"></view>
                 <view class="art-glaze"></view>
                 <text class="card-name">{{item.name}}</text>
+                <text wx:if="{{item.themeCaption}}" class="theme-card-caption">{{item.themeCaption}}</text>
               </view>
               <text wx:if="{{item.pointsText}}" class="card-points">{{item.pointsText}}</text>
               <view class="card-gem gem-icon {{item.gemClass}}"></view>
@@ -939,6 +960,7 @@
                     <view class="card-photo {{item.photoClass}} {{item.artClass}}"></view>
                     <view class="art-glaze"></view>
                     <text class="card-name">{{item.name}}</text>
+                    <text wx:if="{{item.themeCaption}}" class="theme-card-caption">{{item.themeCaption}}</text>
                   </view>
                   <text wx:if="{{item.pointsText}}" class="card-points">{{item.pointsText}}</text>
                   <view class="card-gem gem-icon {{item.gemClass}}"></view>

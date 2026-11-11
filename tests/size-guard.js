@@ -8,9 +8,9 @@
  * 导致预览编译失败且改动被 .gitignore 掩盖（git status 完全干净）。
  *
  * 现在可再生素材统一放在工程外的 ../splendor-assets/ 与
- * ../splendor-assets-preview/；本守卫作为回归第一步兜底，防止再次复发。
+ * ../splendor-assets-preview/；本守卫在重建后检查实际产物，防止再次复发。
  *
- * 校验：工程内单文件 >2MB 即失败；工程内出现 assets/ 目录即失败。
+ * 校验：工程内单文件或原生运行文件合计 >2MiB 即失败；工程内出现 assets/ 即失败。
  * 排除 .git / .workbuddy。
  *
  * ⚠️ 不排除 node_modules：平台预览编译器直接扫目录树，不读 .gitignore，
@@ -23,10 +23,11 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const LIMIT = 2 * 1024 * 1024;
-const SKIP_DIRS = ['.git', '.workbuddy', '.agents'];
+const SKIP_DIRS = ['.git', '.workbuddy', '.agents', '.worktrees'];
 
 const oversized = [];
 let total = 0;
+let runtimeBytes = 0;
 
 function walk(dir) {
   fs.readdirSync(dir, { withFileTypes: true }).forEach(function (entry) {
@@ -37,6 +38,8 @@ function walk(dir) {
     } else if (entry.isFile()) {
       const size = fs.statSync(abs).size;
       total += size;
+      const rel = path.relative(ROOT, abs).split(path.sep).join('/');
+      if (/^(pages\/|utils\/|app\.(js|json|wxss)$|sitemap\.json$)/.test(rel)) runtimeBytes += size;
       if (size > LIMIT) oversized.push({ rel: path.relative(ROOT, abs), size: size });
     }
   });
@@ -50,6 +53,9 @@ oversized.forEach(function (f) {
 if (fs.existsSync(path.join(ROOT, 'assets'))) {
   problems.push('  - 工程内出现 assets/ 目录，应移到工程外 ../splendor-assets/');
 }
+if (runtimeBytes > LIMIT) {
+  problems.push('  - 原生运行文件合计 ' + (runtimeBytes / 1024).toFixed(1) + 'KB（超过主包 2MiB 预算）');
+}
 
 if (problems.length) {
   console.error('FAIL  工程体积守卫：');
@@ -58,3 +64,4 @@ if (problems.length) {
 }
 
 console.log('单文件均 < 2MB，工程合计 ' + (total / 1024 / 1024).toFixed(1) + 'MB，素材目录在工程外');
+console.log('原生运行文件合计 ' + (runtimeBytes / 1024).toFixed(1) + 'KB（不含预览、测试和文档）');

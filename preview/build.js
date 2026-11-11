@@ -259,6 +259,7 @@ const moduleFiles = [
   ['game-data', 'utils/game-data.js'],
   ['game-engine', 'utils/game-engine.js'],
   ['ai', 'utils/ai.js'],
+  ['theme', 'utils/theme.js'],
   ['room', 'utils/room.js'],
   ['wechat-auth', 'utils/wechat-auth.js'],
   ['user', 'utils/user.js'],

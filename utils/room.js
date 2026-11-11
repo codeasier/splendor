@@ -30,6 +30,7 @@
  * profile = { uid, nickname, avatar, isWechat }
  */
 
+const T = require('./theme.js');
 const ROOM_KEY = 'splendor.room.v1';
 const PROFILE_KEY = 'splendor.profile.v1';
 /* 断线重连会话：房间号 + 席位 + 所在界面。小程序被杀、切后台回来、
@@ -230,8 +231,9 @@ function createRoom(config) {
     status: cfg.status || 'lobby',
     // 回合计时（秒）：0 = 不限时。开局时随快照下发给所有设备
     turnLimit: normTurnLimit(cfg.turnLimit),
+    themeId: T.normalize(cfg.themeId),
     backend: hasCloud() ? 'cloud' : 'local',
-    seats: cfg.seats || makeSeats(playerCount, cfg.bots || {}, profile)
+    seats: T.withRoomTheme(cfg.seats || makeSeats(playerCount, cfg.bots || {}, profile), T.normalize(cfg.themeId))
   };
   writeJSON(store, ROOM_KEY, room);
   return room;
@@ -372,7 +374,7 @@ async function cloudCreateRoom(room, state) {
       host_uid: room.hostUid,
       player_count: room.playerCount,
       turn_limit: normTurnLimit(room.turnLimit),
-      seats: room.seats,
+      seats: T.withRoomTheme(room.seats, T.roomId(room)),
       status: room.status || 'lobby',
       version: 1,
       updated_at: nowIso()
@@ -408,6 +410,7 @@ async function cloudPullRoom(code) {
         hostUid: row.host_uid,
         status: row.status,
         turnLimit: normTurnLimit(row.turn_limit),
+        themeId: T.fromSeats(row.seats),
         backend: 'cloud',
         createdAt: Date.now(),
         seats: row.seats || []
@@ -512,6 +515,7 @@ async function cloudSetSeat(code, index, patch, attempt) {
 async function cloudStartGame(code, state, expectedRoomVersion, seats) {
   if (!hasCloud()) return offline();
   const next = (expectedRoomVersion || 0) + 1;
+  const snapshot = Object.assign({}, state, { themeId: T.fromSeats(seats) });
   try {
     const upd = await cloudClient.database.from(ROOM_TABLE)
       .update({ status: 'playing', seats: seats, version: next, updated_at: nowIso() })
@@ -521,7 +525,7 @@ async function cloudStartGame(code, state, expectedRoomVersion, seats) {
       return { ok: false, conflict: true, error: '房间状态刚被更新，请重试' };
     }
     const g = await cloudClient.database.from(GAME_TABLE).upsert({
-      code: code, state: state, version: 1, updated_at: nowIso()
+      code: code, state: snapshot, version: 1, updated_at: nowIso()
     });
     if (g.error) return { ok: false, error: errMsg(g.error) };
     return { ok: true, version: next, gameVersion: 1 };

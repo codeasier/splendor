@@ -4,8 +4,8 @@
  * 卡面美术生成器
  * ------------------------------------------------------------------
  * 产出 pages/index/art.wxss：把程序化绘制的矢量插画编码为 base64 data URI，
- * 供小程序 WXSS 与 H5 预览共用。不引入任何图片文件（小程序包体无外部资源依赖），
- * 且每张卡都保留了 CSS 渐变兜底：即便客户端不渲染 SVG 背景，卡面仍完整可读。
+ * 供小程序 WXSS 与 H5 预览共用，不依赖外部图床。
+ * 缩略图齐全时省略不会命中的矢量卡面；缺图时生成对应的矢量兜底组。
  *
  * 运行：node preview/art.js
  */
@@ -691,7 +691,14 @@ lines.push('/* 由 preview/art.js 生成，请勿手工编辑；运行 node prev
 lines.push('/* 素材分层：卡面油画 / 贵族肖像 / 牌背 / 宝石切面 / 筹码顶面 / 金属 HUD */');
 lines.push('');
 
-for (let c = 0; c < PALETTES.length; c++) {
+const completeCardPhotos = Array.from({ length: 90 }, function (_, i) {
+  return fs.existsSync(path.join(__dirname, 'thumbs/cards', 'c' + Math.floor(i / 18) + '_' + String(i % 18).padStart(2, '0') + '.jpg'));
+}).every(Boolean);
+const completeNoblePhotos = Array.from({ length: 10 }, function (_, i) {
+  return fs.existsSync(path.join(__dirname, 'thumbs/nobles', 'n' + i + '.jpg'));
+}).every(Boolean);
+
+for (let c = 0; !completeCardPhotos && c < PALETTES.length; c++) {
   for (let v = 0; v < 3; v++) {
     const idx = c * 3 + v;
     const building = (c * 3 + v) % BUILDINGS.length;
@@ -701,7 +708,7 @@ for (let c = 0; c < PALETTES.length; c++) {
 }
 lines.push('');
 // 用显式类名而非 :nth-child：小程序 WXSS 对伪类选择器支持有限
-for (let i = 0; i < 3; i++) {
+for (let i = 0; !completeNoblePhotos && i < 3; i++) {
   lines.push('.noble-photo.noble-art-' + i + ' { background-image: ' + bg(nobleSVG(i, i)) + '; }');
 }
 lines.push('');
@@ -719,7 +726,7 @@ function lobbyImage(name, fallback) {
   const file = path.join(lobbyDir, name);
   return fs.existsSync(file) ? jpegBg(file) : bg(fallback());
 }
-lines.push('.guild-scenery { background-image: ' + lobbyImage('scene.jpg', lobbyArt.sceneSVG) + '; }');
+lines.push('.guild-scenery, .theme-thumb-royal { background-image: ' + lobbyImage('scene.jpg', lobbyArt.sceneSVG) + '; }');
 lines.push('.guild-panel { background-image: ' + lobbyImage('panel.jpg', lobbyArt.panelSVG) + '; }');
 lines.push('.guild-avatar-preset { background-image: ' + lobbyImage('merchant.jpg', portraitSVG) + '; }');
 lines.push('.guild-quick { background-image: ' + bg(lobbyArt.buttonSVG('gold')) + '; }');
@@ -757,5 +764,6 @@ const photoCount = collectThumbs(lines);
 lines.push('');
 
 fs.writeFileSync(OUT, lines.join('\n'), 'utf8');
+require('./theme-art.js').build();
 console.log('已生成 pages/index/art.wxss（' + (Buffer.byteLength(lines.join('\n')) / 1024).toFixed(1) +
   ' KB，写实卡面 ' + photoCount + ' 张）');
