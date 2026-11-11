@@ -775,6 +775,8 @@ function lobbyVM(ui, profile) {
   const room = ui.roomCount || 3;
   const cloud = R.hasCloud();
   const cloudInfo = R.cloudStatus ? R.cloudStatus() : { mode: cloud ? 'ready' : 'preview', reason: '' };
+  const needsLogin = R.requiresWechatLogin() && !cloud;
+  const login = U.wechatLoginStatus();
   const stats = U.statsOf();
   const identity = U.getIdentity();
   const activeMode = ui.lobbyMode || 'standard';
@@ -816,12 +818,12 @@ function lobbyVM(ui, profile) {
     cloud: cloud,
     cloudState: cloudInfo.mode,
     // 三态文案：只有真能跨设备时才不提限制；预览与初始化失败必须分开说。
-    cloudText: cloud
+    cloudText: needsLogin ? '微信登录后可邀请好友跨设备加入' : cloud
       ? '云端已连接 · 可微信邀请好友跨设备加入'
       : (cloudInfo.mode === 'failed'
         ? '云服务未就绪 · 当前仅本机房间'
         : '浏览器预览 · 当前仅本机房间，跨设备邀请请在微信中打开'),
-    cloudHint: cloud
+    cloudHint: needsLogin ? (login.error || '正在确认微信身份，请稍候') : cloud
       ? ''
       : (cloudInfo.mode === 'failed'
         ? '云服务未就绪，暂时只能创建本机房间'
@@ -969,6 +971,7 @@ function profileVM(ui, profile) {
     return { key: a.key, name: a.name, hue: a.hue, active: draft.avatar === a.key && !draft.avatarUrl };
   });
   const identity = U.getIdentity();
+  const login = U.wechatLoginStatus();
   const stats = U.statsOf();
   return {
     nickname: draft.nickname || '',
@@ -976,7 +979,12 @@ function profileVM(ui, profile) {
     avatarName: draft.avatarUrl ? '微信头像' : R.avatarName(draft.avatar),
     avatars: avatars,
     nicknames: ['珠宝商', '宝石收藏家', '贸易行会', '威尼斯商人'],
-    isWechat: !!p.isWechat,
+    isWechat: identity.mode === 'wechat',
+    loginBusy: !!ui.loginBusy,
+    showLogin: !identity.authenticated,
+    canLogin: login.canLogin && !ui.loginBusy,
+    loginLabel: ui.loginBusy ? '微信登录中…' : '微信登录',
+    loginHint: ui.loginBusy ? '正在验证微信身份并同步账号资料' : login.error,
     notice: ui.profileNotice || '',
     // 账号信息：让「用户系统」是可见的，而不是只在存储里有个 uid
     playerId: identity.shortId,
@@ -1878,20 +1886,22 @@ Page({
     this._turnStartAt = 0;
     this._timeoutFired = false;
     this._flashTimer = null;
-    // 用户系统：确认本机身份（uid 持久化）；云端可用时把资料与战绩对齐一次
+    // 先展示本机数据；正式云端业务须等微信登录与账号切换完成后再启用。
     U.ensureIdentity();
-    if (R.hasCloud()) {
-      const that = this;
-      U.syncAll(this.profile).then(function (res) {
-        // 云端补回了本机没有的战绩才重绘，否则这次刷新是多余的
-        if (res && res.records && res.records.added > 0) that.refresh('');
-      });
-    }
     this.ui = freshUI({ screen: 'home' });
 
     // 微信分享卡片带 ?room=XXXXXX：有云端能力时直接入席，
     // 没有云端能力（浏览器预览）时留在首页并说明原因。
     const query = options || {};
+    if (R.requiresWechatLogin()) {
+      this._pendingRoomCode = query.room ? String(query.room).toUpperCase() : '';
+      if (this._pendingRoomCode) {
+        this.ui.joinCode = this._pendingRoomCode;
+        this.clearSession();
+      }
+      this.bootstrapWechatIdentity(false);
+      return;
+    }
     if (query.room) {
       const code = String(query.room).toUpperCase();
       this.ui.joinCode = code;
@@ -1906,6 +1916,87 @@ Page({
       return;
     }
     this.refresh('');
+  },
+
+  /** 登录完成前不心跳、不写游客资料、不抢先用旧 uid 加入分享房间。 */
+  bootstrapWechatIdentity(force) {
+    if (this._identityTask) return this._identityTask;
+    const that = this;
+    this.ui.loginBusy = true;
+    this.clearTimer();
+    this.stopClock();
+    this.stopCloudPolling();
+    this.stopOnlinePolling();
+    this.stopInvitePolling();
+    U.stopHeartbeat();
+    this._identityTask = U.loginWithWechat({ force: !!force }).then(function (result) {
+      if (that._unloaded) return result;
+      that.ui.loginBusy = false;
+      if (!result.ok) {
+        that.ui.profileNotice = result.error;
+        that.ui.homeNotice = result.error;
+        that.refresh('');
+        if (!that._hidden && that.mode === 'solo') that.maybeRunAi({ ended: true });
+        return result;
+      }
+      if (result.changed && that.mode === 'room' && that.room) {
+        that.quitToHome('微信账号已切换，请重新加入房间');
+      }
+      that.profile = result.profile;
+      if (result.changed) that.resetCloudRequests();
+      that._avatars = that.avatarSeed();
+      that._avatarSig = '';
+      that.ui.profileDraft = that.ui.showProfile ? Object.assign({}, that.profile) : null;
+      that.ui.friends = [];
+      that.ui.friendsReady = false;
+      that.ui.friendFound = null;
+      that.ui.onlineUids = {};
+      that.ui.invites = [];
+      that.ui.homeNotice = '';
+      that.ui.profileNotice = result.imported
+        ? '微信已登录，已保留本机资料并导入 ' + result.imported + ' 条战绩；旧游客好友需重新添加'
+        : '已关联当前微信用户';
+      // 启动登录期间允许玩人机；绑定成功后对齐本机席位，结算才会落到新账号。
+      if (that.mode === 'solo' && that.state && that.state.players[0]) {
+        Object.assign(that.state.players[0], {
+          uid: that.profile.uid, name: that.profile.nickname, nickname: that.profile.nickname,
+          avatar: that.profile.avatar
+        });
+      }
+      that.refresh('');
+      if (!that._hidden && that.mode === 'solo') that.maybeRunAi({ ended: true });
+      if (!that._hidden) U.startHeartbeat(that.profile);
+      U.syncAll(that.profile).then(function (synced) {
+        if (that._unloaded || synced.stale || R.getProfile().uid !== that.profile.uid) return;
+        if (!synced.profile.ok || !synced.records.ok || synced.importsPending) {
+          that.ui.profileNotice = '微信已登录，部分资料或战绩尚未同步，下次启动会重试';
+        }
+        that.refresh('');
+      }).catch(function () {
+        if (!that._unloaded) {
+          that.ui.profileNotice = '微信已登录，云端资料或战绩同步失败，稍后可重试';
+          that.refresh('');
+        }
+      });
+      if (that._hidden) return result;
+      if (that._pendingRoomCode) {
+        const code = that._pendingRoomCode;
+        that._pendingRoomCode = '';
+        that.joinCloudRoom(code);
+      } else if (that._cloudCode) {
+        that.startCloudPolling();
+        that.pollCloud(true);
+      } else {
+        that.resumeSession();
+      }
+      return result;
+    }).finally(function () { that._identityTask = null; });
+    this.refresh('');
+    return this._identityTask;
+  },
+
+  onWechatLogin() {
+    return this.bootstrapWechatIdentity(true);
   },
 
   /** 人机对战：本地牌局，不建云端房间、不发起任何网络请求 */
@@ -1952,6 +2043,14 @@ Page({
   startGame() { this.startLocalGame(); },
 
   onShow() {
+    this._hidden = false;
+    if (R.requiresWechatLogin() && !U.wechatLoginStatus().authenticated) {
+      // 未配置正式 AppID 时仍可离线玩人机，切回前台不能把 AI 永久停掉。
+      if (!this.state || this.mode === 'room' || U.wechatLoginStatus().canLogin) {
+        this.bootstrapWechatIdentity(false);
+        if (!this.state || this.mode === 'room') return;
+      }
+    }
     // 从后台切回时，若仍轮到托管席位则恢复其行动节奏
     if (this.state && !this.state.gameOver && needsAutoPlay(this.state, this.aiContext()) && !this._aiTimer) {
       this.scheduleAi();
@@ -1970,6 +2069,7 @@ Page({
   },
 
   onHide() {
+    this._hidden = true;
     this.clearTimer();
     this.stopClock();
     this.stopCloudPolling();
@@ -1981,6 +2081,7 @@ Page({
   },
 
   onUnload() {
+    this._unloaded = true;
     this.clearTimer();
     this.stopClock();
     this.stopCloudPolling();
@@ -2064,6 +2165,7 @@ Page({
       room: this.room, profile: this.profile, mySeat: this.mySeat,
       avatars: this._avatars || {}
     }));
+    if (this._hidden || this._unloaded) return;
     // 席位里只有 uid：新面孔入席时补一次头像，能命中缓存就不发请求
     this.syncAvatars();
     this.startClock();
@@ -2198,6 +2300,7 @@ Page({
 
   /** 限时倒计时：每台设备按「自己看到换手的那一刻」起算，不依赖系统时钟对齐 */
   startClock() {
+    if (this.mode === 'room' && R.requiresWechatLogin() && !R.hasCloud()) return;
     if (this._clockTimer) return;
     if (this.ui.screen !== 'game') return;
     const st = this.state;
@@ -2338,7 +2441,7 @@ Page({
   /* ---------- 云端牌局同步（浏览器预览下全部为空操作） ---------- */
 
   aiContext() {
-    return { cloud: R.hasCloud(), isHost: this.mySeat === 0 };
+    return { cloud: R.requiresWechatLogin() || R.hasCloud(), isHost: this.mySeat === 0 };
   },
 
   createCloudRoom() {
@@ -2361,6 +2464,7 @@ Page({
   /** 好友通过分享卡片 / 房间号入席：进大厅准备，或接管进行中的牌局 */
   joinCloudRoom(code, opts) {
     const that = this;
+    const ownerUid = this.profile.uid;
     const silent = !!(opts && opts.silent);
     this._joining = true;
     this._resuming = !!(opts && opts.silent) || this._resuming;
@@ -2369,6 +2473,7 @@ Page({
     this.ui.homeNotice = tipText;
     this.refresh('');
     return R.cloudJoinRoom(code, this.profile).then(function (res) {
+      if (that._unloaded || that.profile.uid !== ownerUid || R.getProfile().uid !== ownerUid) return;
       that._joining = false;
       if (!res.ok) {
         that._resuming = false;
@@ -2443,7 +2548,10 @@ Page({
     if (this._enteringGame) return;
     this._enteringGame = true;
     const that = this;
+    const code = this._cloudCode;
+    const ownerUid = this.profile.uid;
     R.cloudPullGame(this._cloudCode).then(function (res) {
+      if (that._unloaded || that._cloudCode !== code || that.profile.uid !== ownerUid) return;
       that._enteringGame = false;
       if (!res.ok) return;         // 快照还没写完，下一轮轮询再试
       that.state = res.state;
@@ -2468,10 +2576,13 @@ Page({
     if (!R.hasCloud() || !this._cloudCode || !this.state) return;
     if (this._syncing) { this._pendingPush = true; return; }
     const that = this;
+    const code = this._cloudCode;
+    const ownerUid = this.profile.uid;
     const expected = this._cloudVersion;
     const snapshot = JSON.parse(JSON.stringify(this.state));
     this._syncing = true;
     R.cloudPushState(this._cloudCode, snapshot, expected).then(function (res) {
+      if (that._unloaded || that._cloudCode !== code || that.profile.uid !== ownerUid) return;
       that._syncing = false;
       if (res.ok) {
         that._cloudVersion = res.version;
@@ -2504,6 +2615,15 @@ Page({
       clearInterval(this._pollTimer);
       this._pollTimer = null;
     }
+  },
+
+  resetCloudRequests() {
+    this._syncing = false;
+    this._polling = false;
+    this._pendingPush = false;
+    this._enteringGame = false;
+    this._joining = false;
+    this._resuming = false;
   },
 
   /**
@@ -2557,6 +2677,7 @@ Page({
       return Promise.resolve(false);
     }
     return F.listFriends(me.uid).then(function (res) {
+      if (that._unloaded || that.profile.uid !== me.uid) return false;
       if (!res || !res.ok) {
         that.ui.friendsNotice = (res && res.error) || '好友列表加载失败';
         that.ui.friendsReady = false;
@@ -2747,6 +2868,7 @@ Page({
     const me = this.profile || R.getProfile();
     if (!R.hasCloud() || !me || !me.uid) return Promise.resolve(false);
     return F.listInvites(me.uid).then(function (res) {
+      if (that._unloaded || that.profile.uid !== me.uid) return false;
       if (!res || !res.ok) return false;
       const list = res.list || [];
       // 已经在同一间房里就不必再提示自己人
@@ -2792,10 +2914,13 @@ Page({
   pollCloud(force) {
     if (!R.hasCloud() || !this._cloudCode || this._polling) return;
     const that = this;
+    const code = this._cloudCode;
+    const ownerUid = this.profile.uid;
 
     if (this.ui.screen === 'room') {
       this._polling = true;
       R.cloudPullRoom(this._cloudCode).then(function (res) {
+        if (that._unloaded || that._cloudCode !== code || that.profile.uid !== ownerUid) return;
         that._polling = false;
         if (!res.ok) {
           // 房间行都不存在了：不是网络抖动，直接收摊
@@ -2820,6 +2945,7 @@ Page({
     const known = this._cloudVersion;
     this._polling = true;
     R.cloudPullGame(this._cloudCode).then(function (res) {
+      if (that._unloaded || that._cloudCode !== code || that.profile.uid !== ownerUid) return;
       that._polling = false;
       if (!res.ok) { that.noteNetFail(res); return; }
       that.noteNetOk();
@@ -2866,6 +2992,7 @@ Page({
   },
 
   runAi(force, message) {
+    if (this.mode === 'room' && R.requiresWechatLogin() && !R.hasCloud()) return;
     const s = this.state;
     if (!s || s.gameOver) return;
     if (!force && !needsAutoPlay(s, this.aiContext())) return;
@@ -2888,6 +3015,10 @@ Page({
   },
 
   applyPlayerAction(action, successMessage) {
+    if (this.mode === 'room' && R.requiresWechatLogin() && !R.hasCloud()) {
+      this.refresh('请重新微信登录后继续牌局');
+      return false;
+    }
     const actorSeat = this.state ? this.state.current : 0;
     const card = this.actionCard(action, actorSeat);
     const nextSeq = (this._showcaseSeq = (this._showcaseSeq || 0) + 1);
@@ -3388,6 +3519,12 @@ Page({
   },
   /** 邀请好友：先开一间大厅，等好友入席并准备后再由房主开始 */
   onCreateRoom() {
+    if (R.requiresWechatLogin() && !U.wechatLoginStatus().authenticated) {
+      this.ui.homeNotice = U.wechatLoginStatus().error || '请先完成微信登录';
+      this.ui.homeDialog = 'create';
+      this.refresh('');
+      return;
+    }
     this.ui.homeDialogBefore = null;
     this.ui.homeDialog = '';
     this.mode = 'room';
@@ -3406,7 +3543,9 @@ Page({
       return;
     }
     if (!R.hasCloud()) {
-      this.ui.homeNotice = '当前设备未连接云端，无法跨设备加入房间';
+      this.ui.homeNotice = R.requiresWechatLogin()
+        ? (U.wechatLoginStatus().error || '请先完成微信登录')
+        : '当前设备未连接云端，无法跨设备加入房间';
       this.refresh('');
       return;
     }
@@ -3419,6 +3558,7 @@ Page({
   openRoom() {
     this.clearTimer();
     this.stopCloudPolling();
+    this.resetCloudRequests();
     this.mySeat = 0;                       // 房主恒为 0 号席
     this._cloudVersion = 0;
     this._roomVersion = 0;
@@ -3781,6 +3921,7 @@ Page({
     this.clearTimer();
     this.resetTurnUI();
     this.stopCloudPolling();
+    this.resetCloudRequests();
     this.clearSession();
     this.state = null;
     this.room = null;
@@ -3799,6 +3940,7 @@ Page({
   onLeaveRoom() {    this.clearTimer();
     this.resetTurnUI();
     this.stopCloudPolling();
+    this.resetCloudRequests();
     // 房主离开即解散：云上置 ended，其他设备轮询到就直接回首页，
     // 不会对着一个永远不会开始的房间一直等
     const disbandCode = (this.mySeat === 0 && this.mode === 'room') ? this._cloudCode : '';
@@ -3890,7 +4032,6 @@ Page({
       return;
     }
     this.ui.profileDraft.avatarUrl = url;
-    this.ui.profileDraft.isWechat = true;
     this.refresh('已选择微信头像，点「保存资料」生效');
   },
   onNicknameInput(event) {
@@ -3904,6 +4045,7 @@ Page({
     this.refresh('');
   },
   onSaveProfile() {
+    const ownerUid = this.profile.uid;
     const d = this.ui.profileDraft || {};
     const nickname = String(d.nickname || '').trim().slice(0, 12);
     if (!nickname) {
@@ -3920,12 +4062,12 @@ Page({
 
     const that = this;
     ready.then(function (av) {
+      if (that._unloaded || that.profile.uid !== ownerUid || R.getProfile().uid !== ownerUid) return;
       that.profile = R.saveProfile({
         nickname: nickname,
         avatar: d.avatar || that.profile.avatar,
         avatarUrl: av.avatarUrl,
-        avatarData: av.avatarData,
-        isWechat: !!d.isWechat
+        avatarData: av.avatarData
       });
       // 自己的头像也进映射：席位条 / 工作台都从同一份数据取，避免两处不一致
       if (that.profile.uid) {

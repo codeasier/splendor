@@ -31,6 +31,7 @@ const steps = [
   ['规则引擎 120 局对战', 'tests/engine.js'],
   ['多人模式与房间适配层', 'tests/multiplayer.js'],
   ['用户系统与战绩', 'tests/user.js'],
+  ['微信登录与账号隔离', 'tests/wechat-login.js'],
   ['好友体系与邀请', 'tests/friend.js'],
   ['页面运行时模拟', 'tests/page-runtime.js'],
   ['H5 预览页渲染与交互', 'tests/preview.js']

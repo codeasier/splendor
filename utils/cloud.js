@@ -53,7 +53,8 @@ if (wxApi) {
     console.warn('[splendor] 云服务未就绪：' + reason);
   }
   // 注入到 RoomAdapter，房间层不需要（也不应该）自己 require SDK。
-  if (cloud) room.attachCloud(cloud);
+  // SDK 可用不等于已登录。正式业务请求须等微信身份与本地账号对齐后才放行。
+  if (cloud) room.attachCloud(cloud, { requireWechatLogin: true });
 }
 
 module.exports = {

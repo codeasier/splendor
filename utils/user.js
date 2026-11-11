@@ -9,13 +9,9 @@
  *   这里通过 R.storageBackend() 复用同一套存储后端（wx / localStorage / Node 内存），
  *   并通过 R.getCloud() 复用已注入的云客户端，不重复初始化 SDK。
  *
- * 身份现状（务必知情）：
- *   当前项目仍是 touristappid，没有正式 AppID 与后端，wx.login 换不到 openid。
- *   因此身份是「本机账号」——uid 在首次启动时生成并落本机 storage，
- *   清缓存 / 换设备会变成新账号。这不是缺陷被隐藏：个人中心会如实显示
- *   「本机账号 · 未绑定微信」，并给出账号 ID 供对照。
- *   接上正式 AppID 后，只需在 ensureIdentity() 里用 openid 覆盖 uid，
- *   战绩与资料表都按 uid 关联，上层界面无需改动。
+ * 身份：预览与游客 AppID 使用本机账号；正式小程序通过 wechat-auth.js 验明
+ * 微信身份后，以云端 session.user.id 作为业务 uid。账号切换时资料与战绩分区，
+ * 旧游客的本机战绩可导入，不能靠客户端自报旧 uid 接管云端好友或房间。
  *
  * 数据表：
  *   splendor_players(uid pk, nickname, avatar, avatar_url, stats jsonb, updated_at)
@@ -23,9 +19,14 @@
  */
 
 const R = require('./room.js');
+const W = require('./wechat-auth.js');
 
 const IDENTITY_KEY = 'splendor.identity.v1';
 const RECORDS_KEY = 'splendor.records.v1';
+const RECORDS_OWNER_KEY = 'splendor.records-owner.v1';
+const RECORDS_PREFIX = 'splendor.records.v2.';
+const ACCOUNT_PREFIX = 'splendor.account.v1.';
+const IMPORT_PREFIX = 'splendor.record-import.v1.';
 const AVATAR_CACHE_KEY = 'splendor.avatars.v1';
 const PLAYER_TABLE = 'splendor_players';
 const RECORD_TABLE = 'splendor_records';
@@ -65,6 +66,12 @@ function writeJSON(key, value) {
   try { store().setStorageSync(key, JSON.stringify(value)); } catch (e) { /* 存储不可用则退化为内存态 */ }
 }
 
+function writeRequiredJSON(key, value) {
+  store().setStorageSync(key, JSON.stringify(value));
+}
+
+function accountKey(prefix, uid) { return prefix + encodeURIComponent(uid); }
+
 function nowIso(ts) { return new Date(ts || Date.now()).toISOString(); }
 
 function pad(n) { return n < 10 ? '0' + n : String(n); }
@@ -79,12 +86,18 @@ function shortId(uid) {
 
 /**
  * 身份卡：{ uid, mode, since, version }
- * mode 目前恒为 'guest'；接上正式 AppID 后由 wx.login 换成 'wechat'。
+ * mode 为本机缓存的账号类型，不代表当前已登录；当前认证状态只认进程内云端校验。
  */
 function ensureIdentity() {
   let id = readJSON(IDENTITY_KEY);
   const profile = R.getProfile();
   if (id && id.uid && id.uid === profile.uid) return id;
+  const saved = readJSON(accountKey(ACCOUNT_PREFIX, profile.uid));
+  if (saved && saved.identity && saved.identity.uid === profile.uid) {
+    id = saved.identity;
+    writeJSON(IDENTITY_KEY, id);
+    return id;
+  }
   id = {
     uid: profile.uid,
     mode: 'guest',
@@ -97,19 +110,103 @@ function ensureIdentity() {
 
 function getIdentity() {
   const id = ensureIdentity();
+  const login = W.status();
+  const authenticated = login.authenticated && login.uid === id.uid;
   return {
     uid: id.uid,
     mode: id.mode,
+    authenticated: authenticated,
     since: id.since,
     shortId: shortId(id.uid),
     // 界面文案集中在这里，避免 WXML 里拼字符串
-    label: id.mode === 'wechat' ? '微信账号' : '本机账号',
+    label: id.mode === 'wechat' ? (authenticated ? '微信账号' : '微信账号 · 待登录') : '本机账号',
     detail: id.mode === 'wechat'
-      ? '已绑定微信身份，换设备登录可继续使用同一战绩'
+      ? (authenticated ? '已关联当前微信用户，换设备登录可恢复云端资料、战绩与好友'
+        : '微信身份待验证 · 登录成功前仅使用本机数据')
       : '未绑定微信 · 清缓存或换设备会变成新账号',
     sinceText: formatDate(id.since || Date.now(), true)
   };
 }
+
+let identityTask = null;
+
+/** 先验微信，再准备目标账号数据，最后切换 active profile 并开放云端业务请求。 */
+function loginWithWechat(options) {
+  if (identityTask) return identityTask;
+  identityTask = (async function () {
+    const auth = await W.signIn(options);
+    if (!auth.ok) return auth;
+    try {
+      const current = R.getProfile();
+      if (current.uid === auth.uid && R.getAuthenticatedUid() === auth.uid) {
+        return { ok: true, profile: current, changed: false, imported: 0 };
+      }
+      stopHeartbeat();
+      const database = R.getCloud().database;
+      // 在覆盖任何资料前先取回微信账号已有资料，新设备的默认昵称不能冲掉老资料。
+      const remote = await database.from(PLAYER_TABLE)
+        .select('uid,nickname,avatar,avatar_url').eq('uid', auth.uid).maybeSingle();
+      if (!remote || remote.error) throw new Error('微信已验证，但账号资料读取失败，请重试');
+      // 读取云端期间用户仍可编辑本机资料 / 玩人机，提交前再取最新快照。
+      const previous = R.getProfile();
+      const oldIdentity = ensureIdentity();
+      const oldRecords = getRecords();
+      const saved = readJSON(accountKey(ACCOUNT_PREFIX, auth.uid));
+      const same = previous.uid === auth.uid;
+      let profile = same ? Object.assign({}, previous)
+        : (saved && saved.profile && saved.profile.uid === auth.uid
+          ? Object.assign({}, saved.profile) : Object.assign({}, R.defaultProfile(), { uid: auth.uid }));
+      const row = remote.data;
+      if (row && !((same || saved) && profile.customized)) {
+        profile.nickname = row.nickname || '珠宝商';
+        profile.avatar = row.avatar || 'a0';
+        profile.avatarData = row.avatar_url || '';
+        profile.avatarUrl = row.avatar_url || '';
+        profile.customized = true;
+      } else if (!row && !same && !saved && oldIdentity.mode === 'guest') {
+        // 首次绑定保留这台设备上主动填写的资料。
+        profile = Object.assign({}, previous, { uid: auth.uid });
+      }
+      const identity = {
+        uid: auth.uid, mode: 'wechat', appId: auth.appId,
+        since: profile.createdAt || Date.now(), version: 2
+      };
+      let records = same ? oldRecords : recordsFor(auth.uid);
+      const imported = [];
+      if (!same && oldIdentity.mode === 'guest') {
+        oldRecords.forEach(function (r) {
+          // 换 id，不能 upsert 原 id 把旧云端账号的记录改成自己的。
+          imported.push(Object.assign({}, r, { id: 'import:' + auth.uid + ':' + r.id, uid: auth.uid }));
+        });
+        identity.legacyUid = previous.uid;
+      }
+      const seen = {};
+      records = records.concat(imported).filter(function (r) {
+        if (!r || !r.id || seen[r.id]) return false;
+        seen[r.id] = true;
+        return true;
+      }).sort(function (a, b) { return b.at - a.at; }).slice(0, MAX_RECORDS);
+
+      // 先写独立分区与备份，最后一笔才切换 profile。中途写失败也不会串读其它账号战绩。
+      writeRequiredJSON(accountKey(ACCOUNT_PREFIX, previous.uid), { profile: previous, identity: oldIdentity });
+      writeRequiredJSON(accountKey(RECORDS_PREFIX, auth.uid), records);
+      const pendingIds = readJSON(accountKey(IMPORT_PREFIX, auth.uid)) || [];
+      writeRequiredJSON(accountKey(IMPORT_PREFIX, auth.uid), Array.from(new Set(pendingIds.concat(imported.map(function (r) { return r.id; })))));
+      writeRequiredJSON(accountKey(ACCOUNT_PREFIX, auth.uid), { profile: profile, identity: identity });
+      if (!W.activate(auth)) throw new Error('微信登录已失效，请重试');
+      // 同步写入段不会穿插异步请求；任何异常都会在 catch 中关闭认证门禁。
+      R.replaceProfile(profile);
+      writeRequiredJSON(IDENTITY_KEY, identity);
+      if (!same) { R.clearSession(); R.clear(); }
+      return { ok: true, profile: profile, changed: !same, imported: imported.length };
+    } catch (e) {
+      return W.fail((e && e.message) || '账号数据切换失败，请重试');
+    }
+  })().finally(function () { identityTask = null; });
+  return identityTask;
+}
+
+function wechatLoginStatus() { return W.status(); }
 
 /* ---------- 模式 ---------- */
 
@@ -136,14 +233,28 @@ function modeByKey(key) {
 
 /* ---------- 战绩 ---------- */
 
-function getRecords() {
-  const list = readJSON(RECORDS_KEY);
+function recordsFor(uid) {
+  const list = readJSON(accountKey(RECORDS_PREFIX, uid));
   if (!Array.isArray(list)) return [];
   return list.filter(function (r) { return r && r.id; });
 }
 
+function getRecords() {
+  const uid = R.getProfile().uid;
+  const key = accountKey(RECORDS_PREFIX, uid);
+  const scoped = readJSON(key);
+  if (Array.isArray(scoped)) return scoped.filter(function (r) { return r && r.id; });
+  // v1 为不分账号的老存档，只允许首次使用它的账号认领一次；原件保留作备份。
+  let owner = readJSON(RECORDS_OWNER_KEY);
+  if (!owner) { writeJSON(RECORDS_OWNER_KEY, uid); owner = uid; }
+  const legacy = owner === uid ? readJSON(RECORDS_KEY) : [];
+  const rows = Array.isArray(legacy) ? legacy.filter(function (r) { return r && r.id; }) : [];
+  writeJSON(key, rows);
+  return rows;
+}
+
 function saveRecords(list) {
-  writeJSON(RECORDS_KEY, (list || []).slice(0, MAX_RECORDS));
+  writeJSON(accountKey(RECORDS_PREFIX, R.getProfile().uid), (list || []).slice(0, MAX_RECORDS));
 }
 
 /**
@@ -151,10 +262,11 @@ function saveRecords(list) {
  * 调用方负责幂等——同一局只能调一次，否则结算弹层每次重绘都会多记一条。
  */
 function addRecord(input, profile) {
+  if (profile && profile.uid !== R.getProfile().uid) return null;
   const src = input || {};
   const rec = {
     id: src.id || ('r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
-    uid: (profile && profile.uid) || '',
+    uid: (profile && profile.uid) || R.getProfile().uid,
     mode: src.mode === 'room' ? 'room' : 'solo',
     modeLabel: src.modeLabel || '标准模式',
     playerCount: Math.min(4, Math.max(2, Number(src.playerCount) || 2)),
@@ -177,7 +289,8 @@ function addRecord(input, profile) {
 }
 
 function clearRecords() {
-  try { store().removeStorageSync(RECORDS_KEY); } catch (e) { /* ignore */ }
+  // 写空数组，避免删除分区后又从 v1 备份复活已清空的记录。
+  saveRecords([]);
 }
 
 /** 汇总统计：界面顶部三格与战绩页总览都用它 */
@@ -273,8 +386,14 @@ function persistAvatar(tempPath, uid) {
 
 /* ---------- 云端：资料与战绩 ---------- */
 function db() {
+  if (!R.hasCloud()) return null;
   const cloud = R.getCloud ? R.getCloud() : null;
   return cloud && cloud.database ? cloud.database : null;
+}
+
+function ownsUid(uid) {
+  return !R.requiresWechatLogin() ||
+    (R.getAuthenticatedUid() === uid && R.getProfile().uid === uid);
 }
 
 function errText(e) {
@@ -289,6 +408,7 @@ async function syncProfile(profile) {
   if (!database) return { ok: false, offline: true };
   const p = profile || R.getProfile();
   if (!p || !p.uid) return { ok: false, error: '缺少账号 ID' };
+  if (!ownsUid(p.uid)) return { ok: false, error: '账号已切换，请重新同步资料' };
   try {
     const res = await database.from(PLAYER_TABLE).upsert({
       uid: p.uid,
@@ -332,6 +452,7 @@ async function heartbeat(profile) {
   if (!database) return { ok: false, offline: true };
   const p = profile || R.getProfile();
   if (!p || !p.uid) return { ok: false, error: '缺少账号 ID' };
+  if (!ownsUid(p.uid)) return { ok: false, stale: true };
   try {
     const res = await database.from(PRESENCE_TABLE).upsert({
       uid: p.uid,
@@ -371,6 +492,7 @@ async function countOnline() {
  * 绝不该让大厅因此进不去。
  */
 function startHeartbeat(profile) {
+  if (!R.hasCloud()) return false;
   const p = profile || R.getProfile();
   const uid = (p && p.uid) || '';
   if (!uid) return false;
@@ -425,6 +547,7 @@ async function listOnlineUids(uids) {
 async function pushRecord(rec) {
   const database = db();
   if (!database || !rec || !rec.id) return { ok: false, offline: true };
+  if (!ownsUid(rec.uid)) return { ok: false, stale: true };
   try {
     const res = await database.from(RECORD_TABLE).upsert({
       id: rec.id,
@@ -466,9 +589,11 @@ function rowToRecord(row) {
 async function pullRecords(uid) {
   const database = db();
   if (!database || !uid) return { ok: false, offline: true, records: [] };
+  if (!ownsUid(uid)) return { ok: false, stale: true, records: [] };
   try {
     const res = await database.from(RECORD_TABLE).select('*').eq('uid', uid);
     if (!res || res.error) return { ok: false, error: errText(res && res.error), records: [] };
+    if (R.getProfile().uid !== uid) return { ok: false, stale: true, records: [] };
     const rows = (res.data || []).map(rowToRecord);
     const local = getRecords();
     const seen = {};
@@ -488,19 +613,34 @@ async function pullRecords(uid) {
 /** 登录态就绪后的同步入口：资料 + 战绩一次补齐 */
 async function syncAll(profile) {
   const p = profile || R.getProfile();
+  if (R.getProfile().uid !== p.uid) return { stale: true };
   const identity = getIdentity();
   const pulled = await pullRecords(identity.uid);
+  if (R.getProfile().uid !== p.uid) return { stale: true };
   // 老版本只存了本机文件路径：这里补一张能上云的缩略图，
   // 否则好友桌面上永远只有昵称首字，看不到头像
-  let target = p;
-  if (!p.avatarData && p.avatarUrl) {
-    const av = await prepareAvatar(p.avatarUrl, p.uid);
-    if (av.avatarData) {
-      target = R.saveProfile({ avatarUrl: av.avatarUrl || p.avatarUrl, avatarData: av.avatarData });
+  let target = R.getProfile();
+  if (!target.avatarData && target.avatarUrl) {
+    const source = target.avatarUrl;
+    const av = await prepareAvatar(source, p.uid);
+    if (R.getProfile().uid !== p.uid) return { stale: true };
+    if (av.avatarData && R.getProfile().avatarUrl === source) {
+      R.saveProfile({ avatarUrl: av.avatarUrl || source, avatarData: av.avatarData });
     }
   }
+  target = R.getProfile();
   const pushed = await syncProfile(target);
-  return { profile: pushed, records: pulled };
+  // 游客导入仅补写本机确实持有的战绩；失败的条目留给下次同步重试。
+  const pendingKey = accountKey(IMPORT_PREFIX, p.uid);
+  const pendingIds = readJSON(pendingKey) || [];
+  const remaining = [];
+  for (let i = 0; i < pendingIds.length; i++) {
+    if (R.getProfile().uid !== p.uid) return { stale: true };
+    const rec = getRecords().filter(function (r) { return r.id === pendingIds[i]; })[0];
+    if (rec && !(await pushRecord(rec)).ok) remaining.push(rec.id);
+  }
+  if (R.getProfile().uid === p.uid) writeJSON(pendingKey, remaining);
+  return { profile: pushed, records: pulled, importsPending: remaining.length };
 }
 
 /* ---------- 头像：本机文件 vs 可跨设备传输的缩略图 ---------- */
@@ -630,6 +770,8 @@ module.exports = {
 
   ensureIdentity: ensureIdentity,
   getIdentity: getIdentity,
+  loginWithWechat: loginWithWechat,
+  wechatLoginStatus: wechatLoginStatus,
   shortId: shortId,
 
   listModes: listModes,

@@ -2466,6 +2466,10 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .profile-id-since { margin-left: auto; font-size: 9px; color: #b9977f; }
 .profile-id-detail { font-size: 9.5px; line-height: 1.55; color: #c9a894; }
+.profile-login { display: flex; align-items: center; gap: 10px; }
+.wechat-login-btn { flex-shrink: 0; margin: 0; padding: 4px 14px; line-height: 1.5; font-size: 11px; color: #fff8e9; background: #24764e; }
+.wechat-login-btn[disabled] { opacity: .55; color: #d8c8b9; }
+.profile-login-hint { font-size: 9px; line-height: 1.5; color: #c9a894; }
 .profile-rank { font-size: 11px; font-weight: 700; color: #ffd88e; }
 .profile-stats { margin-left: auto; font-size: 9.5px; color: #c9a894; }
 
@@ -3882,7 +3886,9 @@ const memStore = {};
 function backend() {
   if (typeof wx !== 'undefined' && typeof wx.getStorageSync === 'function' &&
       typeof wx.setStorageSync === 'function') return wx;
-  if (typeof localStorage !== 'undefined' && localStorage) {
+  if (typeof localStorage !== 'undefined' && localStorage &&
+      typeof localStorage.getItem === 'function' && typeof localStorage.setItem === 'function' &&
+      typeof localStorage.removeItem === 'function') {
     return {
       getStorageSync: function (k) { return localStorage.getItem(k); },
       setStorageSync: function (k, v) { localStorage.setItem(k, v); },
@@ -3979,11 +3985,19 @@ function getProfile() {
 
 function saveProfile(patch) {
   const store = backend();
-  const next = Object.assign({}, getProfile(), patch || {});
-  if (!next.uid) next.uid = uid();
+  const current = getProfile();
+  // 编辑昵称 / 头像不能切换账号。身份切换只由登录层在验明微信用户后执行。
+  const next = Object.assign({}, current, patch || {}, { uid: current.uid });
   next.customized = true;
   writeJSON(store, PROFILE_KEY, next);
   return next;
+}
+
+/** 登录层切换已验证账号；写入失败必须上抛，不能显示一个没有落盘的绑定。 */
+function replaceProfile(profile) {
+  if (!profile || typeof profile.uid !== 'string' || !profile.uid) throw new Error('缺少账号 ID');
+  backend().setStorageSync(PROFILE_KEY, JSON.stringify(profile));
+  return profile;
 }
 
 /* ---------- 断线重连会话 ---------- */
@@ -3993,6 +4007,7 @@ function saveSession(session) {
   if (!session || !session.code) return null;
   const next = {
     code: String(session.code).toUpperCase(),
+    uid: getProfile().uid,
     seat: session.seat === undefined ? 0 : session.seat,
     screen: session.screen || 'room',
     at: session.at || Date.now()
@@ -4004,6 +4019,8 @@ function saveSession(session) {
 function getSession() {
   const s = readJSON(backend(), SESSION_KEY);
   if (!s || !s.code) return null;
+  if (s.uid && s.uid !== getProfile().uid) return null;
+  if (requireWechatLogin && !s.uid) return null;
   return s;
 }
 
@@ -4137,6 +4154,9 @@ const ROOM_TABLE = 'splendor_rooms';
 const GAME_TABLE = 'splendor_games';
 
 let cloudClient = null;
+let requireWechatLogin = false;
+// 仅为本次进程内验明的身份，不从 storage 恢复；持久化 uid 不是登录凭证。
+let authenticatedUid = '';
 // 云能力的三态：'preview' 未加载云模块（浏览器预览 / Node 测试）、
 // 'ready' 客户端可用、'failed' 加载过云模块但初始化失败。
 // 界面必须按此如实说明，不能把「初始化失败」和「预览环境」都说成「离线」。
@@ -4144,8 +4164,10 @@ let cloudMode = 'preview';
 let cloudFailure = '';
 
 /** 由 utils/cloud.js 在小程序启动时注入；H5 预览不注入 */
-function attachCloud(client) {
+function attachCloud(client, options) {
   cloudClient = client && client.database ? client : null;
+  requireWechatLogin = !!(options && options.requireWechatLogin);
+  authenticatedUid = '';
   cloudMode = cloudClient ? 'ready' : 'failed';
   cloudFailure = cloudClient ? '' : (cloudFailure || '云客户端不可用');
   return !!cloudClient;
@@ -4154,17 +4176,27 @@ function attachCloud(client) {
 /** 云模块存在但初始化抛错：记录原因，界面据此提示「云服务未就绪」而非「离线」。 */
 function attachCloudFailure(reason) {
   cloudClient = null;
+  authenticatedUid = '';
   cloudMode = 'failed';
   cloudFailure = String(reason || '云服务初始化失败').slice(0, 120);
   return cloudMode;
 }
 
-function hasCloud() { return !!cloudClient; }
+function hasCloud() { return !!cloudClient && (!requireWechatLogin || !!authenticatedUid); }
 function getCloud() { return cloudClient; }
-function cloudStatus() { return { mode: cloudMode, reason: cloudFailure }; }
+function cloudStatus() {
+  return {
+    mode: cloudMode === 'ready' && requireWechatLogin && !authenticatedUid ? 'login-required' : cloudMode,
+    reason: cloudFailure
+  };
+}
+function requiresWechatLogin() { return requireWechatLogin; }
+function setAuthenticatedUid(value) { authenticatedUid = value || ''; }
+function getAuthenticatedUid() { return authenticatedUid; }
 
 function offline(reason) {
-  return { ok: false, offline: true, error: reason || '云端未连接，当前为本机房间' };
+  return { ok: false, offline: true, error: reason || (cloudClient && requireWechatLogin
+    ? '请先完成微信登录' : '云端未连接，当前为本机房间') };
 }
 function errMsg(error) {
   if (!error) return '云端请求失败';
@@ -4358,7 +4390,7 @@ async function cloudResetRoom(code, seats, expectedVersion) {
 
 /** 好友通过分享卡片带房间号入席，返回本机的席位号与最新牌局快照 */
 async function cloudJoinRoom(code, profile) {
-  if (!hasCloud()) return offline(cloudMode === 'failed'
+  if (!hasCloud()) return offline(cloudClient && requireWechatLogin ? '请先完成微信登录后加入房间' : cloudMode === 'failed'
     ? '云服务未就绪，暂时无法跨设备加入房间'
     : '跨设备加入需要云端房间；当前为浏览器预览 / 本机房间');
   const normalized = String(code || '').trim().toUpperCase();
@@ -4366,6 +4398,7 @@ async function cloudJoinRoom(code, profile) {
     return { ok: false, error: '房间号为 6 位字母数字' };
   }
   const p = profile || getProfile();
+  if (requireWechatLogin && p.uid !== authenticatedUid) return { ok: false, error: '账号已切换，请重新加入房间' };
   try {
     const pulled = await cloudPullRoom(normalized);
     if (!pulled.ok) return { ok: false, error: pulled.error === '云端未找到该房间'
@@ -4445,6 +4478,7 @@ module.exports = {
   defaultProfile: defaultProfile,
   getProfile: getProfile,
   saveProfile: saveProfile,
+  replaceProfile: replaceProfile,
   // 供 utils/user.js 复用同一套存储后端（wx / localStorage / Node 内存）
   storageBackend: backend,
   makeSeats: makeSeats,
@@ -4464,6 +4498,9 @@ module.exports = {
   cloudStatus: cloudStatus,
   hasCloud: hasCloud,
   getCloud: getCloud,
+  requiresWechatLogin: requiresWechatLogin,
+  setAuthenticatedUid: setAuthenticatedUid,
+  getAuthenticatedUid: getAuthenticatedUid,
   ROOM_TABLE: ROOM_TABLE,
   GAME_TABLE: GAME_TABLE,
   cloudCreateRoom: cloudCreateRoom,
@@ -4479,6 +4516,146 @@ module.exports = {
 };
 
 });
+__def("wechat-auth", function (module, exports, require) {
+/** 微信 code 仅经现有 SDK 交给云端换票；AppSecret / session_key 不进入应用。 */
+const R = require('./room.js');
+
+let state = { phase: 'idle', uid: '', appId: '', error: '' };
+let pending = null;
+let watchedClient = null;
+let unsubscribe = null;
+let generation = 0;
+
+function environment() {
+  const api = typeof wx !== 'undefined' ? wx : null;
+  if (!api || typeof api.login !== 'function') {
+    return { error: '浏览器预览不支持微信登录，请在微信小程序中打开', phase: 'preview' };
+  }
+  let appId = '';
+  try { appId = api.getAccountInfoSync().miniProgram.appId; } catch (e) { /* 未配置 */ }
+  if (typeof appId !== 'string' || !/^wx[0-9a-f]{16}$/i.test(appId)) {
+    return { error: '尚未配置正式微信 AppID，请先完成小程序与云端绑定', phase: 'unconfigured' };
+  }
+  const client = R.getCloud();
+  if (!client || !client.auth || typeof client.auth.signInWithWechat !== 'function') {
+    return { error: '云服务未就绪，暂时无法微信登录', phase: 'unavailable', appId: appId };
+  }
+  return { api: api, client: client, appId: appId };
+}
+
+function status() {
+  const env = environment();
+  const authenticated = !env.error && state.uid && state.appId === env.appId &&
+    R.getAuthenticatedUid() === state.uid && watchedClient === env.client;
+  return {
+    phase: env.error ? env.phase : (authenticated ? 'authenticated' : state.phase),
+    authenticated: !!authenticated,
+    uid: authenticated ? state.uid : '',
+    canLogin: !env.error && !pending,
+    busy: !!pending,
+    error: env.error || state.error || '',
+    appId: env.appId || ''
+  };
+}
+
+function fail(message) {
+  R.setAuthenticatedUid('');
+  state = { phase: 'failed', uid: '', appId: '', error: message || '微信登录失败，请重试' };
+  return { ok: false, error: state.error };
+}
+
+function watch(client) {
+  if (watchedClient === client) return;
+  if (unsubscribe) unsubscribe();
+  watchedClient = client;
+  unsubscribe = null;
+  if (typeof client.auth.onAuthStateChange !== 'function') return;
+  unsubscribe = client.auth.onAuthStateChange(function (event, session) {
+    if (event === 'SIGNED_OUT' || (state.uid && session && session.user && session.user.id !== state.uid)) {
+      generation += 1;
+      fail('微信登录已失效，请重新登录');
+    }
+  });
+}
+
+function loginCode(api) {
+  return new Promise(function (resolve, reject) {
+    let done = false;
+    let timer = null;
+    function finish(error, code) {
+      if (done) return;
+      done = true;
+      if (timer) clearTimeout(timer);
+      if (error) reject(new Error(error));
+      else resolve(code);
+    }
+    timer = setTimeout(function () { finish('微信登录超时，请重试'); }, 12000);
+    try {
+      api.login({
+        timeout: 10000,
+        success: function (res) {
+          if (!res || typeof res.code !== 'string' || !res.code.trim()) finish('微信未返回登录凭证，请重试');
+          else finish(null, res.code);
+        },
+        fail: function () { finish('无法获取微信登录凭证，请重试'); }
+      });
+    } catch (e) { finish('无法发起微信登录，请重试'); }
+  });
+}
+
+/** 每次冷启动重新取得 wx.login code；同进程并发登录合流，凭证不自行重发。 */
+function signIn(options) {
+  if (pending) return pending;
+  const env = environment();
+  if (env.error) {
+    R.setAuthenticatedUid('');
+    state = { phase: env.phase, uid: '', appId: env.appId || '', error: env.error };
+    return Promise.resolve({ ok: false, error: env.error });
+  }
+  if (!(options && options.force) && status().authenticated) {
+    return Promise.resolve({ ok: true, uid: state.uid, appId: state.appId });
+  }
+  R.setAuthenticatedUid('');
+  state = { phase: 'signing-in', uid: '', appId: env.appId, error: '' };
+  watch(env.client);
+  const attempt = ++generation;
+  pending = (async function () {
+    try {
+      const code = await loginCode(env.api);
+      const result = await env.client.auth.signInWithWechat(code, env.appId);
+      if (!result || result.error) throw new Error((result && result.error && result.error.message) || '微信登录失败，请重试');
+      const session = result.data;
+      const user = session && session.user;
+      // 本 SDK 的微信登录契约：sub 为 wx:<openid>。不接收客户端自报的 openid，
+      // 也不把其它登录方式 / 匿名会话当成已绑定微信。
+      if (!session || !session.accessToken || !user || user.isAnonymous !== false ||
+          typeof user.id !== 'string' || !/^wx:[A-Za-z0-9_-]{1,29}$/.test(user.id)) {
+        throw new Error('云端未返回有效的微信身份，请检查微信登录配置');
+      }
+      if (attempt !== generation || R.getCloud() !== env.client || environment().appId !== env.appId) {
+        throw new Error('登录环境已变化，请重新登录');
+      }
+      state = { phase: 'verified', uid: user.id, appId: env.appId, error: '' };
+      // 此时尚未开放业务请求：用户层完成账号数据切换后才设置 authenticatedUid。
+      return { ok: true, uid: user.id, appId: env.appId };
+    } catch (e) {
+      return fail((e && e.message) || '微信登录失败，请重试');
+    } finally { pending = null; }
+  })();
+  return pending;
+}
+
+function activate(principal) {
+  const env = environment();
+  if (env.error || !principal || state.uid !== principal.uid || state.appId !== principal.appId ||
+      env.appId !== principal.appId || watchedClient !== env.client) return false;
+  R.setAuthenticatedUid(principal.uid);
+  return true;
+}
+
+module.exports = { signIn: signIn, status: status, fail: fail, activate: activate };
+
+});
 __def("user", function (module, exports, require) {
 /**
  * 用户系统 —— 身份 / 资料云端持久化 / 战绩。
@@ -4489,13 +4666,9 @@ __def("user", function (module, exports, require) {
  *   这里通过 R.storageBackend() 复用同一套存储后端（wx / localStorage / Node 内存），
  *   并通过 R.getCloud() 复用已注入的云客户端，不重复初始化 SDK。
  *
- * 身份现状（务必知情）：
- *   当前项目仍是 touristappid，没有正式 AppID 与后端，wx.login 换不到 openid。
- *   因此身份是「本机账号」——uid 在首次启动时生成并落本机 storage，
- *   清缓存 / 换设备会变成新账号。这不是缺陷被隐藏：个人中心会如实显示
- *   「本机账号 · 未绑定微信」，并给出账号 ID 供对照。
- *   接上正式 AppID 后，只需在 ensureIdentity() 里用 openid 覆盖 uid，
- *   战绩与资料表都按 uid 关联，上层界面无需改动。
+ * 身份：预览与游客 AppID 使用本机账号；正式小程序通过 wechat-auth.js 验明
+ * 微信身份后，以云端 session.user.id 作为业务 uid。账号切换时资料与战绩分区，
+ * 旧游客的本机战绩可导入，不能靠客户端自报旧 uid 接管云端好友或房间。
  *
  * 数据表：
  *   splendor_players(uid pk, nickname, avatar, avatar_url, stats jsonb, updated_at)
@@ -4503,9 +4676,14 @@ __def("user", function (module, exports, require) {
  */
 
 const R = require('./room.js');
+const W = require('./wechat-auth.js');
 
 const IDENTITY_KEY = 'splendor.identity.v1';
 const RECORDS_KEY = 'splendor.records.v1';
+const RECORDS_OWNER_KEY = 'splendor.records-owner.v1';
+const RECORDS_PREFIX = 'splendor.records.v2.';
+const ACCOUNT_PREFIX = 'splendor.account.v1.';
+const IMPORT_PREFIX = 'splendor.record-import.v1.';
 const AVATAR_CACHE_KEY = 'splendor.avatars.v1';
 const PLAYER_TABLE = 'splendor_players';
 const RECORD_TABLE = 'splendor_records';
@@ -4545,6 +4723,12 @@ function writeJSON(key, value) {
   try { store().setStorageSync(key, JSON.stringify(value)); } catch (e) { /* 存储不可用则退化为内存态 */ }
 }
 
+function writeRequiredJSON(key, value) {
+  store().setStorageSync(key, JSON.stringify(value));
+}
+
+function accountKey(prefix, uid) { return prefix + encodeURIComponent(uid); }
+
 function nowIso(ts) { return new Date(ts || Date.now()).toISOString(); }
 
 function pad(n) { return n < 10 ? '0' + n : String(n); }
@@ -4559,12 +4743,18 @@ function shortId(uid) {
 
 /**
  * 身份卡：{ uid, mode, since, version }
- * mode 目前恒为 'guest'；接上正式 AppID 后由 wx.login 换成 'wechat'。
+ * mode 为本机缓存的账号类型，不代表当前已登录；当前认证状态只认进程内云端校验。
  */
 function ensureIdentity() {
   let id = readJSON(IDENTITY_KEY);
   const profile = R.getProfile();
   if (id && id.uid && id.uid === profile.uid) return id;
+  const saved = readJSON(accountKey(ACCOUNT_PREFIX, profile.uid));
+  if (saved && saved.identity && saved.identity.uid === profile.uid) {
+    id = saved.identity;
+    writeJSON(IDENTITY_KEY, id);
+    return id;
+  }
   id = {
     uid: profile.uid,
     mode: 'guest',
@@ -4577,19 +4767,103 @@ function ensureIdentity() {
 
 function getIdentity() {
   const id = ensureIdentity();
+  const login = W.status();
+  const authenticated = login.authenticated && login.uid === id.uid;
   return {
     uid: id.uid,
     mode: id.mode,
+    authenticated: authenticated,
     since: id.since,
     shortId: shortId(id.uid),
     // 界面文案集中在这里，避免 WXML 里拼字符串
-    label: id.mode === 'wechat' ? '微信账号' : '本机账号',
+    label: id.mode === 'wechat' ? (authenticated ? '微信账号' : '微信账号 · 待登录') : '本机账号',
     detail: id.mode === 'wechat'
-      ? '已绑定微信身份，换设备登录可继续使用同一战绩'
+      ? (authenticated ? '已关联当前微信用户，换设备登录可恢复云端资料、战绩与好友'
+        : '微信身份待验证 · 登录成功前仅使用本机数据')
       : '未绑定微信 · 清缓存或换设备会变成新账号',
     sinceText: formatDate(id.since || Date.now(), true)
   };
 }
+
+let identityTask = null;
+
+/** 先验微信，再准备目标账号数据，最后切换 active profile 并开放云端业务请求。 */
+function loginWithWechat(options) {
+  if (identityTask) return identityTask;
+  identityTask = (async function () {
+    const auth = await W.signIn(options);
+    if (!auth.ok) return auth;
+    try {
+      const current = R.getProfile();
+      if (current.uid === auth.uid && R.getAuthenticatedUid() === auth.uid) {
+        return { ok: true, profile: current, changed: false, imported: 0 };
+      }
+      stopHeartbeat();
+      const database = R.getCloud().database;
+      // 在覆盖任何资料前先取回微信账号已有资料，新设备的默认昵称不能冲掉老资料。
+      const remote = await database.from(PLAYER_TABLE)
+        .select('uid,nickname,avatar,avatar_url').eq('uid', auth.uid).maybeSingle();
+      if (!remote || remote.error) throw new Error('微信已验证，但账号资料读取失败，请重试');
+      // 读取云端期间用户仍可编辑本机资料 / 玩人机，提交前再取最新快照。
+      const previous = R.getProfile();
+      const oldIdentity = ensureIdentity();
+      const oldRecords = getRecords();
+      const saved = readJSON(accountKey(ACCOUNT_PREFIX, auth.uid));
+      const same = previous.uid === auth.uid;
+      let profile = same ? Object.assign({}, previous)
+        : (saved && saved.profile && saved.profile.uid === auth.uid
+          ? Object.assign({}, saved.profile) : Object.assign({}, R.defaultProfile(), { uid: auth.uid }));
+      const row = remote.data;
+      if (row && !((same || saved) && profile.customized)) {
+        profile.nickname = row.nickname || '珠宝商';
+        profile.avatar = row.avatar || 'a0';
+        profile.avatarData = row.avatar_url || '';
+        profile.avatarUrl = row.avatar_url || '';
+        profile.customized = true;
+      } else if (!row && !same && !saved && oldIdentity.mode === 'guest') {
+        // 首次绑定保留这台设备上主动填写的资料。
+        profile = Object.assign({}, previous, { uid: auth.uid });
+      }
+      const identity = {
+        uid: auth.uid, mode: 'wechat', appId: auth.appId,
+        since: profile.createdAt || Date.now(), version: 2
+      };
+      let records = same ? oldRecords : recordsFor(auth.uid);
+      const imported = [];
+      if (!same && oldIdentity.mode === 'guest') {
+        oldRecords.forEach(function (r) {
+          // 换 id，不能 upsert 原 id 把旧云端账号的记录改成自己的。
+          imported.push(Object.assign({}, r, { id: 'import:' + auth.uid + ':' + r.id, uid: auth.uid }));
+        });
+        identity.legacyUid = previous.uid;
+      }
+      const seen = {};
+      records = records.concat(imported).filter(function (r) {
+        if (!r || !r.id || seen[r.id]) return false;
+        seen[r.id] = true;
+        return true;
+      }).sort(function (a, b) { return b.at - a.at; }).slice(0, MAX_RECORDS);
+
+      // 先写独立分区与备份，最后一笔才切换 profile。中途写失败也不会串读其它账号战绩。
+      writeRequiredJSON(accountKey(ACCOUNT_PREFIX, previous.uid), { profile: previous, identity: oldIdentity });
+      writeRequiredJSON(accountKey(RECORDS_PREFIX, auth.uid), records);
+      const pendingIds = readJSON(accountKey(IMPORT_PREFIX, auth.uid)) || [];
+      writeRequiredJSON(accountKey(IMPORT_PREFIX, auth.uid), Array.from(new Set(pendingIds.concat(imported.map(function (r) { return r.id; })))));
+      writeRequiredJSON(accountKey(ACCOUNT_PREFIX, auth.uid), { profile: profile, identity: identity });
+      if (!W.activate(auth)) throw new Error('微信登录已失效，请重试');
+      // 同步写入段不会穿插异步请求；任何异常都会在 catch 中关闭认证门禁。
+      R.replaceProfile(profile);
+      writeRequiredJSON(IDENTITY_KEY, identity);
+      if (!same) { R.clearSession(); R.clear(); }
+      return { ok: true, profile: profile, changed: !same, imported: imported.length };
+    } catch (e) {
+      return W.fail((e && e.message) || '账号数据切换失败，请重试');
+    }
+  })().finally(function () { identityTask = null; });
+  return identityTask;
+}
+
+function wechatLoginStatus() { return W.status(); }
 
 /* ---------- 模式 ---------- */
 
@@ -4616,14 +4890,28 @@ function modeByKey(key) {
 
 /* ---------- 战绩 ---------- */
 
-function getRecords() {
-  const list = readJSON(RECORDS_KEY);
+function recordsFor(uid) {
+  const list = readJSON(accountKey(RECORDS_PREFIX, uid));
   if (!Array.isArray(list)) return [];
   return list.filter(function (r) { return r && r.id; });
 }
 
+function getRecords() {
+  const uid = R.getProfile().uid;
+  const key = accountKey(RECORDS_PREFIX, uid);
+  const scoped = readJSON(key);
+  if (Array.isArray(scoped)) return scoped.filter(function (r) { return r && r.id; });
+  // v1 为不分账号的老存档，只允许首次使用它的账号认领一次；原件保留作备份。
+  let owner = readJSON(RECORDS_OWNER_KEY);
+  if (!owner) { writeJSON(RECORDS_OWNER_KEY, uid); owner = uid; }
+  const legacy = owner === uid ? readJSON(RECORDS_KEY) : [];
+  const rows = Array.isArray(legacy) ? legacy.filter(function (r) { return r && r.id; }) : [];
+  writeJSON(key, rows);
+  return rows;
+}
+
 function saveRecords(list) {
-  writeJSON(RECORDS_KEY, (list || []).slice(0, MAX_RECORDS));
+  writeJSON(accountKey(RECORDS_PREFIX, R.getProfile().uid), (list || []).slice(0, MAX_RECORDS));
 }
 
 /**
@@ -4631,10 +4919,11 @@ function saveRecords(list) {
  * 调用方负责幂等——同一局只能调一次，否则结算弹层每次重绘都会多记一条。
  */
 function addRecord(input, profile) {
+  if (profile && profile.uid !== R.getProfile().uid) return null;
   const src = input || {};
   const rec = {
     id: src.id || ('r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
-    uid: (profile && profile.uid) || '',
+    uid: (profile && profile.uid) || R.getProfile().uid,
     mode: src.mode === 'room' ? 'room' : 'solo',
     modeLabel: src.modeLabel || '标准模式',
     playerCount: Math.min(4, Math.max(2, Number(src.playerCount) || 2)),
@@ -4657,7 +4946,8 @@ function addRecord(input, profile) {
 }
 
 function clearRecords() {
-  try { store().removeStorageSync(RECORDS_KEY); } catch (e) { /* ignore */ }
+  // 写空数组，避免删除分区后又从 v1 备份复活已清空的记录。
+  saveRecords([]);
 }
 
 /** 汇总统计：界面顶部三格与战绩页总览都用它 */
@@ -4753,8 +5043,14 @@ function persistAvatar(tempPath, uid) {
 
 /* ---------- 云端：资料与战绩 ---------- */
 function db() {
+  if (!R.hasCloud()) return null;
   const cloud = R.getCloud ? R.getCloud() : null;
   return cloud && cloud.database ? cloud.database : null;
+}
+
+function ownsUid(uid) {
+  return !R.requiresWechatLogin() ||
+    (R.getAuthenticatedUid() === uid && R.getProfile().uid === uid);
 }
 
 function errText(e) {
@@ -4769,6 +5065,7 @@ async function syncProfile(profile) {
   if (!database) return { ok: false, offline: true };
   const p = profile || R.getProfile();
   if (!p || !p.uid) return { ok: false, error: '缺少账号 ID' };
+  if (!ownsUid(p.uid)) return { ok: false, error: '账号已切换，请重新同步资料' };
   try {
     const res = await database.from(PLAYER_TABLE).upsert({
       uid: p.uid,
@@ -4812,6 +5109,7 @@ async function heartbeat(profile) {
   if (!database) return { ok: false, offline: true };
   const p = profile || R.getProfile();
   if (!p || !p.uid) return { ok: false, error: '缺少账号 ID' };
+  if (!ownsUid(p.uid)) return { ok: false, stale: true };
   try {
     const res = await database.from(PRESENCE_TABLE).upsert({
       uid: p.uid,
@@ -4851,6 +5149,7 @@ async function countOnline() {
  * 绝不该让大厅因此进不去。
  */
 function startHeartbeat(profile) {
+  if (!R.hasCloud()) return false;
   const p = profile || R.getProfile();
   const uid = (p && p.uid) || '';
   if (!uid) return false;
@@ -4905,6 +5204,7 @@ async function listOnlineUids(uids) {
 async function pushRecord(rec) {
   const database = db();
   if (!database || !rec || !rec.id) return { ok: false, offline: true };
+  if (!ownsUid(rec.uid)) return { ok: false, stale: true };
   try {
     const res = await database.from(RECORD_TABLE).upsert({
       id: rec.id,
@@ -4946,9 +5246,11 @@ function rowToRecord(row) {
 async function pullRecords(uid) {
   const database = db();
   if (!database || !uid) return { ok: false, offline: true, records: [] };
+  if (!ownsUid(uid)) return { ok: false, stale: true, records: [] };
   try {
     const res = await database.from(RECORD_TABLE).select('*').eq('uid', uid);
     if (!res || res.error) return { ok: false, error: errText(res && res.error), records: [] };
+    if (R.getProfile().uid !== uid) return { ok: false, stale: true, records: [] };
     const rows = (res.data || []).map(rowToRecord);
     const local = getRecords();
     const seen = {};
@@ -4968,19 +5270,34 @@ async function pullRecords(uid) {
 /** 登录态就绪后的同步入口：资料 + 战绩一次补齐 */
 async function syncAll(profile) {
   const p = profile || R.getProfile();
+  if (R.getProfile().uid !== p.uid) return { stale: true };
   const identity = getIdentity();
   const pulled = await pullRecords(identity.uid);
+  if (R.getProfile().uid !== p.uid) return { stale: true };
   // 老版本只存了本机文件路径：这里补一张能上云的缩略图，
   // 否则好友桌面上永远只有昵称首字，看不到头像
-  let target = p;
-  if (!p.avatarData && p.avatarUrl) {
-    const av = await prepareAvatar(p.avatarUrl, p.uid);
-    if (av.avatarData) {
-      target = R.saveProfile({ avatarUrl: av.avatarUrl || p.avatarUrl, avatarData: av.avatarData });
+  let target = R.getProfile();
+  if (!target.avatarData && target.avatarUrl) {
+    const source = target.avatarUrl;
+    const av = await prepareAvatar(source, p.uid);
+    if (R.getProfile().uid !== p.uid) return { stale: true };
+    if (av.avatarData && R.getProfile().avatarUrl === source) {
+      R.saveProfile({ avatarUrl: av.avatarUrl || source, avatarData: av.avatarData });
     }
   }
+  target = R.getProfile();
   const pushed = await syncProfile(target);
-  return { profile: pushed, records: pulled };
+  // 游客导入仅补写本机确实持有的战绩；失败的条目留给下次同步重试。
+  const pendingKey = accountKey(IMPORT_PREFIX, p.uid);
+  const pendingIds = readJSON(pendingKey) || [];
+  const remaining = [];
+  for (let i = 0; i < pendingIds.length; i++) {
+    if (R.getProfile().uid !== p.uid) return { stale: true };
+    const rec = getRecords().filter(function (r) { return r.id === pendingIds[i]; })[0];
+    if (rec && !(await pushRecord(rec)).ok) remaining.push(rec.id);
+  }
+  if (R.getProfile().uid === p.uid) writeJSON(pendingKey, remaining);
+  return { profile: pushed, records: pulled, importsPending: remaining.length };
 }
 
 /* ---------- 头像：本机文件 vs 可跨设备传输的缩略图 ---------- */
@@ -5110,6 +5427,8 @@ module.exports = {
 
   ensureIdentity: ensureIdentity,
   getIdentity: getIdentity,
+  loginWithWechat: loginWithWechat,
+  wechatLoginStatus: wechatLoginStatus,
   shortId: shortId,
 
   listModes: listModes,
@@ -5154,12 +5473,8 @@ __def("friend", function (module, exports, require) {
  *     —— 好友点「邀请」写一行 pending；被邀方轮询到后一键加入。
  *
  * 身份说明（重要，别改错）：
- *   当前项目是游客 AppID（touristappid），拿不到真实 openid。
- *   uid 由本机随机生成并存在 storage 里，**清缓存 / 换设备就是另一个人**。
- *   好友关系因此绑定在这个 uid 上。`identityReady` 字段明确标注这一点，
- *   界面据此提示「本机账号」，避免玩家误以为好友永久有效。
- *   接入正式 AppID 后，只需在 ensureIdentity() 里用 openid 覆盖 uid，
- *   本文件全部逻辑不用改一行 —— 所有查询都按 uid 走。
+ *   正式小程序的 uid 来自云端微信登录会话。云端业务在登录并对齐账号后开放，
+ *   好友关系按该稳定 uid 关联。旧游客 uid 不作为接管云端好友的凭据。
  *
  * 边界：
  *   没有云客户端时全部返回 offline，不抛错、不发请求。
@@ -5176,11 +5491,15 @@ const INVITE_TTL_MS = 10 * 60 * 1000;
 const MAX_FRIENDS = 200;
 
 function db() {
+  if (!R.hasCloud()) return null;
   const cloud = R.getCloud ? R.getCloud() : null;
   return cloud && cloud.database ? cloud.database : null;
 }
 function offline(reason) {
   return { ok: false, offline: true, error: reason || '云端未连接' };
+}
+function isCurrentUser(uid) {
+  return !R.requiresWechatLogin() || R.getAuthenticatedUid() === uid;
 }
 function errText(e) {
   if (!e) return '未知错误';
@@ -5210,6 +5529,7 @@ async function addFriend(me, targetUid, targetNickname) {
   const myUid = (me && me.uid) || '';
   const other = String(targetUid || '').trim();
   if (!myUid) return { ok: false, error: '缺少自己的账号 ID' };
+  if (!isCurrentUser(myUid)) return { ok: false, error: '账号已切换，请刷新好友列表' };
   if (!other) return { ok: false, error: '请输入好友账号 ID' };
   if (other === myUid) return { ok: false, error: '不能添加自己为好友' };
 
@@ -5246,6 +5566,7 @@ async function listFriends(myUid) {
   if (!database) return Object.assign(offline(), { list: [] });
   const uid = String(myUid || '');
   if (!uid) return { ok: false, error: '缺少账号 ID', list: [] };
+  if (!isCurrentUser(uid)) return { ok: false, error: '账号已切换', list: [] };
   try {
     const res = await database
       .from(FRIEND_TABLE)
@@ -5278,6 +5599,7 @@ async function removeFriend(myUid, targetUid) {
   const a = String(myUid || '');
   const b = String(targetUid || '');
   if (!a || !b) return { ok: false, error: '缺少参数' };
+  if (!isCurrentUser(a)) return { ok: false, error: '账号已切换，请刷新好友列表' };
   try {
     const res = await database.from(FRIEND_TABLE).delete().eq('id', friendId(a, b));
     if (res && res.error) return { ok: false, error: errText(res.error) };
@@ -5295,6 +5617,7 @@ async function sendInvite(fromUid, toUid, roomCode, fromName) {
   const t = String(toUid || '');
   const code = String(roomCode || '').toUpperCase();
   if (!f || !t) return { ok: false, error: '缺少邀请双方' };
+  if (!isCurrentUser(f)) return { ok: false, error: '账号已切换，请重新邀请' };
   if (!/^[A-Z0-9]{6}$/.test(code)) return { ok: false, error: '房间号无效' };
   try {
     const res = await database.from(INVITE_TABLE).upsert({
@@ -5323,6 +5646,7 @@ async function listInvites(myUid) {
   if (!database) return Object.assign(offline(), { list: [] });
   const uid = String(myUid || '');
   if (!uid) return { ok: false, error: '缺少账号 ID', list: [] };
+  if (!isCurrentUser(uid)) return { ok: false, error: '账号已切换', list: [] };
   try {
     const since = new Date(Date.now() - INVITE_TTL_MS).toISOString();
     const res = await database
@@ -5354,10 +5678,12 @@ async function markInvite(id, status) {
   if (!database) return offline();
   if (!id) return { ok: false, error: '缺少邀请 ID' };
   try {
-    const res = await database
+    let query = database
       .from(INVITE_TABLE)
       .update({ status: String(status || 'accepted') })
       .eq('id', id);
+    if (R.requiresWechatLogin()) query = query.eq('to_uid', R.getAuthenticatedUid());
+    const res = await query;
     if (res && res.error) return { ok: false, error: errText(res.error) };
     return { ok: true };
   } catch (e) {
@@ -5417,7 +5743,7 @@ module.exports = {
 });
 
 
-var EXPR_TEXTS = ["stageRotate","stageScale","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.autoPlay ? 'is-auto' : ''","item.avatarHue","item.initial","item.autoPlay","item.seatNo","item.name","item.reservedCount","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","lastMove.text","turnClock.pct","topRightTop","goldCount","roomMode","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meSeatLabel","me.nameText","me.pointsReached ? 'is-reached' : ''","me.pointsText","me.reservedText","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && !item.zero) ? 'is-picked' : ''","isMyTurn ? '' : 'is-idle'","pick.kind","pick.delta > 0","pick.delta","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? pick.label : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","canAutoPlay","meAutoPlay ? 'is-on' : ''","meAutoPlay ? '收回' : '托管'","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","screen === 'home'","home.avatarUrl","home.nickname","home.rankTitle","home.onlineReady ? 'is-ready' : 'is-pending'","home.onlineText","topRightTop > 82 ? topRightTop : 82","home.notice && !home.dialog","home.notice","friendsPanel.onlineCount > 0","friendsPanel.onlineCount","home.dialog","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))","home.dialog === 'quick'","home.soloCounts","item.active ? 'is-active' : ''","item.n","item.n === 2 ? '1 名对手' : (item.n === 3 ? '2 名对手' : '3 名对手')","home.dialog === 'solo'","home.dialog === 'create'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint","home.cloudHint","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.isSelf ? 'is-self' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.actionNote","detail.canBuy && detail.canAct","detail.buyLabel","!detail.canBuy && detail.canReserve && detail.canAct","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","endNotice","endNotice.leaderSeat","endNotice.leaderName","endNotice.leftText","gameOver","resultTitle","resultDetail","resultBoard","resultBoard.rows","item.isWinner ? 'is-winner' : ''","item.isMe ? 'is-me' : ''","item.rank === 1 ? 'is-first' : ''","item.rank","item.isMe","item.seat + 1","item.cardCount","item.cardPoints","item.nobleCount","item.noblePoints","item.totalTokens","item.disc","item.tok","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'","showFriends","friendsPanel.count","friendsPanel.query","friendsPanel.found","friendsPanel.found.avatarStyle","!friendsPanel.found.avatarUrl","friendsPanel.found.initial","friendsPanel.found.nickname","friendsPanel.notice","friendsPanel.list","item.online ? 'is-online' : ''","item.avatarStyle","!item.avatarUrl","item.nickname","item.statusText","item.shortId","item.canInvite","item.uid","!item.canInvite && !friendsPanel.canInvite","!item.canInvite && friendsPanel.canInvite","friendsPanel.empty","!friendsPanel.ready","friendsPanel.ready","friendsPanel.myId","invitePop","invitePop.fromName","invitePop.roomCode","invitePop.moreText"];
+var EXPR_TEXTS = ["stageRotate","stageScale","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.autoPlay ? 'is-auto' : ''","item.avatarHue","item.initial","item.autoPlay","item.seatNo","item.name","item.reservedCount","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","lastMove.text","turnClock.pct","topRightTop","goldCount","roomMode","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meSeatLabel","me.nameText","me.pointsReached ? 'is-reached' : ''","me.pointsText","me.reservedText","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && !item.zero) ? 'is-picked' : ''","isMyTurn ? '' : 'is-idle'","pick.kind","pick.delta > 0","pick.delta","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? pick.label : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","canAutoPlay","meAutoPlay ? 'is-on' : ''","meAutoPlay ? '收回' : '托管'","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","screen === 'home'","home.avatarUrl","home.nickname","home.rankTitle","home.onlineReady ? 'is-ready' : 'is-pending'","home.onlineText","topRightTop > 82 ? topRightTop : 82","home.notice && !home.dialog","home.notice","friendsPanel.onlineCount > 0","friendsPanel.onlineCount","home.dialog","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))","home.dialog === 'quick'","home.soloCounts","item.active ? 'is-active' : ''","item.n","item.n === 2 ? '1 名对手' : (item.n === 3 ? '2 名对手' : '3 名对手')","home.dialog === 'solo'","home.dialog === 'create'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint","home.cloudHint","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.isSelf ? 'is-self' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.actionNote","detail.canBuy && detail.canAct","detail.buyLabel","!detail.canBuy && detail.canReserve && detail.canAct","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","endNotice","endNotice.leaderSeat","endNotice.leaderName","endNotice.leftText","gameOver","resultTitle","resultDetail","resultBoard","resultBoard.rows","item.isWinner ? 'is-winner' : ''","item.isMe ? 'is-me' : ''","item.rank === 1 ? 'is-first' : ''","item.rank","item.isMe","item.seat + 1","item.cardCount","item.cardPoints","item.nobleCount","item.noblePoints","item.totalTokens","item.disc","item.tok","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.showLogin","!profileDialog.canLogin","profileDialog.loginLabel","profileDialog.loginHint","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'","showFriends","friendsPanel.count","friendsPanel.query","friendsPanel.found","friendsPanel.found.avatarStyle","!friendsPanel.found.avatarUrl","friendsPanel.found.initial","friendsPanel.found.nickname","friendsPanel.notice","friendsPanel.list","item.online ? 'is-online' : ''","item.avatarStyle","!item.avatarUrl","item.nickname","item.statusText","item.shortId","item.canInvite","item.uid","!item.canInvite && !friendsPanel.canInvite","!item.canInvite && friendsPanel.canInvite","friendsPanel.empty","!friendsPanel.ready","friendsPanel.ready","friendsPanel.myId","invitePop","invitePop.fromName","invitePop.roomCode","invitePop.moreText"];
 var EXPR_CACHE = {};
 function EV(id, scope) {
   var fn = EXPR_CACHE[id] || (EXPR_CACHE[id] = new Function('$s', 'with ($s) { return (' + EXPR_TEXTS[id] + '); }'));
@@ -10267,6 +10593,34 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push(ESC(EV(323, $s)));
     $h.push("</text>");
+    if (EV(324, $s)) {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("profile-login"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<button");
+      $h.push(" class=\"");
+      $h.push(ESC("btn wechat-login-btn"));
+      $h.push("\"");
+      $h.push(" data-tap=\"onWechatLogin\"");
+      $h.push(" disabled=\"");
+      $h.push(ESC(String(EV(325, $s))));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(326, $s)));
+      $h.push("</button>");
+      if (EV(327, $s)) {
+        $h.push("<text");
+        $h.push(" class=\"");
+        $h.push(ESC("profile-login-hint"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push(ESC(EV(327, $s)));
+        $h.push("</text>");
+      }
+      $h.push("</div>");
+    }
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("profile-id-line"));
@@ -10284,14 +10638,14 @@ window.renderStage = function (data) {
     $h.push(ESC("profile-rank"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(324, $s)));
+    $h.push(ESC(EV(328, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("profile-stats"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(325, $s)));
+    $h.push(ESC(EV(329, $s)));
     $h.push("</text>");
     $h.push("</div>");
     $h.push("</div>");
@@ -10326,7 +10680,7 @@ window.renderStage = function (data) {
     $h.push(" data-input=\"onNicknameInput\"");
     $h.push(">");
     $h.push("</input>");
-    if (EV(326, $s)) {
+    if (EV(330, $s)) {
       $h.push("<button");
       $h.push(" class=\"");
       $h.push(ESC("native-avatar-btn"));
@@ -10345,7 +10699,7 @@ window.renderStage = function (data) {
     $h.push(ESC("preset-nicknames"));
     $h.push("\"");
     $h.push(">");
-    var $list45 = EV(327, $s) || [];
+    var $list45 = EV(331, $s) || [];
     for (var $i45 = 0; $i45 < $list45.length; $i45++) {
       var $s45 = Object.create($s);
       $s45.item = $list45[$i45];
@@ -10356,10 +10710,10 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(" data-tap=\"onPickNickname\"");
       $h.push(" data-name=\"");
-      $h.push(ESC(String(EV(328, $s45))));
+      $h.push(ESC(String(EV(332, $s45))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(328, $s45)));
+      $h.push(ESC(EV(332, $s45)));
       $h.push("</div>");
     }
     $h.push("</div>");
@@ -10375,7 +10729,7 @@ window.renderStage = function (data) {
     $h.push(ESC("preset-avatars"));
     $h.push("\"");
     $h.push(">");
-    var $list46 = EV(329, $s) || [];
+    var $list46 = EV(333, $s) || [];
     for (var $i46 = 0; $i46 < $list46.length; $i46++) {
       var $s46 = Object.create($s);
       $s46.item = $list46[$i46];
@@ -10385,7 +10739,7 @@ window.renderStage = function (data) {
       $h.push(ESC(("preset-avatar " + String(EV(184, $s46)))));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(330, $s46)) + " 52%, rgba(20,10,16,.92) 100%);")));
+      $h.push(ESC(("background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), " + String(EV(334, $s46)) + " 52%, rgba(20,10,16,.92) 100%);")));
       $h.push("\"");
       $h.push(" data-tap=\"onPickAvatar\"");
       $h.push(" data-key=\"");
@@ -10399,13 +10753,13 @@ window.renderStage = function (data) {
       $h.push("</div>");
     }
     $h.push("</div>");
-    if (EV(331, $s)) {
+    if (EV(335, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("room-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(331, $s)));
+      $h.push(ESC(EV(335, $s)));
       $h.push("</text>");
     }
     $h.push("<text");
@@ -10429,7 +10783,7 @@ window.renderStage = function (data) {
     $h.push(">");
     $h.push("保存资料");
     $h.push("</div>");
-    if (EV(332, $s)) {
+    if (EV(336, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("btn"));
@@ -10451,7 +10805,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(333, $s)) {
+  if (EV(337, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("overlay overlay-top"));
@@ -10481,7 +10835,7 @@ window.renderStage = function (data) {
     $h.push(ESC("dialog-sub"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(334, $s)));
+    $h.push(ESC(EV(338, $s)));
     $h.push(" 位好友 · ");
     $h.push(ESC(EV(179, $s)));
     $h.push(" 人在线");
@@ -10497,7 +10851,7 @@ window.renderStage = function (data) {
     $h.push(ESC("friends-input"));
     $h.push("\"");
     $h.push(" value=\"");
-    $h.push(ESC(String(EV(335, $s))));
+    $h.push(ESC(String(EV(339, $s))));
     $h.push("\"");
     $h.push(" placeholder=\"");
     $h.push(ESC("输入好友的账号 ID"));
@@ -10517,7 +10871,7 @@ window.renderStage = function (data) {
     $h.push("查找");
     $h.push("</div>");
     $h.push("</div>");
-    if (EV(336, $s)) {
+    if (EV(340, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("friends-found"));
@@ -10528,16 +10882,16 @@ window.renderStage = function (data) {
       $h.push(ESC("friends-avatar"));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(String(EV(337, $s))));
+      $h.push(ESC(String(EV(341, $s))));
       $h.push("\"");
       $h.push(">");
-      if (EV(338, $s)) {
+      if (EV(342, $s)) {
         $h.push("<text");
         $h.push(" class=\"");
         $h.push(ESC("friends-avatar-initial"));
         $h.push("\"");
         $h.push(">");
-        $h.push(ESC(EV(339, $s)));
+        $h.push(ESC(EV(343, $s)));
         $h.push("</text>");
       }
       $h.push("</div>");
@@ -10546,7 +10900,7 @@ window.renderStage = function (data) {
       $h.push(ESC("friends-found-name"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(340, $s)));
+      $h.push(ESC(EV(344, $s)));
       $h.push("</text>");
       $h.push("<div");
       $h.push(" class=\"");
@@ -10558,13 +10912,13 @@ window.renderStage = function (data) {
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(341, $s)) {
+    if (EV(345, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("friends-notice"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(341, $s)));
+      $h.push(ESC(EV(345, $s)));
       $h.push("</text>");
     }
     $h.push("<div");
@@ -10572,7 +10926,7 @@ window.renderStage = function (data) {
     $h.push(ESC("friends-list"));
     $h.push("\"");
     $h.push(">");
-    var $list47 = EV(342, $s) || [];
+    var $list47 = EV(346, $s) || [];
     for (var $i47 = 0; $i47 < $list47.length; $i47++) {
       var $s47 = Object.create($s);
       $s47.item = $list47[$i47];
@@ -10584,13 +10938,13 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("friends-avatar " + String(EV(343, $s47)))));
+      $h.push(ESC(("friends-avatar " + String(EV(347, $s47)))));
       $h.push("\"");
       $h.push(" style=\"");
-      $h.push(ESC(String(EV(344, $s47))));
+      $h.push(ESC(String(EV(348, $s47))));
       $h.push("\"");
       $h.push(">");
-      if (EV(345, $s47)) {
+      if (EV(349, $s47)) {
         $h.push("<text");
         $h.push(" class=\"");
         $h.push(ESC("friends-avatar-initial"));
@@ -10610,7 +10964,7 @@ window.renderStage = function (data) {
       $h.push(ESC("friends-name"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(346, $s47)));
+      $h.push(ESC(EV(350, $s47)));
       $h.push("</text>");
       $h.push("<div");
       $h.push(" class=\"");
@@ -10619,7 +10973,7 @@ window.renderStage = function (data) {
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("friends-dot " + String(EV(343, $s47)))));
+      $h.push(ESC(("friends-dot " + String(EV(347, $s47)))));
       $h.push("\"");
       $h.push(">");
       $h.push("</div>");
@@ -10628,7 +10982,7 @@ window.renderStage = function (data) {
       $h.push(ESC("friends-status"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(347, $s47)));
+      $h.push(ESC(EV(351, $s47)));
       $h.push("</text>");
       $h.push("<text");
       $h.push(" class=\"");
@@ -10636,24 +10990,24 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(">");
       $h.push("· ID ");
-      $h.push(ESC(EV(348, $s47)));
+      $h.push(ESC(EV(352, $s47)));
       $h.push("</text>");
       $h.push("</div>");
       $h.push("</div>");
-      if (EV(349, $s47)) {
+      if (EV(353, $s47)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("btn btn-primary friends-invite"));
         $h.push("\"");
         $h.push(" data-tap=\"onInviteFriend\"");
         $h.push(" data-uid=\"");
-        $h.push(ESC(String(EV(350, $s47))));
+        $h.push(ESC(String(EV(354, $s47))));
         $h.push("\"");
         $h.push(">");
         $h.push("邀请");
         $h.push("</div>");
       }
-      if (EV(351, $s47)) {
+      if (EV(355, $s47)) {
         $h.push("<text");
         $h.push(" class=\"");
         $h.push(ESC("friends-invite-hint"));
@@ -10662,7 +11016,7 @@ window.renderStage = function (data) {
         $h.push("房间里可邀请");
         $h.push("</text>");
       }
-      if (EV(352, $s47)) {
+      if (EV(356, $s47)) {
         $h.push("<text");
         $h.push(" class=\"");
         $h.push(ESC("friends-invite-hint"));
@@ -10677,26 +11031,26 @@ window.renderStage = function (data) {
       $h.push("\"");
       $h.push(" data-tap=\"onRemoveFriend\"");
       $h.push(" data-uid=\"");
-      $h.push(ESC(String(EV(350, $s47))));
+      $h.push(ESC(String(EV(354, $s47))));
       $h.push("\"");
       $h.push(">");
       $h.push("删");
       $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(353, $s)) {
+    if (EV(357, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("friends-empty"));
       $h.push("\"");
       $h.push(">");
-      if (EV(354, $s)) {
+      if (EV(358, $s)) {
         $h.push("<text");
         $h.push(">");
         $h.push("正在加载好友…");
         $h.push("</text>");
       }
-      if (EV(355, $s)) {
+      if (EV(359, $s)) {
         $h.push("<text");
         $h.push(">");
         $h.push("还没有好友。把下面这串 ID 发给朋友，让他输入后互加。");
@@ -10722,7 +11076,7 @@ window.renderStage = function (data) {
     $h.push(ESC("friends-myid-value"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(356, $s)));
+    $h.push(ESC(EV(360, $s)));
     $h.push("</text>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -10750,7 +11104,7 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("</div>");
   }
-  if (EV(357, $s)) {
+  if (EV(361, $s)) {
     $h.push("<div");
     $h.push(" class=\"");
     $h.push(ESC("invite-toast"));
@@ -10773,7 +11127,7 @@ window.renderStage = function (data) {
     $h.push(ESC("invite-toast-title"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(358, $s)));
+    $h.push(ESC(EV(362, $s)));
     $h.push(" 邀请你联机");
     $h.push("</text>");
     $h.push("</div>");
@@ -10783,9 +11137,9 @@ window.renderStage = function (data) {
     $h.push("\"");
     $h.push(">");
     $h.push("房间号 ");
-    $h.push(ESC(EV(359, $s)));
+    $h.push(ESC(EV(363, $s)));
     $h.push(" · ");
-    $h.push(ESC(EV(360, $s)));
+    $h.push(ESC(EV(364, $s)));
     $h.push("</text>");
     $h.push("<div");
     $h.push(" class=\"");
@@ -11595,6 +11949,8 @@ function lobbyVM(ui, profile) {
   const room = ui.roomCount || 3;
   const cloud = R.hasCloud();
   const cloudInfo = R.cloudStatus ? R.cloudStatus() : { mode: cloud ? 'ready' : 'preview', reason: '' };
+  const needsLogin = R.requiresWechatLogin() && !cloud;
+  const login = U.wechatLoginStatus();
   const stats = U.statsOf();
   const identity = U.getIdentity();
   const activeMode = ui.lobbyMode || 'standard';
@@ -11636,12 +11992,12 @@ function lobbyVM(ui, profile) {
     cloud: cloud,
     cloudState: cloudInfo.mode,
     // 三态文案：只有真能跨设备时才不提限制；预览与初始化失败必须分开说。
-    cloudText: cloud
+    cloudText: needsLogin ? '微信登录后可邀请好友跨设备加入' : cloud
       ? '云端已连接 · 可微信邀请好友跨设备加入'
       : (cloudInfo.mode === 'failed'
         ? '云服务未就绪 · 当前仅本机房间'
         : '浏览器预览 · 当前仅本机房间，跨设备邀请请在微信中打开'),
-    cloudHint: cloud
+    cloudHint: needsLogin ? (login.error || '正在确认微信身份，请稍候') : cloud
       ? ''
       : (cloudInfo.mode === 'failed'
         ? '云服务未就绪，暂时只能创建本机房间'
@@ -11789,6 +12145,7 @@ function profileVM(ui, profile) {
     return { key: a.key, name: a.name, hue: a.hue, active: draft.avatar === a.key && !draft.avatarUrl };
   });
   const identity = U.getIdentity();
+  const login = U.wechatLoginStatus();
   const stats = U.statsOf();
   return {
     nickname: draft.nickname || '',
@@ -11796,7 +12153,12 @@ function profileVM(ui, profile) {
     avatarName: draft.avatarUrl ? '微信头像' : R.avatarName(draft.avatar),
     avatars: avatars,
     nicknames: ['珠宝商', '宝石收藏家', '贸易行会', '威尼斯商人'],
-    isWechat: !!p.isWechat,
+    isWechat: identity.mode === 'wechat',
+    loginBusy: !!ui.loginBusy,
+    showLogin: !identity.authenticated,
+    canLogin: login.canLogin && !ui.loginBusy,
+    loginLabel: ui.loginBusy ? '微信登录中…' : '微信登录',
+    loginHint: ui.loginBusy ? '正在验证微信身份并同步账号资料' : login.error,
     notice: ui.profileNotice || '',
     // 账号信息：让「用户系统」是可见的，而不是只在存储里有个 uid
     playerId: identity.shortId,
@@ -12698,20 +13060,22 @@ Page({
     this._turnStartAt = 0;
     this._timeoutFired = false;
     this._flashTimer = null;
-    // 用户系统：确认本机身份（uid 持久化）；云端可用时把资料与战绩对齐一次
+    // 先展示本机数据；正式云端业务须等微信登录与账号切换完成后再启用。
     U.ensureIdentity();
-    if (R.hasCloud()) {
-      const that = this;
-      U.syncAll(this.profile).then(function (res) {
-        // 云端补回了本机没有的战绩才重绘，否则这次刷新是多余的
-        if (res && res.records && res.records.added > 0) that.refresh('');
-      });
-    }
     this.ui = freshUI({ screen: 'home' });
 
     // 微信分享卡片带 ?room=XXXXXX：有云端能力时直接入席，
     // 没有云端能力（浏览器预览）时留在首页并说明原因。
     const query = options || {};
+    if (R.requiresWechatLogin()) {
+      this._pendingRoomCode = query.room ? String(query.room).toUpperCase() : '';
+      if (this._pendingRoomCode) {
+        this.ui.joinCode = this._pendingRoomCode;
+        this.clearSession();
+      }
+      this.bootstrapWechatIdentity(false);
+      return;
+    }
     if (query.room) {
       const code = String(query.room).toUpperCase();
       this.ui.joinCode = code;
@@ -12726,6 +13090,87 @@ Page({
       return;
     }
     this.refresh('');
+  },
+
+  /** 登录完成前不心跳、不写游客资料、不抢先用旧 uid 加入分享房间。 */
+  bootstrapWechatIdentity(force) {
+    if (this._identityTask) return this._identityTask;
+    const that = this;
+    this.ui.loginBusy = true;
+    this.clearTimer();
+    this.stopClock();
+    this.stopCloudPolling();
+    this.stopOnlinePolling();
+    this.stopInvitePolling();
+    U.stopHeartbeat();
+    this._identityTask = U.loginWithWechat({ force: !!force }).then(function (result) {
+      if (that._unloaded) return result;
+      that.ui.loginBusy = false;
+      if (!result.ok) {
+        that.ui.profileNotice = result.error;
+        that.ui.homeNotice = result.error;
+        that.refresh('');
+        if (!that._hidden && that.mode === 'solo') that.maybeRunAi({ ended: true });
+        return result;
+      }
+      if (result.changed && that.mode === 'room' && that.room) {
+        that.quitToHome('微信账号已切换，请重新加入房间');
+      }
+      that.profile = result.profile;
+      if (result.changed) that.resetCloudRequests();
+      that._avatars = that.avatarSeed();
+      that._avatarSig = '';
+      that.ui.profileDraft = that.ui.showProfile ? Object.assign({}, that.profile) : null;
+      that.ui.friends = [];
+      that.ui.friendsReady = false;
+      that.ui.friendFound = null;
+      that.ui.onlineUids = {};
+      that.ui.invites = [];
+      that.ui.homeNotice = '';
+      that.ui.profileNotice = result.imported
+        ? '微信已登录，已保留本机资料并导入 ' + result.imported + ' 条战绩；旧游客好友需重新添加'
+        : '已关联当前微信用户';
+      // 启动登录期间允许玩人机；绑定成功后对齐本机席位，结算才会落到新账号。
+      if (that.mode === 'solo' && that.state && that.state.players[0]) {
+        Object.assign(that.state.players[0], {
+          uid: that.profile.uid, name: that.profile.nickname, nickname: that.profile.nickname,
+          avatar: that.profile.avatar
+        });
+      }
+      that.refresh('');
+      if (!that._hidden && that.mode === 'solo') that.maybeRunAi({ ended: true });
+      if (!that._hidden) U.startHeartbeat(that.profile);
+      U.syncAll(that.profile).then(function (synced) {
+        if (that._unloaded || synced.stale || R.getProfile().uid !== that.profile.uid) return;
+        if (!synced.profile.ok || !synced.records.ok || synced.importsPending) {
+          that.ui.profileNotice = '微信已登录，部分资料或战绩尚未同步，下次启动会重试';
+        }
+        that.refresh('');
+      }).catch(function () {
+        if (!that._unloaded) {
+          that.ui.profileNotice = '微信已登录，云端资料或战绩同步失败，稍后可重试';
+          that.refresh('');
+        }
+      });
+      if (that._hidden) return result;
+      if (that._pendingRoomCode) {
+        const code = that._pendingRoomCode;
+        that._pendingRoomCode = '';
+        that.joinCloudRoom(code);
+      } else if (that._cloudCode) {
+        that.startCloudPolling();
+        that.pollCloud(true);
+      } else {
+        that.resumeSession();
+      }
+      return result;
+    }).finally(function () { that._identityTask = null; });
+    this.refresh('');
+    return this._identityTask;
+  },
+
+  onWechatLogin() {
+    return this.bootstrapWechatIdentity(true);
   },
 
   /** 人机对战：本地牌局，不建云端房间、不发起任何网络请求 */
@@ -12772,6 +13217,14 @@ Page({
   startGame() { this.startLocalGame(); },
 
   onShow() {
+    this._hidden = false;
+    if (R.requiresWechatLogin() && !U.wechatLoginStatus().authenticated) {
+      // 未配置正式 AppID 时仍可离线玩人机，切回前台不能把 AI 永久停掉。
+      if (!this.state || this.mode === 'room' || U.wechatLoginStatus().canLogin) {
+        this.bootstrapWechatIdentity(false);
+        if (!this.state || this.mode === 'room') return;
+      }
+    }
     // 从后台切回时，若仍轮到托管席位则恢复其行动节奏
     if (this.state && !this.state.gameOver && needsAutoPlay(this.state, this.aiContext()) && !this._aiTimer) {
       this.scheduleAi();
@@ -12790,6 +13243,7 @@ Page({
   },
 
   onHide() {
+    this._hidden = true;
     this.clearTimer();
     this.stopClock();
     this.stopCloudPolling();
@@ -12801,6 +13255,7 @@ Page({
   },
 
   onUnload() {
+    this._unloaded = true;
     this.clearTimer();
     this.stopClock();
     this.stopCloudPolling();
@@ -12884,6 +13339,7 @@ Page({
       room: this.room, profile: this.profile, mySeat: this.mySeat,
       avatars: this._avatars || {}
     }));
+    if (this._hidden || this._unloaded) return;
     // 席位里只有 uid：新面孔入席时补一次头像，能命中缓存就不发请求
     this.syncAvatars();
     this.startClock();
@@ -13018,6 +13474,7 @@ Page({
 
   /** 限时倒计时：每台设备按「自己看到换手的那一刻」起算，不依赖系统时钟对齐 */
   startClock() {
+    if (this.mode === 'room' && R.requiresWechatLogin() && !R.hasCloud()) return;
     if (this._clockTimer) return;
     if (this.ui.screen !== 'game') return;
     const st = this.state;
@@ -13158,7 +13615,7 @@ Page({
   /* ---------- 云端牌局同步（浏览器预览下全部为空操作） ---------- */
 
   aiContext() {
-    return { cloud: R.hasCloud(), isHost: this.mySeat === 0 };
+    return { cloud: R.requiresWechatLogin() || R.hasCloud(), isHost: this.mySeat === 0 };
   },
 
   createCloudRoom() {
@@ -13181,6 +13638,7 @@ Page({
   /** 好友通过分享卡片 / 房间号入席：进大厅准备，或接管进行中的牌局 */
   joinCloudRoom(code, opts) {
     const that = this;
+    const ownerUid = this.profile.uid;
     const silent = !!(opts && opts.silent);
     this._joining = true;
     this._resuming = !!(opts && opts.silent) || this._resuming;
@@ -13189,6 +13647,7 @@ Page({
     this.ui.homeNotice = tipText;
     this.refresh('');
     return R.cloudJoinRoom(code, this.profile).then(function (res) {
+      if (that._unloaded || that.profile.uid !== ownerUid || R.getProfile().uid !== ownerUid) return;
       that._joining = false;
       if (!res.ok) {
         that._resuming = false;
@@ -13263,7 +13722,10 @@ Page({
     if (this._enteringGame) return;
     this._enteringGame = true;
     const that = this;
+    const code = this._cloudCode;
+    const ownerUid = this.profile.uid;
     R.cloudPullGame(this._cloudCode).then(function (res) {
+      if (that._unloaded || that._cloudCode !== code || that.profile.uid !== ownerUid) return;
       that._enteringGame = false;
       if (!res.ok) return;         // 快照还没写完，下一轮轮询再试
       that.state = res.state;
@@ -13288,10 +13750,13 @@ Page({
     if (!R.hasCloud() || !this._cloudCode || !this.state) return;
     if (this._syncing) { this._pendingPush = true; return; }
     const that = this;
+    const code = this._cloudCode;
+    const ownerUid = this.profile.uid;
     const expected = this._cloudVersion;
     const snapshot = JSON.parse(JSON.stringify(this.state));
     this._syncing = true;
     R.cloudPushState(this._cloudCode, snapshot, expected).then(function (res) {
+      if (that._unloaded || that._cloudCode !== code || that.profile.uid !== ownerUid) return;
       that._syncing = false;
       if (res.ok) {
         that._cloudVersion = res.version;
@@ -13324,6 +13789,15 @@ Page({
       clearInterval(this._pollTimer);
       this._pollTimer = null;
     }
+  },
+
+  resetCloudRequests() {
+    this._syncing = false;
+    this._polling = false;
+    this._pendingPush = false;
+    this._enteringGame = false;
+    this._joining = false;
+    this._resuming = false;
   },
 
   /**
@@ -13377,6 +13851,7 @@ Page({
       return Promise.resolve(false);
     }
     return F.listFriends(me.uid).then(function (res) {
+      if (that._unloaded || that.profile.uid !== me.uid) return false;
       if (!res || !res.ok) {
         that.ui.friendsNotice = (res && res.error) || '好友列表加载失败';
         that.ui.friendsReady = false;
@@ -13567,6 +14042,7 @@ Page({
     const me = this.profile || R.getProfile();
     if (!R.hasCloud() || !me || !me.uid) return Promise.resolve(false);
     return F.listInvites(me.uid).then(function (res) {
+      if (that._unloaded || that.profile.uid !== me.uid) return false;
       if (!res || !res.ok) return false;
       const list = res.list || [];
       // 已经在同一间房里就不必再提示自己人
@@ -13612,10 +14088,13 @@ Page({
   pollCloud(force) {
     if (!R.hasCloud() || !this._cloudCode || this._polling) return;
     const that = this;
+    const code = this._cloudCode;
+    const ownerUid = this.profile.uid;
 
     if (this.ui.screen === 'room') {
       this._polling = true;
       R.cloudPullRoom(this._cloudCode).then(function (res) {
+        if (that._unloaded || that._cloudCode !== code || that.profile.uid !== ownerUid) return;
         that._polling = false;
         if (!res.ok) {
           // 房间行都不存在了：不是网络抖动，直接收摊
@@ -13640,6 +14119,7 @@ Page({
     const known = this._cloudVersion;
     this._polling = true;
     R.cloudPullGame(this._cloudCode).then(function (res) {
+      if (that._unloaded || that._cloudCode !== code || that.profile.uid !== ownerUid) return;
       that._polling = false;
       if (!res.ok) { that.noteNetFail(res); return; }
       that.noteNetOk();
@@ -13686,6 +14166,7 @@ Page({
   },
 
   runAi(force, message) {
+    if (this.mode === 'room' && R.requiresWechatLogin() && !R.hasCloud()) return;
     const s = this.state;
     if (!s || s.gameOver) return;
     if (!force && !needsAutoPlay(s, this.aiContext())) return;
@@ -13708,6 +14189,10 @@ Page({
   },
 
   applyPlayerAction(action, successMessage) {
+    if (this.mode === 'room' && R.requiresWechatLogin() && !R.hasCloud()) {
+      this.refresh('请重新微信登录后继续牌局');
+      return false;
+    }
     const actorSeat = this.state ? this.state.current : 0;
     const card = this.actionCard(action, actorSeat);
     const nextSeq = (this._showcaseSeq = (this._showcaseSeq || 0) + 1);
@@ -14208,6 +14693,12 @@ Page({
   },
   /** 邀请好友：先开一间大厅，等好友入席并准备后再由房主开始 */
   onCreateRoom() {
+    if (R.requiresWechatLogin() && !U.wechatLoginStatus().authenticated) {
+      this.ui.homeNotice = U.wechatLoginStatus().error || '请先完成微信登录';
+      this.ui.homeDialog = 'create';
+      this.refresh('');
+      return;
+    }
     this.ui.homeDialogBefore = null;
     this.ui.homeDialog = '';
     this.mode = 'room';
@@ -14226,7 +14717,9 @@ Page({
       return;
     }
     if (!R.hasCloud()) {
-      this.ui.homeNotice = '当前设备未连接云端，无法跨设备加入房间';
+      this.ui.homeNotice = R.requiresWechatLogin()
+        ? (U.wechatLoginStatus().error || '请先完成微信登录')
+        : '当前设备未连接云端，无法跨设备加入房间';
       this.refresh('');
       return;
     }
@@ -14239,6 +14732,7 @@ Page({
   openRoom() {
     this.clearTimer();
     this.stopCloudPolling();
+    this.resetCloudRequests();
     this.mySeat = 0;                       // 房主恒为 0 号席
     this._cloudVersion = 0;
     this._roomVersion = 0;
@@ -14601,6 +15095,7 @@ Page({
     this.clearTimer();
     this.resetTurnUI();
     this.stopCloudPolling();
+    this.resetCloudRequests();
     this.clearSession();
     this.state = null;
     this.room = null;
@@ -14619,6 +15114,7 @@ Page({
   onLeaveRoom() {    this.clearTimer();
     this.resetTurnUI();
     this.stopCloudPolling();
+    this.resetCloudRequests();
     // 房主离开即解散：云上置 ended，其他设备轮询到就直接回首页，
     // 不会对着一个永远不会开始的房间一直等
     const disbandCode = (this.mySeat === 0 && this.mode === 'room') ? this._cloudCode : '';
@@ -14710,7 +15206,6 @@ Page({
       return;
     }
     this.ui.profileDraft.avatarUrl = url;
-    this.ui.profileDraft.isWechat = true;
     this.refresh('已选择微信头像，点「保存资料」生效');
   },
   onNicknameInput(event) {
@@ -14724,6 +15219,7 @@ Page({
     this.refresh('');
   },
   onSaveProfile() {
+    const ownerUid = this.profile.uid;
     const d = this.ui.profileDraft || {};
     const nickname = String(d.nickname || '').trim().slice(0, 12);
     if (!nickname) {
@@ -14740,12 +15236,12 @@ Page({
 
     const that = this;
     ready.then(function (av) {
+      if (that._unloaded || that.profile.uid !== ownerUid || R.getProfile().uid !== ownerUid) return;
       that.profile = R.saveProfile({
         nickname: nickname,
         avatar: d.avatar || that.profile.avatar,
         avatarUrl: av.avatarUrl,
-        avatarData: av.avatarData,
-        isWechat: !!d.isWechat
+        avatarData: av.avatarData
       });
       // 自己的头像也进映射：席位条 / 工作台都从同一份数据取，避免两处不一致
       if (that.profile.uid) {

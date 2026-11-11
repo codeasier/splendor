@@ -996,6 +996,11 @@
               <text class="profile-id-since">加入于 {{profileDialog.sinceText}}</text>
             </view>
             <text class="profile-id-detail">{{profileDialog.identityDetail}}</text>
+            <view wx:if="{{profileDialog.showLogin}}" class="profile-login">
+              <button class="btn wechat-login-btn" bindtap="onWechatLogin"
+                      disabled="{{!profileDialog.canLogin}}">{{profileDialog.loginLabel}}</button>
+              <text wx:if="{{profileDialog.loginHint}}" class="profile-login-hint">{{profileDialog.loginHint}}</text>
+            </view>
             <view class="profile-id-line">
               <text class="profile-id-label">称号</text>
               <text class="profile-rank">{{profileDialog.rankTitle}}</text>

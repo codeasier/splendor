@@ -260,6 +260,7 @@ const moduleFiles = [
   ['game-engine', 'utils/game-engine.js'],
   ['ai', 'utils/ai.js'],
   ['room', 'utils/room.js'],
+  ['wechat-auth', 'utils/wechat-auth.js'],
   ['user', 'utils/user.js'],
   ['friend', 'utils/friend.js']
 ];

@@ -12,12 +12,8 @@
  *     —— 好友点「邀请」写一行 pending；被邀方轮询到后一键加入。
  *
  * 身份说明（重要，别改错）：
- *   当前项目是游客 AppID（touristappid），拿不到真实 openid。
- *   uid 由本机随机生成并存在 storage 里，**清缓存 / 换设备就是另一个人**。
- *   好友关系因此绑定在这个 uid 上。`identityReady` 字段明确标注这一点，
- *   界面据此提示「本机账号」，避免玩家误以为好友永久有效。
- *   接入正式 AppID 后，只需在 ensureIdentity() 里用 openid 覆盖 uid，
- *   本文件全部逻辑不用改一行 —— 所有查询都按 uid 走。
+ *   正式小程序的 uid 来自云端微信登录会话。云端业务在登录并对齐账号后开放，
+ *   好友关系按该稳定 uid 关联。旧游客 uid 不作为接管云端好友的凭据。
  *
  * 边界：
  *   没有云客户端时全部返回 offline，不抛错、不发请求。
@@ -34,11 +30,15 @@ const INVITE_TTL_MS = 10 * 60 * 1000;
 const MAX_FRIENDS = 200;
 
 function db() {
+  if (!R.hasCloud()) return null;
   const cloud = R.getCloud ? R.getCloud() : null;
   return cloud && cloud.database ? cloud.database : null;
 }
 function offline(reason) {
   return { ok: false, offline: true, error: reason || '云端未连接' };
+}
+function isCurrentUser(uid) {
+  return !R.requiresWechatLogin() || R.getAuthenticatedUid() === uid;
 }
 function errText(e) {
   if (!e) return '未知错误';
@@ -68,6 +68,7 @@ async function addFriend(me, targetUid, targetNickname) {
   const myUid = (me && me.uid) || '';
   const other = String(targetUid || '').trim();
   if (!myUid) return { ok: false, error: '缺少自己的账号 ID' };
+  if (!isCurrentUser(myUid)) return { ok: false, error: '账号已切换，请刷新好友列表' };
   if (!other) return { ok: false, error: '请输入好友账号 ID' };
   if (other === myUid) return { ok: false, error: '不能添加自己为好友' };
 
@@ -104,6 +105,7 @@ async function listFriends(myUid) {
   if (!database) return Object.assign(offline(), { list: [] });
   const uid = String(myUid || '');
   if (!uid) return { ok: false, error: '缺少账号 ID', list: [] };
+  if (!isCurrentUser(uid)) return { ok: false, error: '账号已切换', list: [] };
   try {
     const res = await database
       .from(FRIEND_TABLE)
@@ -136,6 +138,7 @@ async function removeFriend(myUid, targetUid) {
   const a = String(myUid || '');
   const b = String(targetUid || '');
   if (!a || !b) return { ok: false, error: '缺少参数' };
+  if (!isCurrentUser(a)) return { ok: false, error: '账号已切换，请刷新好友列表' };
   try {
     const res = await database.from(FRIEND_TABLE).delete().eq('id', friendId(a, b));
     if (res && res.error) return { ok: false, error: errText(res.error) };
@@ -153,6 +156,7 @@ async function sendInvite(fromUid, toUid, roomCode, fromName) {
   const t = String(toUid || '');
   const code = String(roomCode || '').toUpperCase();
   if (!f || !t) return { ok: false, error: '缺少邀请双方' };
+  if (!isCurrentUser(f)) return { ok: false, error: '账号已切换，请重新邀请' };
   if (!/^[A-Z0-9]{6}$/.test(code)) return { ok: false, error: '房间号无效' };
   try {
     const res = await database.from(INVITE_TABLE).upsert({
@@ -181,6 +185,7 @@ async function listInvites(myUid) {
   if (!database) return Object.assign(offline(), { list: [] });
   const uid = String(myUid || '');
   if (!uid) return { ok: false, error: '缺少账号 ID', list: [] };
+  if (!isCurrentUser(uid)) return { ok: false, error: '账号已切换', list: [] };
   try {
     const since = new Date(Date.now() - INVITE_TTL_MS).toISOString();
     const res = await database
@@ -212,10 +217,12 @@ async function markInvite(id, status) {
   if (!database) return offline();
   if (!id) return { ok: false, error: '缺少邀请 ID' };
   try {
-    const res = await database
+    let query = database
       .from(INVITE_TABLE)
       .update({ status: String(status || 'accepted') })
       .eq('id', id);
+    if (R.requiresWechatLogin()) query = query.eq('to_uid', R.getAuthenticatedUid());
+    const res = await query;
     if (res && res.error) return { ok: false, error: errText(res.error) };
     return { ok: true };
   } catch (e) {
