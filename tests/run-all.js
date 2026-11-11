@@ -3,8 +3,8 @@
 /**
  * 一键回归：node tests/run-all.js
  *
- * 先做工程体积守卫（防止 >2MB 素材产物写回小程序工程目录导致预览编译失败），
- * 再重建矢量美术与浏览器预览页，最后依次跑：
+ * 先重建矢量美术与浏览器预览页，再检查本次产物的工程体积（单文件 <2MB），
+ * 最后依次跑：
  *   静态校验 / 规则引擎 120 局 / 多人房间适配层 / 用户系统与战绩 /
  *   页面运行时模拟 / H5 预览页渲染与交互。
  * 全部使用工程内的相对路径，不依赖任何临时目录或本机绝对路径。
@@ -24,12 +24,13 @@ function run(rel) {
 }
 
 const steps = [
-  ['工程体积守卫（2MB 上限）', 'tests/size-guard.js'],
   ['重建矢量美术', 'preview/art.js'],
   ['构建浏览器预览', 'preview/build.js'],
+  ['工程体积守卫（2MB 上限）', 'tests/size-guard.js'],
   ['静态校验', 'tests/static.js'],
   ['规则引擎 120 局对战', 'tests/engine.js'],
   ['多人模式与房间适配层', 'tests/multiplayer.js'],
+  ['多主题选择与房间同步', 'tests/themes.js'],
   ['用户系统与战绩', 'tests/user.js'],
   ['微信登录与账号隔离', 'tests/wechat-login.js'],
   ['好友体系与邀请', 'tests/friend.js'],

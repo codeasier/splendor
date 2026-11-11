@@ -1,4 +1,8 @@
 @import "art.wxss";
+@import "theme-picker.wxss";
+@import "theme-pokemon.generated.wxss";
+@import "theme-cyberpunk.generated.wxss";
+@import "theme-ai.generated.wxss";
 
 /* ==================================================================
  * 璀璨宝石 · 皇家典藏版 2.5D 实体牌桌 (Renaissance Royal Edition)
@@ -124,7 +128,7 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   position: absolute; left: 0; top: 0; width: 1080px; height: 72px;
   z-index: 8; pointer-events: none;
 }
-.top-bar > view { pointer-events: auto; }
+.top-bar > .seat-strip, .top-bar > .turn-banner, .top-bar > .top-right { pointer-events: auto; }
 .rival-badge {
   position: absolute; left: 18px; top: 8px;
   width: 208px; height: 58px;

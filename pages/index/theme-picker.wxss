@@ -1,0 +1,40 @@
+.guild-dialog.is-create { width: 740px; padding: 18px 24px; }
+.guild-dialog.is-create .guild-config { gap: 12px; padding: 12px 0 4px; }
+.guild-dialog.is-create .dialog-btns { margin-top: 12px; }
+.theme-picker { display: flex; flex-direction: column; gap: 8px; }
+.theme-picker-head { display: flex; align-items: center; justify-content: space-between; }
+.theme-picker-label { font-size: 14px; font-weight: 700; color: #ffe9b8; }
+.theme-picker-note { font-size: 11px; color: #d1b99a; }
+.theme-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.theme-choice {
+  position: relative; width: 340px; height: 84px; padding: 5px;
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid rgba(243, 212, 139, .3); border-radius: 9px;
+  background: #23121c; overflow: hidden;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.theme-choice.is-active { border: 2px solid #ffe2a0; padding: 4px; background: #493023; }
+.theme-choice-hover { transform: translateY(1px); }
+.theme-choice-thumb { width: 76px; height: 72px; flex-shrink: 0; border-radius: 5px; background-size: 300% 300%; background-position: 0 0; }
+.theme-thumb-royal { background-size: cover; background-position: 28% center; }
+.theme-choice-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.theme-choice-tag { font-size: 8px; letter-spacing: 1.2px; color: #bca78c; }
+.theme-choice-name { font-family: "Songti SC", Georgia, serif; font-size: 18px; font-weight: 700; color: #fff0d0; line-height: 1.2; }
+.theme-choice-desc { font-size: 10px; line-height: 1.3; color: #d9c8b0; white-space: nowrap; }
+.theme-choice-check { position: absolute; top: 5px; right: 7px; font-size: 10px; color: #ffe2a0; }
+.room-theme { font-size: 11px; font-weight: 600; color: #ebd19c; letter-spacing: .5px; }
+.theme-card-caption {
+  position: absolute; right: 3px; bottom: 20px; z-index: 4;
+  max-width: 74px; padding: 2px 3px; border-radius: 3px;
+  color: #f5fffb; background: rgba(6, 30, 30, .86);
+  font-size: 7.5px; line-height: 1.2; white-space: nowrap;
+}
+.card-big .theme-card-caption, .card-showcase .theme-card-caption { font-size: 11px; max-width: 130px; bottom: 30px; }
+.theme-fallback {
+  position: absolute; left: 280px; top: 72px; z-index: 14;
+  padding: 5px 12px; border-radius: 6px; pointer-events: none;
+  font-size: 11px; color: #fff0d2; background: #5b2d20; border: 1px solid #ffcc98;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-choice { transition: none; }
+}

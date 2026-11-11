@@ -77,7 +77,7 @@ else ok('WXML 标签闭合平衡');
     }
     if (!stack2.length) {
       rootCount += 1;
-      if (!/class="viewport"/.test(attrs)) stray.push('根节点不是 .viewport');
+      if (!/class="viewport(?:\s[^"]*)?"/.test(attrs)) stray.push('根节点不是 .viewport');
     } else if (stack2.length === 1 && /\bclass="stage\b/.test(attrs)) {
       stageDepth = 2;
     }

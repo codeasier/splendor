@@ -684,5 +684,27 @@ page.setData({});
 assert(a.host.innerHTML.length > 12000, '对局结束后仍应正常渲染');
 console.log('完整对局 ' + steps + ' 步 + 结算后重绘 OK');
 
+// Exercise the compiled template/module bundle for every new room theme.
+const themesPreview = run(844, 390);
+const tp = themesPreview.page;
+['pokemon', 'cyberpunk', 'ai'].forEach(function (id) {
+  tp.onOpenHomeDialog({ currentTarget: { dataset: { kind: 'create' } } });
+  assert((themesPreview.host.innerHTML.match(/data-tap="onSelectRoomTheme"/g) || []).length === 4, '建房须提供四套主题');
+  tp.onSelectRoomTheme({ currentTarget: { dataset: { id: id } } });
+  tp.onCreateRoom();
+  assert(themesPreview.host.innerHTML.indexOf('viewport theme-' + id) > 0, '房间根容器应应用所选主题');
+  assert(themesPreview.host.innerHTML.indexOf('本房间固定') > 0, '房间应说明主题范围');
+  tp.onRoomCount({ currentTarget: { dataset: { n: 2 } } });
+  tp.onRoomToggleBot({ currentTarget: { dataset: { index: 1 } } });
+  tp.onRoomStart();
+  assert.equal(tp.state.themeId, id);
+  assert(themesPreview.host.innerHTML.indexOf('theme-card-caption') > 0, '新主题应渲染角色或场景说明');
+  assert(themesPreview.host.innerHTML.indexOf('undefined') < 0, '主题渲染不得包含 undefined');
+  tp.onLeaveRoom();
+  assert(themesPreview.host.innerHTML.indexOf('viewport theme-royal') > 0, '退房恢复大厅默认主题');
+});
+tp.onUnload();
+console.log('四主题入口 / 三套主题房间与牌桌 / 退房恢复 OK');
+
 console.log('\nALL PREVIEW TESTS PASSED');
 process.exit(0);

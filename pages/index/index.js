@@ -8,6 +8,7 @@ const U = require('../../utils/user.js');
 const F = require('../../utils/friend.js');
 const C = require('../../utils/chat.js');
 const L = require('../../utils/leaderboard.js');
+const T = require('../../utils/theme.js');
 
 // 设计稿舞台尺寸（与参考截图比例一致），运行时等比缩放适配屏幕
 const DESIGN_W = 1080;
@@ -110,6 +111,7 @@ function cardVM(state, card, seat, r, c) {
     id: card.id,
     empty: false,
     name: card.name,
+    themeCaption: T.caption(state && state.themeId, GEMS.indexOf(card.gem) * 3 + card.art % 3),
     level: card.level,
     pointsText: card.points > 0 ? String(card.points) : '',
     pointsLabel: card.points + ' 声望',
@@ -844,6 +846,8 @@ function lobbyVM(ui, profile) {
     turnLimit: timer.value,
     turnLimitText: timer.text,
     cloud: cloud,
+    themes: T.list(ui.roomThemeId),
+    themeName: T.resolve(ui.roomThemeId).name,
     cloudState: cloudInfo.mode,
     // 三态文案：只有真能跨设备时才不提限制；预览与初始化失败必须分开说。
     cloudText: needsLogin ? '微信登录后可邀请好友跨设备加入' : cloud
@@ -964,7 +968,11 @@ function roomScreenVM(ui, room, profile, mySeat, avatars) {
     emptyCount: emptyCount,
     isHost: isHost,
     myReady: isHost || !!mySeatData.ready,
-    canStart: isHost && allSettled,
+    canStart: isHost && allSettled && !ui.roomCreating && !ui.roomCreateFailed,
+    themeName: T.resolve(T.roomId(room)).name,
+    themeFallback: T.resolve(T.roomId(room)).fallback,
+    creating: !!ui.roomCreating,
+    createFailed: !!ui.roomCreateFailed,
     readyLabel: (isHost || mySeatData.ready) ? '取消准备' : '准备',
     startLabel: isHost
       ? (allSettled ? '开始牌局' : '等待玩家准备')
@@ -1302,6 +1310,7 @@ function buildViewModel(state, ui, layout, ctx) {
   const seat = context.mySeat === undefined ? 0 : context.mySeat;
   // 入口界面 / 房间大厅 / 牌桌 三态；无牌局状态时自动落到首页
   const screen = ui.screen || (state ? 'game' : 'home');
+  const theme = T.forView(screen, state, room);
   const canNativeAvatar = !!(typeof wx !== 'undefined' && wx.canIUse &&
     wx.canIUse('button.open-type.chooseAvatar'));
 
@@ -1317,6 +1326,9 @@ function buildViewModel(state, ui, layout, ctx) {
         targets: [], pendingEmoji: null, projectiles: []
       }),
       screen: screen,
+      themeId: theme.id,
+      themeName: theme.name,
+      themeFallback: theme.fallback,
       home: lobbyVM(ui, profile),
       roomScreen: roomScreenVM(ui, room, profile, seat, avatars),
       profileDialog: profileVM(ui, profile),
@@ -1713,6 +1725,9 @@ function buildViewModel(state, ui, layout, ctx) {
       return vm;
     })(),
     screen: 'game',
+    themeId: theme.id,
+    themeName: theme.name,
+    themeFallback: theme.fallback,
     home: lobbyVM(ui, profile),
     roomScreen: roomScreenVM(ui, room, profile, seat, avatars),
     // 牌桌层也要声明好友字段：WXML 根变量缺声明会渲染成空，
@@ -1880,6 +1895,9 @@ function freshUI(config) {
     roomCount: c.roomCount || 3,
     // 回合计时（秒）：0 = 不限时；建房时选定
     turnLimit: R.normTurnLimit(c.turnLimit),
+    roomThemeId: T.normalize(c.roomThemeId),
+    roomCreating: false,
+    roomCreateFailed: false,
     homeDialog: '',
     homeDialogBefore: null,
     homeNotice: '',
@@ -2916,16 +2934,24 @@ Page({
 
   createCloudRoom() {
     const that = this;
+    const code = this.room.code;
+    const ownerUid = this.profile.uid;
+    this.ui.roomCreating = true;
+    this.ui.roomCreateFailed = false;
+    this.refresh('正在创建云端房间…');
     // 大厅阶段不写牌局快照，等房主点「开始牌局」时再落 state，
     // 否则好友入席时会拿到一副还没开始的牌。
     return R.cloudCreateRoom(this.room, null).then(function (res) {
+      if (that._unloaded || that._cloudCode !== code || that.profile.uid !== ownerUid) return;
+      that.ui.roomCreating = false;
       if (res.ok) {
         that._roomVersion = res.version;
         that.saveSession();
         that.ui.roomNotice = '房间 ' + that.room.code + ' 已同步到云端，分享给好友即可跨设备加入';
         that.startCloudPolling();
       } else if (!res.offline) {
-        that.ui.roomNotice = '云端同步不可用：' + res.error + '（本机房间仍可开局）';
+        that.ui.roomCreateFailed = true;
+        that.ui.roomNotice = '云端房间尚未创建完成：' + res.error + '。主题与设置已保留，请重试。';
       }
       that.refresh('');
     });
@@ -3884,7 +3910,8 @@ Page({
     this.ui.homeDialogBefore = {
       soloCount: this.ui.soloCount,
       roomCount: this.ui.roomCount,
-      turnLimit: this.ui.turnLimit
+      turnLimit: this.ui.turnLimit,
+      roomThemeId: this.ui.roomThemeId
     };
     this.ui.homeDialog = kind;
     this.ui.homeNotice = '';
@@ -3932,6 +3959,44 @@ Page({
     this.ui.homeDialog = '';
     this.ui.homeNotice = '';
     this.refresh('');
+  },
+
+  onSelectRoomTheme(event) {
+    if (this.ui.screen !== 'home' || this.ui.homeDialog !== 'create') return;
+    const id = event.currentTarget.dataset.id;
+    if (!T.has(id)) return;
+    this.ui.roomThemeId = id;
+    this.refresh('');
+  },
+
+  onRetryCreateRoom() {
+    if (!this.room || this.mySeat !== 0 || this.ui.roomCreating || !this.ui.roomCreateFailed) return;
+    const that = this;
+    const code = this.room.code;
+    const ownerUid = this.profile.uid;
+    this.ui.roomCreating = true;
+    this.refresh('正在确认房间状态…');
+    // A failed response may follow an accepted write. Read before retrying so
+    // an upsert cannot reset the version or overwrite members who already joined.
+    return R.cloudPullRoom(code).then(function (res) {
+      if (that._unloaded || that._cloudCode !== code || that.profile.uid !== ownerUid) return;
+      if (res.ok && res.room.hostUid === ownerUid && res.room.status !== 'ended') {
+        that.room = Object.assign({}, res.room, { mode: 'room' });
+        that._roomVersion = res.version;
+        that.ui.roomCreating = false;
+        that.ui.roomCreateFailed = false;
+        that.ui.roomNotice = '已恢复云端房间，主题与成员状态已同步';
+        that.saveSession();
+        that.startCloudPolling();
+        that.refresh('');
+        if (res.room.status === 'playing') that.enterCloudGame();
+        return;
+      }
+      if (!res.ok && res.error === '云端未找到该房间') return that.createCloudRoom();
+      that.ui.roomCreating = false;
+      that.ui.roomNotice = res.ok ? '该房间已失效，请重新创建房间' : '暂时无法确认房间状态：' + res.error + '，请稍后重试';
+      that.refresh('');
+    });
   },
 
   onSelectSoloCount(event) {
@@ -4008,6 +4073,7 @@ Page({
   },
   /** 邀请好友：先开一间大厅，等好友入席并准备后再由房主开始 */
   onCreateRoom() {
+    if (this.ui.screen !== 'home' || this.ui.roomCreating) return;
     if (R.requiresWechatLogin() && !U.wechatLoginStatus().authenticated) {
       this.ui.homeNotice = U.wechatLoginStatus().error || '请先完成微信登录';
       this.ui.homeDialog = 'create';
@@ -4058,8 +4124,11 @@ Page({
       seats: seats,
       profile: profile,
       status: 'lobby',
-      turnLimit: this.ui.turnLimit
+      turnLimit: this.ui.turnLimit,
+      themeId: this.ui.roomThemeId
     });
+    this.ui.roomCreating = R.hasCloud();
+    this.ui.roomCreateFailed = false;
     this.room.mode = 'room';
     this._cloudCode = this.room.code;
     this.ui.turnLimit = this.room.turnLimit;
@@ -4084,7 +4153,7 @@ Page({
       const o = old[i];
       if (o && o.joined && !o.isAI && o.uid) base[i] = Object.assign({}, o, { index: i });
     }
-    return base;
+    return T.withRoomTheme(base, T.roomId(this.room));
   },
 
   updateCloudRoom(patch) {
@@ -4232,6 +4301,7 @@ Page({
     this.state = E.createGame({ playerCount: seats.length, seats: seats });
     // 回合计时随房间配置下发，所有设备看到同一份限时
     this.state.turnLimit = R.normTurnLimit(this.room.turnLimit);
+    this.state.themeId = T.roomId(this.room);
     this.room.seats = seats;
     this.room.status = 'playing';
     this.room.playerCount = seats.length;

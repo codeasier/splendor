@@ -40,6 +40,10 @@
       },
       {
         "type": "folder",
+        "value": ".worktrees"
+      },
+      {
+        "type": "folder",
         "value": "docs"
       },
       {
