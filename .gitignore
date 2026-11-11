@@ -28,3 +28,4 @@ preview/shots/
 
 # 并行会话使用的 git worktree（内含整份工程副本，不入库也不打包）
 .agents/
+.worktrees/

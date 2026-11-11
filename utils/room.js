@@ -94,8 +94,11 @@ const PRESET_AVATARS = [
   { key: 'a7', name: '紫晶使节', hue: '#8a6bb0' }
 ];
 
-/* 回合计时：0 表示不限时。存进房间行，开局时随快照下发。 */
+/* 回合计时：0 表示不限时。存进房间行，开局时随快照下发。
+   10 / 30 秒是快棋档；按秒数升序排列，设置行跟时钟读法一致。 */
 const TURN_LIMITS = [
+  { value: 10, label: '10 秒' },
+  { value: 30, label: '30 秒' },
   { value: 60, label: '60 秒' },
   { value: 90, label: '90 秒' },
   { value: 120, label: '120 秒' },

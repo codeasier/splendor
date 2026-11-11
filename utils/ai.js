@@ -99,8 +99,11 @@ function chooseAction(state) {
   }
 
   if (state.pendingDiscard > 0) {
+    // 引擎支持逐次退还：凑不够整批也要先退一部分把回合往前推。
+    // 旧实现凑不齐就返回 pass，而 pendingDiscard>0 时引擎必定拒绝 pass，
+    // 超时托管循环因此再也走不动，牌局永久卡在退还阶段。
     const gems = pickDiscard(p, state.pendingDiscard);
-    if (gems.length === state.pendingDiscard) return { type: 'discard', gems: gems };
+    if (gems.length) return { type: 'discard', gems: gems };
     return { type: 'pass' };
   }
 

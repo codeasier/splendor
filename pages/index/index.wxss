@@ -1068,6 +1068,29 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .vault-coin.can-discard { border-color: #ff9a6a; animation: vaultPulse 1.2s infinite; cursor: pointer; }
 .vault-coin.can-discard.is-zero { animation: none; border-color: rgba(255, 154, 106, .3); }
 .vault-coin.is-picked { border-color: #ff6a5c; background: linear-gradient(180deg, rgba(120, 40, 46, .98), rgba(48, 12, 16, .99)); }
+/* 退还篮同色多枚：右上角金章显示已选枚数，右下「−」逐枚撤回。
+   两者都叠在圆格上，不占操作区的垂直高度；选择器要比 `.vault-coin text` 更具体，
+   否则继承 18px 白字会把小角标撑爆。 */
+.vault-coin .vault-picked-badge {
+  position: absolute; top: -8px; right: -9px; z-index: 4;
+  min-width: 19px; height: 19px; padding: 0 3px; box-sizing: border-box;
+  border-radius: 10px; line-height: 18px; text-align: center;
+  font-family: Georgia, serif; font-size: 11px; font-weight: 700;
+  color: #341705; text-shadow: none;
+  background: linear-gradient(180deg, #ffe6b3, #df9a42);
+  border: 1px solid #fff2d0; box-shadow: 0 2px 6px rgba(0, 0, 0, .72);
+}
+.vault-coin .vault-picked-minus {
+  position: absolute; bottom: -7px; right: -8px; z-index: 5;
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, #832b34, #41121c);
+  border: 1px solid #ffb18c; box-shadow: 0 2px 6px rgba(0, 0, 0, .72);
+}
+.vault-coin .vault-picked-minus text {
+  font-family: Georgia, serif; font-size: 15px; line-height: 1;
+  color: #ffe7c4; text-shadow: 0 1px 2px #000;
+}
 
 /* 操作区：本次选择与确认（唯一主按钮就在这里）
    高度 108：标题行 15 + 明细 15 + 总量 18 + 主按钮 46 + 说明 12，间距 2。
@@ -2569,3 +2592,270 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .invite-toast-btns { display: flex; gap: 8px; margin-top: 2px; }
 .invite-toast-go { flex: 1; min-height: 34px; justify-content: center; font-size: 13.5px; }
 .invite-toast-no { flex-shrink: 0; min-height: 34px; padding: 0 14px; font-size: 12.5px; }
+
+/* ========== 局内快捷聊天 ==========
+   整层 z-index 11：高于托盘(9)，低于换手提醒(15)/展演(16)/弹层(20)。
+   容器与气泡一律 pointer-events:none，只有面板本体接管点击，
+   否则气泡会吃掉右侧筹码堆的触摸事件。 */
+.chat-trigger { background: linear-gradient(180deg, #5b3a4e, #2a1622); }
+.chat-trigger.is-open { border-color: #ffe4a1; box-shadow: 0 0 0 2px rgba(255, 220, 150, .35); }
+
+.chat-layer {
+  position: absolute; right: 16px; width: 300px; z-index: 11;
+  pointer-events: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+}
+.chat-panel {
+  width: 300px; box-sizing: border-box; pointer-events: auto;
+  padding: 10px; border-radius: 10px;
+  border: 1px solid rgba(240, 205, 140, .55);
+  background: linear-gradient(180deg, rgba(48, 26, 36, .97), rgba(20, 11, 18, .97));
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 240, 200, .16);
+  animation: dialogIn 180ms cubic-bezier(.2, .8, .3, 1) both;
+}
+.chat-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.chat-tabs { display: flex; gap: 6px; }
+.chat-tab {
+  padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  color: #ddc7a4; border: 1px solid rgba(226, 190, 126, .35); background: rgba(9, 9, 13, .35);
+}
+.chat-tab.is-active { color: #2a1807; border-color: #f4d48d; background: linear-gradient(180deg, #ffe4a1, #c89238); }
+.chat-close {
+  width: 26px; height: 26px; border-radius: 6px; text-align: center; line-height: 24px;
+  font-size: 17px; color: #e8cfa4; border: 1px solid rgba(226, 190, 126, .35); background: rgba(9, 9, 13, .35);
+}
+.chat-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.chat-grid.is-text { flex-direction: column; }
+.chat-item.is-text {
+  padding: 7px 9px; border-radius: 6px; font-size: 12px; line-height: 1.35; color: #f2dfbd;
+  border: 1px solid rgba(226, 190, 126, .28); background: rgba(255, 240, 200, .06);
+}
+.chat-item.is-text:active { background: rgba(255, 225, 160, .2); }
+.chat-item.is-emoji {
+  width: 64px; height: 58px; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border-radius: 8px; border: 1px solid rgba(226, 190, 126, .28); background: rgba(255, 240, 200, .06);
+}
+.chat-item.is-emoji:active { background: rgba(255, 225, 160, .2); }
+.chat-item-icon { font-size: 26px; line-height: 1; }
+.chat-item-label { font-size: 10px; color: #dcc39a; }
+.chat-panel-note { display: block; margin-top: 8px; font-size: 10px; color: #a89072; text-align: center; }
+
+.chat-feed { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; width: 300px; }
+.chat-bubble {
+  max-width: 300px; display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 10px 10px 3px 10px;
+  font-size: 12px; line-height: 1.35; color: #fff3dd;
+  border: 1px solid rgba(255, 220, 150, .45);
+  background: linear-gradient(180deg, rgba(74, 38, 52, .94), rgba(32, 16, 26, .94));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .45);
+  animation: chatBubbleLife 2800ms ease-out both;
+}
+.chat-bubble.is-mine {
+  border-color: rgba(160, 230, 190, .5);
+  background: linear-gradient(180deg, rgba(30, 74, 58, .94), rgba(14, 36, 30, .94));
+}
+.chat-bubble.is-emoji { font-size: 13px; }
+.chat-bubble-seat { flex: 0 0 auto; font-size: 10px; color: #f0ce8e; opacity: .9; }
+.chat-bubble-icon { font-size: 18px; line-height: 1; }
+.chat-bubble-text { flex: 1; min-width: 0; }
+
+.chat-fly {
+  position: absolute; left: 0; top: 0; width: 1080px; height: 560px;
+  z-index: 16; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  animation: chatFlyLife 1600ms ease-out both;
+}
+.chat-fly-emoji {
+  font-size: 150px; line-height: 1; text-shadow: 0 10px 18px rgba(0, 0, 0, .6);
+  animation: chatEmojiPop 1600ms cubic-bezier(.18, .9, .28, 1) both;
+}
+.chat-fly-label {
+  font-size: 26px; font-weight: 700; letter-spacing: 6px; color: #ffe9b8;
+  text-shadow: 0 3px 12px rgba(0, 0, 0, .85);
+  animation: chatFlyLabel 1600ms ease-out both;
+}
+
+@keyframes chatBubbleLife {
+  0%   { opacity: 0; transform: translateX(28px) scale(.88); }
+  8%   { opacity: 1; transform: translateX(0) scale(1); }
+  85%  { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(12px) scale(.96); }
+}
+@keyframes chatFlyLife { 0% { opacity: 0; } 12% { opacity: 1; } 76% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes chatEmojiPop {
+  0%   { opacity: 0; transform: scale(.2) rotate(-24deg) translateY(60px); }
+  28%  { opacity: 1; transform: scale(1.25) rotate(8deg) translateY(0); }
+  45%  { transform: scale(1) rotate(-4deg); }
+  62%  { transform: scale(1.08) rotate(3deg); }
+  100% { transform: scale(1.35) rotate(0deg) translateY(-30px); }
+}
+@keyframes chatFlyLabel {
+  0%   { opacity: 0; transform: scale(.6); }
+  25%  { opacity: 1; transform: scale(1); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.1); }
+}
+
+/* ========== 表情第二步：选择目标玩家 ==========
+   复用聊天面板的 300px 宽，4 个席位一行两个刚好；
+   目标卡只有头像 + 昵称 + 号位，不做复杂信息，避免挑人时读半天。 */
+.chat-target { display: flex; flex-direction: column; gap: 8px; }
+.chat-pending {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border-radius: 7px; border: 1px solid rgba(240, 205, 140, .4);
+  background: rgba(255, 235, 190, .08);
+}
+.chat-pending-icon { font-size: 24px; line-height: 1; }
+.chat-pending-text { flex: 1; font-size: 11px; color: #ffe9bd; }
+.chat-target-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.chat-target-item {
+  width: 68px; box-sizing: border-box; padding: 6px 3px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  border-radius: 8px; border: 1px solid rgba(226, 190, 126, .32);
+  background: rgba(255, 240, 200, .06);
+}
+.chat-target-item.is-self { border-color: rgba(140, 230, 190, .65); background: rgba(30, 80, 62, .28); }
+.chat-target-item:active { background: rgba(255, 225, 160, .2); }
+.chat-target-avatar {
+  width: 34px; height: 34px; border-radius: 50%; overflow: hidden;
+  border: 1px solid rgba(255, 226, 170, .6); background: rgba(0, 0, 0, .35);
+  display: flex; align-items: center; justify-content: center;
+}
+.chat-target-avatar image { width: 100%; height: 100%; }
+.chat-target-avatar.is-preset text { font-size: 15px; color: #fff3d8; text-shadow: 0 1px 3px #000; }
+.chat-target-name {
+  font-size: 11px; color: #f4e0bb; max-width: 62px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chat-target-seat { font-size: 9px; color: #b89b75; }
+.chat-target-back {
+  padding: 6px 10px; text-align: center; font-size: 11px; color: #e8cfa4;
+  border: 1px solid rgba(226, 190, 126, .35); border-radius: 6px; background: rgba(9, 9, 13, .35);
+}
+.chat-bubble-target { flex: 0 0 auto; font-size: 10px; color: #ffcf8a; }
+
+/* ========== 定向表情：飞向目标头像 + 命中特效 ==========
+   整层 pointer-events:none，z-index 17 高于动作展演(16)、低于弹层(20)。
+   起点由 inline style 给 left/top，位移由 --dx/--dy 给 keyframes，
+   与 showcase 的 --from-x/--from-y 是同一套机制。 */
+.chat-projectile-layer {
+  position: absolute; left: 0; top: 0; width: 1080px; height: 560px;
+  z-index: 17; pointer-events: none;
+}
+.chat-projectile {
+  position: absolute; width: 56px; height: 56px; margin: -28px 0 0 -28px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 48px; line-height: 1; text-shadow: 0 6px 12px rgba(0, 0, 0, .7);
+  animation: chatGiftFlight 1500ms cubic-bezier(.25, .65, .35, 1) both;
+}
+.chat-projectile.is-throw { animation-name: chatThrowFlight; }
+.chat-projectile.is-gift { animation-name: chatGiftFlight; }
+.chat-splat {
+  position: absolute; width: 92px; height: 92px; margin: -46px 0 0 -46px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; color: #fff2cf;
+  background: radial-gradient(circle, rgba(226, 58, 42, .92) 0%, rgba(176, 32, 26, .7) 45%, rgba(150, 26, 20, 0) 72%);
+  box-shadow: 0 0 0 4px rgba(255, 170, 90, .35), 0 0 22px rgba(255, 90, 50, .8);
+  text-shadow: 0 2px 5px #000;
+  animation: chatSplatLife 1500ms ease-out both;
+}
+.chat-gift-halo {
+  position: absolute; width: 92px; height: 92px; margin: -46px 0 0 -46px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 30px; border: 2px solid rgba(255, 228, 160, .8);
+  background: radial-gradient(circle, rgba(255, 224, 150, .32), rgba(255, 224, 150, 0) 70%);
+  box-shadow: 0 0 20px rgba(255, 214, 130, .7);
+  animation: chatHaloLife 1500ms ease-out both;
+}
+.chat-projectile-label {
+  position: absolute; margin-left: -110px; width: 220px; text-align: center;
+  transform: translateY(34px); white-space: nowrap;
+  font-size: 13px; font-weight: 700; color: #ffe9b8;
+  text-shadow: 0 2px 8px #000, 0 0 6px rgba(0, 0, 0, .9);
+  animation: chatProjectileLabel 1500ms ease-out both;
+}
+
+@keyframes chatThrowFlight {
+  0%   { opacity: 0; transform: translate(0, 0) scale(.45) rotate(-35deg); }
+  10%  { opacity: 1; transform: translate(0, -24px) scale(1) rotate(-15deg); }
+  62%  { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(30deg); }
+  72%  { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(1.45) rotate(45deg); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.5) rotate(50deg); }
+}
+@keyframes chatGiftFlight {
+  0%   { opacity: 0; transform: translate(0, 0) scale(.5); }
+  14%  { opacity: 1; transform: translate(0, -16px) scale(1); }
+  66%  { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(1.1); }
+  82%  { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(1.25); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.3) translateY(-14px); }
+}
+@keyframes chatSplatLife {
+  0%, 58% { opacity: 0; transform: scale(.2); }
+  66% { opacity: 1; transform: scale(.7); }
+  82% { opacity: .95; transform: scale(1.25); }
+  100% { opacity: 0; transform: scale(1.55); }
+}
+@keyframes chatHaloLife {
+  0%, 58% { opacity: 0; transform: scale(.3) rotate(-20deg); }
+  70% { opacity: 1; transform: scale(1) rotate(0deg); }
+  88% { opacity: .9; transform: scale(1.3) rotate(20deg); }
+  100% { opacity: 0; transform: scale(1.5) rotate(35deg); }
+}
+@keyframes chatProjectileLabel {
+  0%, 55% { opacity: 0; }
+  68% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ========== 天梯榜 ==========
+   930px 弹层内放 9 列：名次 44 + 玩家 210 + 7 个指标列等分。
+   表格限高滚动，避免 50 行把 560 舞台撑破；表头不随滚动（sticky 省略，
+   行高固定 34px，滚动时列名由 dialog-sub 兜住说明）。
+   字号下限：844×390 下 scale≈0.696，舞台字 10px 只剩 ~7 物理像素。
+   榜单是「一眼扫九列」的读表场景，表头 / 数值 / 评分口径统一不低于 12px；
+   只有「你 / 观察期」这类带底色胶囊的辅助角标允许 10px。 */
+.leaderboard-dialog { width: 930px; }
+.leaderboard-body { display: flex; flex-direction: column; gap: 8px; }
+.leaderboard-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 12px; }
+.leaderboard-source { color: #c9ac81; }
+.leaderboard-my { color: #ffe4a8; font-weight: 700; }
+.leaderboard-provisional { color: #ffb98a; }
+.leaderboard-table {
+  max-height: 264px; overflow-y: auto; box-sizing: border-box;
+  border: 1px solid rgba(226, 190, 126, .38); border-radius: 6px;
+  background: rgba(12, 7, 11, .42);
+}
+.leaderboard-row {
+  display: flex; align-items: center; height: 34px; padding: 0 6px;
+  border-bottom: 1px solid rgba(226, 190, 126, .16);
+  font-size: 12px; color: #f0dcb8;
+}
+.leaderboard-row.is-head {
+  height: 30px; font-weight: 700; color: #ffe0a0; font-size: 12px;
+  background: linear-gradient(180deg, rgba(94, 56, 72, .95), rgba(44, 22, 32, .95));
+  border-bottom-color: rgba(226, 190, 126, .45);
+}
+.leaderboard-row.is-me { background: rgba(54, 122, 96, .26); }
+.leaderboard-row:last-child { border-bottom: none; }
+.lb-c-rank { flex: 0 0 44px; text-align: center; }
+.lb-c-name { flex: 0 0 210px; display: flex; align-items: center; gap: 5px; min-width: 0; }
+.lb-c-num { flex: 1; text-align: center; }
+.lb-c-num.is-score { color: #ffd884; font-weight: 700; font-size: 15px; }
+.lb-avatar {
+  width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; overflow: hidden;
+  border: 1px solid rgba(255, 226, 170, .55); background: rgba(0, 0, 0, .4);
+  display: flex; align-items: center; justify-content: center;
+}
+.lb-avatar image { width: 100%; height: 100%; }
+.lb-avatar.is-preset { background: linear-gradient(150deg, #7a4a5e, #24121c); }
+.lb-avatar.is-preset text { font-size: 12px; color: #fff3d8; }
+.lb-name { max-width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-me, .lb-provisional {
+  flex-shrink: 0; font-size: 10px; padding: 1px 4px; border-radius: 4px;
+  border: 1px solid rgba(255, 220, 150, .45); color: #ffe4b0;
+}
+.lb-provisional { border-color: rgba(255, 170, 120, .45); color: #ffb98a; }
+.leaderboard-empty { padding: 20px; text-align: center; font-size: 12px; color: #c9ac81; }
+.leaderboard-formula { font-size: 12px; line-height: 1.45; color: #c6a981; }
+.leaderboard-note { font-size: 11px; line-height: 1.45; color: #aa8e6f; }

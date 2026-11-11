@@ -113,6 +113,8 @@
         <view class="round-btn" bindtap="onOpenProfile"><text>☻</text></view>
         <view class="round-btn" bindtap="onShowRules"><text>?</text></view>
         <view class="round-btn" bindtap="onRestart"><text>↺</text></view>
+        <!-- 局内快捷聊天入口：面板从顶栏下方展开，不占牌桌常驻空间 -->
+        <view class="round-btn chat-trigger {{chat.open ? 'is-open' : ''}}" bindtap="onToggleChatPanel" hover-class="round-btn-hover"><text>💬</text></view>
       </view>
     </view>
 
@@ -324,9 +326,14 @@
           <text class="vault-label">持有筹码</text>
           <view class="vault-row vault-row-token">
             <view wx:for="{{me.res.tokens}}" wx:key="key"
-                  class="vault-coin gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}} {{item.wide ? 'is-wide' : ''}} {{item.light ? 'is-light' : ''}} {{item.isGold ? 'is-gold' : ''}} {{needDiscard ? 'can-discard' : ''}} {{(needDiscard && !item.zero) ? 'is-picked' : ''}}"
+                  class="vault-coin gem-icon {{item.gemClass}} {{item.zero ? 'is-zero' : ''}} {{item.wide ? 'is-wide' : ''}} {{item.light ? 'is-light' : ''}} {{item.isGold ? 'is-gold' : ''}} {{needDiscard ? 'can-discard' : ''}} {{(needDiscard && item.pickedCount > 0) ? 'is-picked' : ''}}"
                   bindtap="onTapMyToken" data-key="{{item.key}}" hover-class="vault-hover">
               <text class="vault-coin-num">{{item.numText}}</text>
+              <!-- 官方规则允许同色退多枚：角标显示已选枚数，「−」按钮逐枚撤回。
+                   两者与「点筹码加一枚」分开，避免再点同色被误当成撤回。 -->
+              <text wx:if="{{needDiscard && item.pickedCount > 0}}" class="vault-picked-badge">−{{item.pickedCount}}</text>
+              <view wx:if="{{needDiscard && item.pickedCount > 0}}" class="vault-picked-minus"
+                    catchtap="onRemoveDiscardPlan" data-key="{{item.key}}"><text>−</text></view>
             </view>
           </view>
         </view>
@@ -432,6 +439,80 @@
         </view>
       </view>
     </view>
+
+    <!-- ========== 局内快捷聊天：气泡 / 面板 / 大表情 ==========
+         整层 pointer-events:none，只有面板本体接管点击；
+         气泡与大表情永远不会拦截卡牌、筹码、确认按钮。 -->
+    <view class="chat-layer" style="top:{{chatPanelTop}}px;">
+      <view wx:if="{{chat.open}}" class="chat-panel" catchtap="noop">
+        <view class="chat-panel-head">
+          <view class="chat-tabs">
+            <view class="chat-tab {{chat.isText ? 'is-active' : ''}}" bindtap="onSwitchChatTab" data-tab="text"><text>快捷语</text></view>
+            <view class="chat-tab {{chat.isEmoji ? 'is-active' : ''}}" bindtap="onSwitchChatTab" data-tab="emoji"><text>表情</text></view>
+          </view>
+          <view class="chat-close" bindtap="onCloseChatPanel"><text>×</text></view>
+        </view>
+        <!-- 两个 tab 用互斥 wx:if，不用 wx:elif：H5 预览编译器不支持 elif -->
+        <view wx:if="{{chat.isText}}" class="chat-grid is-text">
+          <view wx:for="{{chat.texts}}" wx:key="id" class="chat-item is-text"
+                bindtap="onSendQuickChat" data-kind="text" data-id="{{item.id}}"><text>{{item.text}}</text></view>
+        </view>
+        <!-- 表情分两步：先挑表情（isPick），再挑目标玩家（isTarget）。
+             两个 wx:if 互斥，不用 wx:elif（H5 预览编译器不支持）。 -->
+        <view wx:if="{{chat.isEmoji && chat.isPick}}" class="chat-grid is-emoji">
+          <view wx:for="{{chat.emojis}}" wx:key="id" class="chat-item is-emoji"
+                bindtap="onSendQuickChat" data-kind="emoji" data-id="{{item.id}}">
+            <text class="chat-item-icon">{{item.icon}}</text>
+            <text class="chat-item-label">{{item.label}}</text>
+          </view>
+        </view>
+        <view wx:if="{{chat.isEmoji && chat.isTarget}}" class="chat-target">
+          <view class="chat-pending">
+            <text class="chat-pending-icon">{{chat.pending.icon}}</text>
+            <text class="chat-pending-text">已选「{{chat.pending.label}}」· 选择要投给的玩家</text>
+          </view>
+          <view class="chat-target-grid">
+            <view wx:for="{{chat.targets}}" wx:key="seat" class="chat-target-item {{item.isSelf ? 'is-self' : ''}}"
+                  bindtap="onPickChatTarget" data-seat="{{item.seat}}">
+              <view wx:if="{{item.avatarUrl}}" class="chat-target-avatar"><image src="{{item.avatarUrl}}" mode="aspectFill"></image></view>
+              <view wx:else class="chat-target-avatar is-preset"
+                    style="background:radial-gradient(circle at 32% 24%, rgba(255,240,210,.55), {{item.avatarHue}} 52%, rgba(20,10,16,.92) 100%);"><text>{{item.initial}}</text></view>
+              <text class="chat-target-name">{{item.name}}</text>
+              <text class="chat-target-seat">{{item.seatSub}}</text>
+            </view>
+          </view>
+          <view class="btn chat-target-back" bindtap="onCancelChatTarget">返回选表情</view>
+        </view>
+        <text wx:if="{{chat.isText}}" class="chat-panel-note">仅可发送预设短语与表情，点选后立即发出</text>
+        <text wx:if="{{chat.isEmoji && chat.isPick}}" class="chat-panel-note">选表情后需再选一名玩家，动画会飞到他的头像上</text>
+        <text wx:if="{{chat.isEmoji && chat.isTarget}}" class="chat-panel-note">点目标头像即发送，投掷类会命中并溅开</text>
+      </view>
+
+      <view wx:if="{{!chat.open}}" class="chat-feed">
+        <view wx:for="{{chat.bubbles}}" wx:key="id"
+              class="chat-bubble {{item.mine ? 'is-mine' : ''}} {{item.isEmoji ? 'is-emoji' : ''}}">
+          <text class="chat-bubble-seat">{{item.seatLabel}}</text>
+          <text wx:if="{{item.icon}}" class="chat-bubble-icon">{{item.icon}}</text>
+          <text class="chat-bubble-text">{{item.name}}：{{item.text}}</text>
+          <text wx:if="{{item.targetLabel}}" class="chat-bubble-target">{{item.targetLabel}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 定向表情：从发送者头像飞到目标头像上，投掷类命中溅开、递送类亮光环。
+         整层 pointer-events:none，动画期间绝不拦牌桌操作。 -->
+    <view wx:for="{{chat.projectiles}}" wx:key="id" class="chat-projectile-layer">
+      <view class="chat-projectile {{item.isThrow ? 'is-throw' : 'is-gift'}}" style="{{item.motionStyle}}"><text>{{item.icon}}</text></view>
+      <view wx:if="{{item.isThrow}}" class="chat-splat" style="{{item.targetStyle}}"><text>啪！</text></view>
+      <view wx:if="{{item.isGift}}" class="chat-gift-halo" style="{{item.targetStyle}}"><text>✨</text></view>
+      <text class="chat-projectile-label" style="{{item.targetStyle}}">{{item.fromLabel}} → {{item.toLabel}} · {{item.label}}</text>
+    </view>
+
+    <!-- 旧版全屏大表情：节点保留（兼容机器人回应与旧快照），玩家主动发送已改走定向动画 -->
+    <view wx:for="{{chat.flyList}}" wx:key="id" class="chat-fly">
+      <view class="chat-fly-emoji"><text>{{item.icon}}</text></view>
+      <text class="chat-fly-label">{{item.label}}</text>
+    </view>
     </view>
     <!-- ========== /牌桌图层 ========== -->
 
@@ -500,6 +581,7 @@
           <text>好友</text>
           <view wx:if="{{friendsPanel.onlineCount > 0}}" class="guild-nav-badge">{{friendsPanel.onlineCount}}</view>
         </view>
+        <view class="guild-nav-item" bindtap="onOpenLeaderboard" hover-class="guild-nav-hover"><view class="guild-icon guild-icon-text">♛</view><text>天梯榜</text></view>
         <view class="guild-nav-item" bindtap="onOpenRecords" hover-class="guild-nav-hover"><view class="guild-icon guild-icon-records"></view><text>对局战绩</text></view>
         <view class="guild-nav-item" bindtap="onShowRules" hover-class="guild-nav-hover"><view class="guild-icon guild-icon-book"></view><text>游戏规则</text></view>
         <view class="guild-nav-item" bindtap="onOpenHomeDialog" data-kind="solo" hover-class="guild-nav-hover"><view class="guild-icon guild-icon-settings"></view><text>对局设置</text></view>
@@ -775,9 +857,10 @@
           <text class="rule-item">2. 每回合四选一：拿 3 枚不同色筹码（或同色 2 枚，该色需剩 ≥4）、预留 1 张卡并拿 1 枚黄金、购买 1 张桌面卡或预留卡。</text>
           <text class="rule-item">3. 卡牌左下角气泡是卡面印刷成本（原作数值，不随你的筹码变化）；每持有 1 张同色发展卡，该色实付就减 1。桌面上绿框＝现有筹码直接可买，金框＝缺口需用黄金补齐。</text>
           <text class="rule-item">4. 发展卡提供声望与永久红利；贵族牌在回合末自动判定，满足红利要求即 +3 声望。每人筹码上限 10 枚，预留卡上限 3 张。已预留的卡就铺在桌面左侧，随时可点开购买。</text>
-          <text class="rule-item">5. 有人达到 15 声望后，其余玩家各再行动一回合即结算；同分时发展卡少者胜。</text>
+          <text class="rule-item">5. 有人达到 15 声望后打完本轮即结算（剩余席位各行动一次）；达标者若已是最后一号位则立即结算；同分时发展卡少者胜。</text>
           <text class="rule-item">6. 断线、切后台或重进小程序会自动回到原来的房间与座位；房主结束后房间失效，自动退回首页。</text>
-          <text class="rule-item">7. 房间可按 60 / 90 / 120 秒或不限时对局；超时的回合会由 AI 代打一手——自己超时本机代打，别人超时由房主在宽限 12 秒后接管。</text>
+          <text class="rule-item">7. 房间可按 10 / 30 / 60 / 90 / 120 秒或不限时对局；超时回合由机器人强制打完并结束（含退还筹码）——自己超时本机接管，别人超时由房主在宽限 12 秒后接管。</text>
+          <text class="rule-item">8. 回合末筹码超过 10 枚时，按官方规则可退还任意颜色的筹码（含黄金），同色可退多枚，只需退到 10 枚：重复点同一枚筹码即可累加，点筹码上的「−」逐枚撤回。</text>
           <text class="rule-note">牌组为官方 90 张逐张对应（一级 40 / 二级 30 / 三级 20），贵族 10 张；卡面插画取自 Cleveland Museum of Art 开放获取（CC0）绘画，牌序每局随机。</text>
         </view>
         <view class="dialog-btns">
@@ -856,6 +939,7 @@
 
         <view class="dialog-btns">
           <view class="btn btn-primary" bindtap="onRestart">再来一局</view>
+          <view class="btn" bindtap="onOpenLeaderboard">查看天梯</view>
           <view wx:if="{{roomMode}}" class="btn" bindtap="onOpenLobby">房间信息</view>
           <view class="btn" bindtap="onLeaveRoom">返回首页</view>
         </view>
@@ -1112,6 +1196,62 @@
     <view class="invite-toast-btns">
       <view class="btn btn-primary invite-toast-go" bindtap="onAcceptInvite">加入</view>
       <view class="btn invite-toast-no" bindtap="onDeclineInvite">忽略</view>
+    </view>
+  </view>
+
+  <!-- ========== 天梯榜：舞台级全局弹层，大厅 / 房间 / 牌桌 / 结算都能打开 ==========
+       六项指标全部由 utils/leaderboard.js 预先格式化，WXML 不做算术也不拼字符串。 -->
+  <view wx:if="{{showLeaderboard && leaderboard}}" class="overlay" bindtap="onCloseLeaderboard">
+    <view class="dialog leaderboard-dialog" catchtap="noop">
+      <view class="dialog-head">
+        <text class="dialog-title">天梯榜</text>
+        <text class="dialog-sub">胜场 · 最高胜场声望 · 场均声望 · 场均发展卡 · 场均贵族 · 回合平均耗时，综合评分排名</text>
+      </view>
+      <view class="leaderboard-body">
+        <view class="leaderboard-meta">
+          <text class="leaderboard-source">{{leaderboard.sourceLine}}</text>
+          <text wx:if="{{leaderboard.hasMe}}" class="leaderboard-my">我的排名 {{leaderboard.myRankText}}</text>
+          <text wx:if="{{leaderboard.provisional}}" class="leaderboard-provisional">{{leaderboard.needText}}</text>
+        </view>
+        <view class="leaderboard-table">
+          <view class="leaderboard-row is-head">
+            <text class="lb-c-rank">名次</text>
+            <text class="lb-c-name">玩家</text>
+            <text class="lb-c-num">综合分</text>
+            <text class="lb-c-num">胜场</text>
+            <text class="lb-c-num">最高胜场声望</text>
+            <text class="lb-c-num">场均声望</text>
+            <text class="lb-c-num">场均发展卡</text>
+            <text class="lb-c-num">场均贵族</text>
+            <text class="lb-c-num">回合平均耗时</text>
+          </view>
+          <view wx:for="{{leaderboard.rows}}" wx:key="uid" class="leaderboard-row {{item.isMe ? 'is-me' : ''}}">
+            <text class="lb-c-rank">{{item.rank}}</text>
+            <view class="lb-c-name">
+              <view wx:if="{{item.avatarUrl}}" class="lb-avatar"><image src="{{item.avatarUrl}}" mode="aspectFill"></image></view>
+              <view wx:else class="lb-avatar is-preset"><text>{{item.initial}}</text></view>
+              <text class="lb-name">{{item.name}}</text>
+              <text wx:if="{{item.isMe}}" class="lb-me">你</text>
+              <text wx:if="{{item.provisional}}" class="lb-provisional">观察期</text>
+            </view>
+            <text class="lb-c-num is-score">{{item.ratingText}}</text>
+            <text class="lb-c-num">{{item.winsText}}</text>
+            <text class="lb-c-num">{{item.bestWinText}}</text>
+            <text class="lb-c-num">{{item.avgScoreText}}</text>
+            <text class="lb-c-num">{{item.avgCardsText}}</text>
+            <text class="lb-c-num">{{item.avgNoblesText}}</text>
+            <text class="lb-c-num">{{item.avgTurnText}}</text>
+          </view>
+          <view wx:if="{{leaderboard.empty}}" class="leaderboard-empty">
+            <text>还没有榜单数据。打完一局并结算后，这里会出现你的成绩。</text>
+          </view>
+        </view>
+        <text class="leaderboard-formula">{{leaderboard.formulaText}}</text>
+        <text class="leaderboard-note">仅使用你主动填写的昵称、头像与对局结果；云端未连接时只展示本机战绩。平台规则以微信官方最新审核规范为准。</text>
+      </view>
+      <view class="dialog-btns">
+        <view class="btn btn-primary" bindtap="onCloseLeaderboard">关闭</view>
+      </view>
     </view>
   </view>
   </view>

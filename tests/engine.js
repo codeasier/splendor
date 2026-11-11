@@ -244,6 +244,43 @@ console.log('拿筹码组合门禁校验通过（同色 2 枚 / 3 不同色 / �
 }
 
 
+// 终局判定：达标后只打完本轮；最后一号位达标立即结算
+// ------------------------------------------------------------------
+// 官方规则：有人到 15 声望后，本轮剩余席位各行动一次即结算，保证回合数相同。
+// 旧实现无条件加 players.length-1 个回合，末位达标时会轮转回 1 号位凭空
+// 多打一整轮（2/3/4 人局全中）。这里逐个人数、逐个席位枚举验证。
+function endgameState(n, triggerSeat) {
+  const s = E.createGame(n, D.mulberry32(99));
+  s.current = triggerSeat;
+  s.turnCount = 10;
+  s.endAtTurn = -1;
+  s.nobles = [];                                  // 避免多贵族挂起干扰回合推进
+  s.players[triggerSeat].cards = [{ points: 15 }];
+  s.players[triggerSeat].nobles = [];
+  return s;
+}
+[2, 3, 4].forEach(function (n) {
+  for (let seat = 0; seat < n; seat++) {
+    const s = endgameState(n, seat);
+    const rest = n - 1 - seat;
+    const r = E.endTurn(s);
+    if (rest === 0) {
+      assert(s.gameOver === true, n + ' 人局末位(' + (seat + 1) + ' 号位)达标应立即结算');
+      assert(s.current === seat, n + ' 人局末位达标后不应再轮转回 1 号位');
+      assert(r.gameOver === true, '末位达标 endTurn 应返回 gameOver');
+    } else {
+      assert(s.gameOver === false, n + ' 人局 ' + (seat + 1) + ' 号位达标后不应立即结算');
+      assert(s.current === (seat + 1) % n, '达标后应正常轮转到下一席');
+      assert(s.endAtTurn === 11 + rest, '结算回合数应为 turnCount + 本轮剩余席位数');
+      let extra = 0;
+      while (!s.gameOver && extra < 10) { E.endTurn(s); extra += 1; }
+      assert(s.gameOver === true, n + ' 人局本轮走完应结算');
+      assert(extra === rest, n + ' 人局 ' + (seat + 1) + ' 号位达标后应再走 ' + rest + ' 席，实际 ' + extra);
+    }
+  }
+});
+console.log('终局判定：2/3/4 人局共 9 个席位达标场景全部正确');
+
 // 多局 AI 自动对战（用可复现随机源覆盖不同牌序）
 let finished = 0, minSteps = Infinity, maxSteps = 0, totalSteps = 0, maxPoints = 0;
 let stalemates = 0;
@@ -273,4 +310,37 @@ for (let k = 1; k <= GAMES; k++) {
 console.log('AI 自动对战 ' + GAMES + ' 局全部正常结束');
 console.log('回合步数 min/avg/max = ' + minSteps + ' / ' + (totalSteps / GAMES).toFixed(1) + ' / ' + maxSteps);
 console.log('最高声望 = ' + maxPoints + '，僵局提前结算局数 = ' + stalemates);
+// 官方规则「Selecting Tokens」：回合末 >10 枚时可退还任意颜色组合，
+// 包含同色多枚与黄金，不限颜色种类，只要退到 ≤10。引擎层必须逐一放行。
+{
+  const s = E.createGame(2, D.mulberry32(777));
+  s.current = 0;
+  s.pendingDiscard = 3;
+  s.players[0].tokens = { white: 5, blue: 1, green: 0, red: 0, black: 0, gold: 0 };
+  s.bank = { white: 0, blue: 0, green: 0, red: 0, black: 0, gold: 0 };
+  const r = E.performAction(s, { type: 'discard', gems: ['white', 'white', 'white'] });
+  assert(r.ok, '同色 3 枚一次性退还必须合法: ' + (r.error || ''));
+  assert(s.players[0].tokens.white === 2, '同色退还后持有量正确');
+  assert(s.bank.white === 3, '同色退还后银行回补 3 枚');
+  assert(s.pendingDiscard === 0, '一次退完应解除待退还状态');
+
+  const s2 = E.createGame(2, D.mulberry32(778));
+  s2.current = 0;
+  s2.pendingDiscard = 3;
+  s2.players[0].tokens = { white: 2, blue: 1, green: 0, red: 0, black: 0, gold: 2 };
+  const r2 = E.performAction(s2, { type: 'discard', gems: ['gold', 'gold', 'blue'] });
+  assert(r2.ok, '黄金可与普通色混合、同色多枚退还: ' + (r2.error || ''));
+  assert(s2.players[0].tokens.gold === 0, '黄金退还成功');
+
+  const s3 = E.createGame(2, D.mulberry32(779));
+  s3.current = 0;
+  s3.pendingDiscard = 2;
+  s3.players[0].tokens = { white: 1, blue: 0, green: 0, red: 0, black: 0, gold: 0 };
+  const r3 = E.performAction(s3, { type: 'discard', gems: ['white', 'white'] });
+  assert(!r3.ok, '退还数量超过持有量必须拒绝');
+  const r4 = E.performAction(s3, { type: 'discard', gems: ['white', 'bogus'] });
+  assert(!r4.ok, '非法颜色必须拒绝');
+  console.log('退还规则：同色多枚 / 混合黄金 / 超量拦截全部正确');
+}
+
 console.log('ALL PASS');

@@ -33,6 +33,8 @@ const steps = [
   ['用户系统与战绩', 'tests/user.js'],
   ['微信登录与账号隔离', 'tests/wechat-login.js'],
   ['好友体系与邀请', 'tests/friend.js'],
+  ['局内快捷聊天', 'tests/chat.js'],
+  ['天梯榜指标与排名', 'tests/leaderboard.js'],
   ['页面运行时模拟', 'tests/page-runtime.js'],
   ['H5 预览页渲染与交互', 'tests/preview.js']
 ];

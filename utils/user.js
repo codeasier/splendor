@@ -275,6 +275,10 @@ function addRecord(input, profile) {
     win: !!src.win,
     tie: !!src.tie,
     turns: Math.max(0, Number(src.turns) || 0),
+    // 天梯榜指标：旧记录缺这三项时记 0，不影响既有战绩展示
+    cards: Math.max(0, Number(src.cards) || 0),
+    nobles: Math.max(0, Number(src.nobles) || 0),
+    turnAvgMs: Math.max(0, Number(src.turnAvgMs) || 0),
     at: Number(src.at) || Date.now(),
     roomCode: src.roomCode || '',
     opponents: (src.opponents || []).slice(0, 3)

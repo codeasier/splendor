@@ -52,7 +52,7 @@ assert(a.page, 'Page 实例应已挂载');
 const homeHtml = a.host.innerHTML;
 console.log('入口界面 HTML 长度:', homeHtml.length);
 assert(a.page.data.screen === 'home', '默认应停在入口界面');
-['经典对局', '快速开始', '人机对战', '创建房间', '加入房间', '对局战绩', '游戏规则', '对局设置'].forEach(function (label) {
+['经典对局', '快速开始', '人机对战', '创建房间', '加入房间', '天梯榜', '对局战绩', '游戏规则', '对局设置'].forEach(function (label) {
   assert(homeHtml.indexOf(label) > 0, '商会大厅入口缺失：' + label);
 });
 ['guild-scenery', 'guild-panel', 'guild-nav'].forEach(function (cls) {
@@ -367,6 +367,114 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
   console.log('好友弹层：账号 ID / 空态 / 在线态 / 邀请提醒 OK');
 }
 
+// 3.06 局内快捷聊天：面板 / 互斥 tab / 预设文案 / 气泡 / 大表情飞入
+{
+  assert(page.ui.screen === 'game', '聊天用例应在牌桌屏执行');
+  click('onToggleChatPanel');
+  let ch = a.host.innerHTML;
+  assert(ch.indexOf('class="chat-panel"') > 0, '应渲染快捷聊天面板');
+  assert(ch.indexOf('class="chat-grid is-text"') > 0, '默认应停在「快捷语」tab');
+  assert(ch.indexOf('class="chat-grid is-emoji"') < 0, '两个 tab 必须互斥，不能同时渲染');
+  assert(ch.indexOf('快点吧，等到花儿都谢了') > 0, '快捷语应含斗地主式催牌预设');
+  assert(ch.indexOf('仅可发送预设短语与表情') > 0, '面板应明示不开放自由输入');
+
+  click('onSwitchChatTab', { tab: 'emoji' });
+  ch = a.host.innerHTML;
+  assert(ch.indexOf('class="chat-grid is-emoji"') > 0, '切到表情应渲染表情格');
+  assert(ch.indexOf('class="chat-grid is-text"') < 0, '切到表情后快捷语格必须消失');
+  assert(ch.indexOf('💣') > 0, '炸弹表情应渲染');
+  assert((ch.match(/data-kind="emoji"/g) || []).length >= 8, '应输出至少 8 个表情按钮');
+
+  // 表情必须选一名玩家，动画才会飞到那个头像上
+  click('onSendQuickChat', { kind: 'emoji', id: 'e9' });
+  ch = a.host.innerHTML;
+  assert(page.data.chat.isTarget === true, '选表情后应进入选目标阶段');
+  assert(ch.indexOf('class="chat-target"') > 0, '应渲染目标选择面板');
+  assert(ch.indexOf('class="chat-grid is-emoji"') < 0, '选目标时表情格必须消失');
+  assert(ch.indexOf('🍅') > 0, '应显示已选中的西红柿');
+  assert((ch.match(/data-seat="/g) || []).length >= 2, '每个席位都要有可点击的目标');
+
+  click('onPickChatTarget', { seat: 1 });
+  ch = a.host.innerHTML;
+  assert(page.data.chat.open === false, '选定目标后面板应自动收起');
+  assert(ch.indexOf('class="chat-feed"') > 0, '收起后应显示气泡层');
+  assert(ch.indexOf('class="chat-bubble') > 0, '应渲染聊天气泡');
+  assert(ch.indexOf('class="chat-projectile-layer"') > 0, '应渲染定向飞行动画层');
+  assert(ch.indexOf('class="chat-splat"') > 0, '投掷类应渲染命中溅开特效');
+  assert(ch.indexOf('--dx:') > 0, '动画样式必须带位移变量');
+
+  // 白名单必须在页面侧也生效：伪造 id / 非法 kind 不得产生任何消息或用户文本
+  const n0 = page.ui.chatMessages.length;
+  click('onSendQuickChat', { kind: 'text', id: '随便打的一句话' });
+  click('onSendQuickChat', { kind: 'bogus', id: 't1' });
+  assert(page.ui.chatMessages.length === n0, '伪造 id / 非法 kind 应整条丢弃');
+  assert(a.host.innerHTML.indexOf('随便打的一句话') < 0, '自由输入文本不得出现在页面上');
+
+  click('onToggleChatPanel');
+  click('onSendQuickChat', { kind: 'text', id: 't1' });
+  assert(a.host.innerHTML.indexOf('快点吧，等到花儿都谢了') > 0, '合法快捷语应渲染到气泡');
+
+  // 聊天层必须挂在舞台内，否则缩放后位置漂移；整层 pointer-events:none 由 WXSS 保证
+  const layerAt = a.host.innerHTML.indexOf('class="chat-layer"');
+  assert(layerAt > 0, '聊天层应渲染在编译产物里');
+  const stageAt = a.host.innerHTML.indexOf('class="stage"');
+  assert(stageAt >= 0 && layerAt > stageAt, '聊天层应在舞台之内');
+
+  // 清干净：否则气泡 TTL / 机器人回应 / 飞入动画的真实 setTimeout
+  // 会在后续用例执行时异步重绘，污染 innerHTML 断言
+  page.stopChatPolling();
+  page.ui.chatMessages = [];
+  page.ui.chatFly = null;
+  page.ui.chatPanelOpen = false;
+  page.refresh('');
+  console.log('局内快捷聊天：互斥 tab / 预设白名单 / 气泡 / 大表情飞入 OK');
+}
+
+// 3.07 天梯榜：舞台级全局弹层，牌桌屏也必须能打开；六项指标、综合评分口径、
+//      本机行与离线说明都要真的渲染出来，而不是只把数据挂到 VM 上。
+{
+  assert(page.ui.screen === 'game', '天梯榜用例在牌桌屏执行，验证全局弹层不依赖大厅');
+  click('onOpenLeaderboard');
+  const lb = a.host.innerHTML;
+  assert(page.data.showLeaderboard === true, '应打开天梯榜弹层');
+  assert(lb.indexOf('class="dialog leaderboard-dialog"') > 0, '应渲染天梯榜弹层结构');
+  assert(page.data.leaderboard.rows.length >= 1, '至少展示本机一行');
+  assert(page.data.leaderboard.hasMe === true, '应能定位自己的行');
+  assert(lb.indexOf('class="leaderboard-row is-me"') > 0, '本机行应高亮');
+  // 用户点名要的六项指标 + 名次/玩家/综合分，一个都不能少
+  ['名次', '玩家', '综合分', '胜场', '最高胜场声望', '场均声望', '场均发展卡', '场均贵族', '回合平均耗时']
+    .forEach(function (head) {
+      assert(lb.indexOf('>' + head + '<') > 0, '榜单缺指标列：' + head);
+    });
+  assert((lb.match(/class="lb-c-num"/g) || []).length >= 8, '表头应有 8 个数值列');
+  assert(lb.indexOf('class="leaderboard-row is-head"') > 0, '应有独立表头行');
+  assert(lb.indexOf('leaderboard-formula') > 0, '应展示综合评分口径');
+  assert(lb.indexOf('胜率 220') > 0 && lb.indexOf('活跃度 80') > 0, '口径应写明各项权重');
+  assert(lb.indexOf('云端未连接') > 0, '预览离线应如实说明数据来源，不能谎称全站榜单');
+  assert(lb.indexOf('观察期') > 0, '不足 3 局应标注观察期');
+  assert(lb.indexOf('undefined') < 0, '榜单不得含 undefined');
+  assert(lb.indexOf('NaN') < 0, '榜单不得含 NaN');
+  assert(lb.indexOf('{{') < 0, '榜单不得残留未求值模板');
+  // 与好友邀请提醒同理：弹层必须是 stage 的直接子层，否则不随舞台缩放会 1:1 出屏
+  {
+    const at = lb.indexOf('class="overlay" data-tap="onCloseLeaderboard"');
+    assert(at > 0, '天梯榜 overlay 节点应渲染');
+    let depth = 0;
+    const re = /<\/?(?:div|text)\b[^>]*>/g;
+    let mm;
+    const before = lb.slice(0, at);
+    while ((mm = re.exec(before)) !== null) {
+      if (mm[0].startsWith('</')) depth -= 1; else depth += 1;
+    }
+    // viewport > stage > overlay（host 不在 innerHTML 字符串内）
+    assert(depth === 2, '天梯榜弹层必须挂在 stage 下（实际深度 ' + depth + '）');
+  }
+  click('onCloseLeaderboard');
+  assert(page.data.showLeaderboard === false, '天梯榜可关闭');
+  assert(a.host.innerHTML.indexOf('leaderboard-dialog') < 0, '关闭后弹层节点应消失');
+  console.log('天梯榜：六项指标 / 综合评分口径 / 本机行 / 牌桌屏全局弹层 OK');
+}
+
 // 3.1 预留卡可购买时，弹层必须渲染出购买按钮（本轮 bug 回归）
 //     买得起：只有「购买此卡（实付 n 枚）」+「返回牌桌」，不得出现「预留此卡」
 {
@@ -447,6 +555,8 @@ assert(a.host.innerHTML.indexOf('data-tap="onTapPile"') > 0, '交互后应重新
 // 4.1 房间准备流（本机适配器：空席改机器人后由房主开始）
 click('onLeaveRoom');
 assert(a.page.data.screen === 'home', '离开牌局回到入口界面');
+assert((a.host.innerHTML.match(/data-tap="onOpenLeaderboard"/g) || []).length === 1,
+  '返回大厅后应保留唯一的天梯榜入口');
 click('onCreateRoom');
 assert(a.page.data.screen === 'room', '创建房间进入房间界面');
 const roomHtml = a.host.innerHTML;

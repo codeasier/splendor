@@ -262,7 +262,9 @@ const moduleFiles = [
   ['room', 'utils/room.js'],
   ['wechat-auth', 'utils/wechat-auth.js'],
   ['user', 'utils/user.js'],
-  ['friend', 'utils/friend.js']
+  ['friend', 'utils/friend.js'],
+  ['chat', 'utils/chat.js'],
+  ['leaderboard', 'utils/leaderboard.js']
 ];
 
 const moduleDefs = moduleFiles.map(([name, file]) => (
