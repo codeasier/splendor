@@ -106,6 +106,17 @@ else ok('WXML 标签闭合平衡');
   else ok('WXML 舞台完整包住屏幕层与弹层 (' + depths.length + ' 个)');
 })();
 
+// 3.2 新增 utils 模块必须同时注册进 H5 预览编译器：只改页面 require 而漏了
+// moduleFiles，预览里拿到的会是空对象，真机正常、H5 白屏，极难排查。
+(function () {
+  const buildJs = read('preview/build.js');
+  ['chat', 'leaderboard'].forEach(function (name) {
+    const decl = "['" + name + "', 'utils/" + name + ".js']";
+    if (buildJs.indexOf(decl) < 0) fail('preview/build.js 未注册模块: ' + name);
+  });
+  ok('H5 预览模块注册表覆盖新增 utils');
+})();
+
 // 4. 事件绑定必须存在对应 JS 方法
 const pageJs = read('pages/index/index.js');
 const handlers = new Set();

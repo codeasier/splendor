@@ -44,7 +44,9 @@ const memStore = {};
 function backend() {
   if (typeof wx !== 'undefined' && typeof wx.getStorageSync === 'function' &&
       typeof wx.setStorageSync === 'function') return wx;
-  if (typeof localStorage !== 'undefined' && localStorage) {
+  if (typeof localStorage !== 'undefined' && localStorage &&
+      typeof localStorage.getItem === 'function' && typeof localStorage.setItem === 'function' &&
+      typeof localStorage.removeItem === 'function') {
     return {
       getStorageSync: function (k) { return localStorage.getItem(k); },
       setStorageSync: function (k, v) { localStorage.setItem(k, v); },
@@ -92,8 +94,11 @@ const PRESET_AVATARS = [
   { key: 'a7', name: '紫晶使节', hue: '#8a6bb0' }
 ];
 
-/* 回合计时：0 表示不限时。存进房间行，开局时随快照下发。 */
+/* 回合计时：0 表示不限时。存进房间行，开局时随快照下发。
+   10 / 30 秒是快棋档；按秒数升序排列，设置行跟时钟读法一致。 */
 const TURN_LIMITS = [
+  { value: 10, label: '10 秒' },
+  { value: 30, label: '30 秒' },
   { value: 60, label: '60 秒' },
   { value: 90, label: '90 秒' },
   { value: 120, label: '120 秒' },
@@ -141,11 +146,19 @@ function getProfile() {
 
 function saveProfile(patch) {
   const store = backend();
-  const next = Object.assign({}, getProfile(), patch || {});
-  if (!next.uid) next.uid = uid();
+  const current = getProfile();
+  // 编辑昵称 / 头像不能切换账号。身份切换只由登录层在验明微信用户后执行。
+  const next = Object.assign({}, current, patch || {}, { uid: current.uid });
   next.customized = true;
   writeJSON(store, PROFILE_KEY, next);
   return next;
+}
+
+/** 登录层切换已验证账号；写入失败必须上抛，不能显示一个没有落盘的绑定。 */
+function replaceProfile(profile) {
+  if (!profile || typeof profile.uid !== 'string' || !profile.uid) throw new Error('缺少账号 ID');
+  backend().setStorageSync(PROFILE_KEY, JSON.stringify(profile));
+  return profile;
 }
 
 /* ---------- 断线重连会话 ---------- */
@@ -155,6 +168,7 @@ function saveSession(session) {
   if (!session || !session.code) return null;
   const next = {
     code: String(session.code).toUpperCase(),
+    uid: getProfile().uid,
     seat: session.seat === undefined ? 0 : session.seat,
     screen: session.screen || 'room',
     at: session.at || Date.now()
@@ -166,6 +180,8 @@ function saveSession(session) {
 function getSession() {
   const s = readJSON(backend(), SESSION_KEY);
   if (!s || !s.code) return null;
+  if (s.uid && s.uid !== getProfile().uid) return null;
+  if (requireWechatLogin && !s.uid) return null;
   return s;
 }
 
@@ -299,6 +315,9 @@ const ROOM_TABLE = 'splendor_rooms';
 const GAME_TABLE = 'splendor_games';
 
 let cloudClient = null;
+let requireWechatLogin = false;
+// 仅为本次进程内验明的身份，不从 storage 恢复；持久化 uid 不是登录凭证。
+let authenticatedUid = '';
 // 云能力的三态：'preview' 未加载云模块（浏览器预览 / Node 测试）、
 // 'ready' 客户端可用、'failed' 加载过云模块但初始化失败。
 // 界面必须按此如实说明，不能把「初始化失败」和「预览环境」都说成「离线」。
@@ -306,8 +325,10 @@ let cloudMode = 'preview';
 let cloudFailure = '';
 
 /** 由 utils/cloud.js 在小程序启动时注入；H5 预览不注入 */
-function attachCloud(client) {
+function attachCloud(client, options) {
   cloudClient = client && client.database ? client : null;
+  requireWechatLogin = !!(options && options.requireWechatLogin);
+  authenticatedUid = '';
   cloudMode = cloudClient ? 'ready' : 'failed';
   cloudFailure = cloudClient ? '' : (cloudFailure || '云客户端不可用');
   return !!cloudClient;
@@ -316,17 +337,27 @@ function attachCloud(client) {
 /** 云模块存在但初始化抛错：记录原因，界面据此提示「云服务未就绪」而非「离线」。 */
 function attachCloudFailure(reason) {
   cloudClient = null;
+  authenticatedUid = '';
   cloudMode = 'failed';
   cloudFailure = String(reason || '云服务初始化失败').slice(0, 120);
   return cloudMode;
 }
 
-function hasCloud() { return !!cloudClient; }
+function hasCloud() { return !!cloudClient && (!requireWechatLogin || !!authenticatedUid); }
 function getCloud() { return cloudClient; }
-function cloudStatus() { return { mode: cloudMode, reason: cloudFailure }; }
+function cloudStatus() {
+  return {
+    mode: cloudMode === 'ready' && requireWechatLogin && !authenticatedUid ? 'login-required' : cloudMode,
+    reason: cloudFailure
+  };
+}
+function requiresWechatLogin() { return requireWechatLogin; }
+function setAuthenticatedUid(value) { authenticatedUid = value || ''; }
+function getAuthenticatedUid() { return authenticatedUid; }
 
 function offline(reason) {
-  return { ok: false, offline: true, error: reason || '云端未连接，当前为本机房间' };
+  return { ok: false, offline: true, error: reason || (cloudClient && requireWechatLogin
+    ? '请先完成微信登录' : '云端未连接，当前为本机房间') };
 }
 function errMsg(error) {
   if (!error) return '云端请求失败';
@@ -520,7 +551,7 @@ async function cloudResetRoom(code, seats, expectedVersion) {
 
 /** 好友通过分享卡片带房间号入席，返回本机的席位号与最新牌局快照 */
 async function cloudJoinRoom(code, profile) {
-  if (!hasCloud()) return offline(cloudMode === 'failed'
+  if (!hasCloud()) return offline(cloudClient && requireWechatLogin ? '请先完成微信登录后加入房间' : cloudMode === 'failed'
     ? '云服务未就绪，暂时无法跨设备加入房间'
     : '跨设备加入需要云端房间；当前为浏览器预览 / 本机房间');
   const normalized = String(code || '').trim().toUpperCase();
@@ -528,6 +559,7 @@ async function cloudJoinRoom(code, profile) {
     return { ok: false, error: '房间号为 6 位字母数字' };
   }
   const p = profile || getProfile();
+  if (requireWechatLogin && p.uid !== authenticatedUid) return { ok: false, error: '账号已切换，请重新加入房间' };
   try {
     const pulled = await cloudPullRoom(normalized);
     if (!pulled.ok) return { ok: false, error: pulled.error === '云端未找到该房间'
@@ -607,6 +639,7 @@ module.exports = {
   defaultProfile: defaultProfile,
   getProfile: getProfile,
   saveProfile: saveProfile,
+  replaceProfile: replaceProfile,
   // 供 utils/user.js 复用同一套存储后端（wx / localStorage / Node 内存）
   storageBackend: backend,
   makeSeats: makeSeats,
@@ -626,6 +659,9 @@ module.exports = {
   cloudStatus: cloudStatus,
   hasCloud: hasCloud,
   getCloud: getCloud,
+  requiresWechatLogin: requiresWechatLogin,
+  setAuthenticatedUid: setAuthenticatedUid,
+  getAuthenticatedUid: getAuthenticatedUid,
   ROOM_TABLE: ROOM_TABLE,
   GAME_TABLE: GAME_TABLE,
   cloudCreateRoom: cloudCreateRoom,

@@ -250,11 +250,17 @@ function finishTurn(state) {
   }
 
   if (state.endAtTurn < 0 && state.players[idx].points >= 15) {
-    // 让其余玩家各再行动一次，保证回合数相同
-    state.endAtTurn = state.turnCount + state.players.length - 1;
-    pushLog(state, '有人达到 15 声望 · 本轮结束后结算');
+    // 官方规则：有人达到 15 声望后，打完「本轮」再结算，让所有人的回合数相同。
+    // 本轮还剩几席 = 总人数 - 1 - 达标者的席位下标。
+    // 达标者若已是最后一号位，本轮已打完（rest=0），必须立即结算 —— 旧实现无条件
+    // 加 players.length-1 个回合，会轮转回 1 号位凭空多打一整轮。
+    const rest = state.players.length - 1 - idx;
+    state.endAtTurn = state.turnCount + rest;
+    pushLog(state, rest > 0
+      ? '有人达到 15 声望 · 本轮剩余 ' + rest + ' 席后结算'
+      : '末位达到 15 声望 · 本轮已打完，立即结算');
   }
-  if (state.endAtTurn > 0 && state.turnCount >= state.endAtTurn) {
+  if (state.endAtTurn >= 0 && state.turnCount >= state.endAtTurn) {
     finishGame(state);
     return { ended: true, gameOver: true };
   }
@@ -394,7 +400,9 @@ function performAction(state, action) {
   if (state.pendingDiscard > 0) {
     if (action.type !== 'discard') return fail('筹码超过 10 枚，请先退还');
     const gems = action.gems || [];
-    // 支持逐枚退还，退完才结束回合
+    // 官方规则：回合结束时筹码不得超过 10 枚，超出部分「可退还任意颜色、
+    // 任意组合的筹码，包含黄金」，只要退到 ≤10 即可，不限制颜色种类。
+    // 因此 gems 数组允许重复同色；下面按颜色累加校验持有量，退完才结束回合。
     if (gems.length === 0 || gems.length > state.pendingDiscard) {
       return fail('需退还 ' + state.pendingDiscard + ' 枚筹码');
     }

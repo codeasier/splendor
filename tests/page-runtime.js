@@ -462,7 +462,7 @@ assert(page.state.players[0].reserved.length === 1, '预留卡 +1');
 drain(80);
 console.log('OK  盲抽预留牌库顶');
 
-// 退还筹码路径：攒批后一次性确认（旧版点一枚退一枚，退多了无法撤回）
+// 退还筹码路径：官方规则允许同色退多枚，攒批后一次性确认
 const s = page.state;
 s.current = 0;
 s.pendingDiscard = 0;
@@ -477,19 +477,30 @@ tap('onTapMyToken', { key: 'white' });
 assert(s.pendingDiscard === 3, '点筹码只入退还篮，不立即提交');
 assert(page.data.discardPlanCount === 1, '退还篮记 1 枚');
 assert(page.data.canConfirm === false, '还差 2 枚不可确认');
-// 再点同一色 = 撤回
+// 规则修复点：再点同色必须「累加」而不是「撤回」
 tap('onTapMyToken', { key: 'white' });
-assert(page.data.discardPlanCount === 0, '再点同一色应撤回');
+assert(page.data.discardPlanCount === 2, '再点同一色应累加 1 枚，不能当撤回');
+assert(page.data.me.res.tokens[0].pickedCount === 2, '筹码角标应显示已选 2 枚');
+assert(page.data.me.res.tokens[0].key === 'white', '角标挂在正确的颜色上');
+// 撤回改由筹码上的「−」按钮逐枚承担
+tap('onRemoveDiscardPlan', { key: 'white' });
+assert(page.data.discardPlanCount === 1, '「−」按钮撤回 1 枚');
+assert(page.data.me.res.tokens[0].pickedCount === 1, '撤回后角标同步');
+// 攒够 3 枚：白 2 + 蓝 1（含同色多枚）
 tap('onTapMyToken', { key: 'white' });
 tap('onTapMyToken', { key: 'blue' });
-tap('onTapMyToken', { key: 'green' });
 assert(page.data.discardPlanCount === 3, '攒够 3 枚');
 assert(page.data.canConfirm === true, '攒够才可确认');
+const whiteBefore = s.players[0].tokens.white;
+const blueBefore = s.players[0].tokens.blue;
 page.onConfirmTake();
 assert(s.pendingDiscard === 0, '确认后完成退还');
+assert(s.players[0].tokens.white === whiteBefore - 2, '同色 2 枚一次性退还成功');
+assert(s.players[0].tokens.blue === blueBefore - 1, '另一色 1 枚退还成功');
+assert(s.bank.white === 3, '退回银行的白色筹码数量正确');
 assert(page.data.pick.mode !== 'discard', '退还完成后主按钮回到拿取');
 drain(80);
-console.log('OK  超额筹码攒批退还 · 可撤回 · 一次确认');
+console.log('OK  超额筹码攒批退还 · 同色可退多枚 · 「−」逐枚撤回 · 一次确认');
 
 // 重开后完整跑一局：玩家始终执行「买得起就买，否则拿 3 枚」
 page.onRestart();
@@ -864,6 +875,10 @@ page.refresh('');
 console.log('OK  号位标注 · 席位条 / 工作台 / 状态行同一口径');
 
 /* ---------- 回合计时：建房选定 / 大厅可改 / 超时托管 ---------- */
+const RT = require(ROOT + '/utils/room.js');
+assert(RT.TURN_LIMITS.some(function (m) { return m.value === 10; }) &&
+       RT.TURN_LIMITS.some(function (m) { return m.value === 30; }), '计时白名单应含 10 / 30 秒快棋档');
+assert(RT.normTurnLimit(10) === 10 && RT.normTurnLimit(30) === 30, '新增档位应通过白名单归一化');
 page.onLeaveRoom();
 page.mode = 'room';
 page.mySeat = 0;
@@ -871,10 +886,14 @@ page.ui.turnLimit = 90;
 page.openRoom();
 assert(page.room.turnLimit === 90, '建房时带上的计时应写入房间');
 assert(page.data.roomScreen.turnLimitText === '90 秒', '大厅显示当前计时');
+page.onRoomTurnLimit({ currentTarget: { dataset: { value: '10' } } });
+assert(page.room.turnLimit === 10, '房主可选 10 秒快棋档');
+page.onRoomTurnLimit({ currentTarget: { dataset: { value: '30' } } });
+assert(page.room.turnLimit === 30, '房主可选 30 秒快棋档');
 page.onRoomTurnLimit({ currentTarget: { dataset: { value: '120' } } });
 assert(page.room.turnLimit === 120, '房主可在大厅改计时');
 page.onRoomTurnLimit({ currentTarget: { dataset: { value: '45' } } });
-assert(page.room.turnLimit === 120, '非法计时值应被忽略（0/60/90/120 之外）');
+assert(page.room.turnLimit === 120, '非法计时值应被忽略（白名单之外）');
 page.onRoomTurnLimit({ currentTarget: { dataset: { value: '0' } } });
 assert(page.room.turnLimit === 0 && page.data.roomScreen.turnLimitText === '不限时', '可切到不限时');
 page.onRoomTurnLimit({ currentTarget: { dataset: { value: '60' } } });
@@ -914,7 +933,122 @@ page.onRoomTurnLimit({ currentTarget: { dataset: { value: '0' } } });
 page.beginRoomGame();
 assert(page.data.turnClock.on === false, '不限时局不显示倒计时');
 assert(page.data.turnClock.text === '—', '不限时显示占位符');
-console.log('OK  回合计时 · 60/90/120/不限时 + 超时托管');
+console.log('OK  回合计时 · 10/30/60/90/120/不限时 + 超时托管');
+
+/* ---------- 超时强制托管：整个回合打完，含退还筹码 ---------- */
+// 单独开一局人机，避免房间局的云端标志把 runForcedTurn 短路掉
+page.onLeaveRoom();
+page.startLocalGame();
+{
+  const AI = require(ROOT + '/utils/ai.js');
+  const s = page.state;
+  page.ui.screen = 'game';
+  page.mySeat = 0;
+  s.current = 0;
+  s.turnLimit = 10;
+  s.players[0].tokens = { white: 4, blue: 4, green: 4, red: 0, black: 0, gold: 2 };
+  s.pendingDiscard = 3;
+  s.pendingNoble = null;
+  page._turnKey = page.turnKeyOf(s);
+  page._turnStartAt = Date.now() - 20000;
+  page._timeoutFired = false;
+
+  const act = AI.chooseAction(s);
+  assert(act.type === 'discard' && act.gems.length === 3, '退还阶段 AI 应给出完整退还方案');
+  s.pendingDiscard = 20;
+  const partial = AI.chooseAction(s);
+  assert(partial.type === 'discard' && partial.gems.length > 0,
+    '可退数量不足整批时也应先退一部分，不能退回 pass 把回合卡死');
+  s.pendingDiscard = 3;
+
+  const turnBefore = s.turnCount;
+  page.onTurnTimeout();
+  assert(s.pendingDiscard === 0, '退筹码阶段超时应被强制退完');
+  assert(s.turnCount > turnBefore, '强制托管必须真正结束回合，而不是只代打一手');
+  assert(page.ui.selectedGems.length === 0 && page.ui.discardPlan.length === 0,
+    '强制托管应清空玩家未提交的选择篮');
+}
+console.log('OK  超时强制托管 · 退还筹码一次退完并结束回合');
+
+/* ---------- 局内快捷聊天：面板 / 白名单 / 气泡 / 大表情 ---------- */
+{
+  // 上面的用例清空过 ui.bots，startLocalGame 造出的是两个真人席位；
+  // 显式留一个机器人席位，才能验证「机器人回应」这条路径。
+  page.state.players[1].isAI = true;
+  page.ui.screen = 'game';
+  page.onToggleChatPanel();
+  assert(page.data.chat.open === true, '应能打开快捷聊天面板');
+  assert(page.data.chat.texts.length >= 8 && page.data.chat.emojis.length >= 8, '面板应带预设短语与表情');
+  page.onSwitchChatTab({ currentTarget: { dataset: { tab: 'emoji' } } });
+  assert(page.data.chat.isEmoji === true && page.data.chat.isText === false, '两个 tab 互斥切换');
+  // 表情改两步：选表情 → 选目标玩家 → 飞到目标头像上
+  const beforeEmoji = page.ui.chatMessages.length;
+  page.onSendQuickChat({ currentTarget: { dataset: { kind: 'emoji', id: 'e9' } } });
+  assert(page.data.chat.isTarget === true, '表情应先进入「选择目标玩家」阶段');
+  assert(page.data.chat.open === true, '选目标时面板保持打开');
+  assert(page.data.chat.targets.length === page.state.players.length, '目标列表覆盖全部席位');
+  assert(page.ui.chatMessages.length === beforeEmoji, '未选目标前不得发出消息');
+  page.onPickChatTarget({ currentTarget: { dataset: { seat: 99 } } });
+  assert(page.ui.chatMessages.length === beforeEmoji, '越界席位不得发送');
+  const realPending = page.ui.chatPendingEmoji;
+  page.ui.chatPendingEmoji = { id: 'e9', icon: '💀', label: '伪造', tone: 'tomato', aim: 'throw' };
+  page.onPickChatTarget({ currentTarget: { dataset: { seat: 1 } } });
+  assert(page.ui.chatMessages.length === beforeEmoji, '伪造 preset 不得通过二次白名单校验');
+  page.ui.chatPendingEmoji = realPending;
+  page.onCancelChatTarget();
+  assert(page.data.chat.isPick === true, '取消后回到选表情');
+  page.onSendQuickChat({ currentTarget: { dataset: { kind: 'emoji', id: 'e9' } } });
+  page.onPickChatTarget({ currentTarget: { dataset: { seat: 1 } } });
+  assert(page.data.chat.open === false, '选定目标后面板应自动收起');
+  assert(page.ui.chatMessages.length === beforeEmoji + 1, '定向表情应进入本机队列');
+  const sent = page.ui.chatMessages[page.ui.chatMessages.length - 1];
+  assert(sent.targetSeat === 1 && sent.tone === 'tomato', '消息应带目标席位与 tone');
+  assert(page.data.chat.bubbles.some(function (b) { return b.isEmoji; }), '应渲染表情气泡');
+  assert(page.data.chat.projectiles.length === 1, '表情应触发定向命中动画');
+  const proj = page.data.chat.projectiles[0];
+  assert(proj.isThrow === true && proj.isGift === false, '西红柿属于投掷类');
+  assert(proj.motionStyle.indexOf('--dx:') === 0 && proj.targetStyle.indexOf('left:') === 0,
+    '动画必须带起点、位移与目标坐标');
+  const before = page.ui.chatMessages.length;
+  page.onSendQuickChat({ currentTarget: { dataset: { kind: 'text', id: '自由输入违规内容' } } });
+  page.onSendQuickChat({ currentTarget: { dataset: { kind: 'bogus', id: 't1' } } });
+  assert(page.ui.chatMessages.length === before, '伪造 id / 非法 kind 必须被整条丢弃');
+  page.onSendQuickChat({ currentTarget: { dataset: { kind: 'text', id: 't1' } } });
+  assert(page.ui.chatMessages.length === before + 1, '合法快捷语应能发送');
+
+  // 人机局机器人回表情只能进气泡，不能抢占玩家刚发出的全屏大表情：
+  // 大表情动画 1600ms、机器人 700ms 就回，一旦也调 showChatFly 会把玩家动画掐掉。
+  const botTask = timers.find(function (t) { return t.id === page._chatBotTimer && t.active; });
+  assert(botTask, '人机局应安排机器人回应');
+  const projCount = page.data.chat.projectiles.length;
+  const msgCount = page.ui.chatMessages.length;
+  botTask.active = false;
+  botTask.fn();
+  assert(page.ui.chatMessages.length === msgCount + 1, '机器人回应应进入消息队列');
+  assert(page.data.chat.projectiles.length === projCount, '机器人回应不得抢占玩家的定向动画');
+
+  // 真机「云已开通，但这一局是人机」：机器人照样要回，且不能往 room_code='local' 投递。
+  // 用 hasCloud() 判断「是否联机局」是错的，它只表示云服务可用。
+  const RS2 = require(ROOT + '/utils/room.js');
+  const savedHasCloud = RS2.hasCloud;
+  RS2.hasCloud = function () { return true; };
+  page._cloudCode = '';
+  const soloCount = page.ui.chatMessages.length;
+  page.onSendQuickChat({ currentTarget: { dataset: { kind: 'text', id: 't2' } } });
+  assert(page.ui.chatMessages.length === soloCount + 1, '云可用时人机局消息仍应本地可见');
+  assert(timers.some(function (t) { return t.id === page._chatBotTimer && t.active; }),
+    '云可用时人机局机器人仍应安排回应');
+  RS2.hasCloud = savedHasCloud;
+
+  page.onToggleChatPanel();
+  assert(page.data.chat.open === true, '面板可再次打开');
+  page.onCloseChatPanel();
+  assert(page.data.chat.open === false, '面板可关闭');
+}
+// 本段产生的气泡 TTL / 机器人回应 / 换手提醒定时器全部作废，
+// 避免后续「对手动作回放」用例 drain() 时被这些残留任务污染
+timers.length = 0;
+console.log('OK  局内快捷聊天 · 面板 / 白名单 / 气泡 / 大表情');
 
 /* ---------- 对手动作回放：把 action 写进快照，其他设备重放 ---------- */
 page.onLeaveRoom();
@@ -1181,5 +1315,91 @@ console.log('OK  终局提示 · 指名达标者 / 剩余回合 / 结算后消�
   console.log('OK  联机退出 · 席位转机器人托管 / 牌局继续 / 本机回大厅');
 }
 
-page.onUnload();
-console.log('ALL RUNTIME CHECKS PASSED');
+// 天梯榜：结算记账必须带齐六项指标，弹层数据层在任意屏幕都能打开且离线不抛错。
+// 注意：前序「联机退出」用例把 page.state 置成了 null，这里必须自己造一份完整
+// 结算态，不能依赖用例之间的遗留现场（全量回归曾在此崩于 state=null）。
+{
+  const U2 = require(ROOT + '/utils/user.js');
+  const L2 = require(ROOT + '/utils/leaderboard.js');
+  const E2 = require(ROOT + '/utils/game-engine.js');
+  const savedState = page.state;
+  const st = E2.createGame(2);
+  const meSeat = page.mySeat || 0;
+  st.gameOver = true;
+  st.winner = meSeat;
+  st.turnCount = 20;
+  st.players[meSeat].points = 16;
+  st.players[meSeat].cards = [{}, {}, {}];
+  st.players[meSeat].nobles = [{}];
+  st.players[1 - meSeat].points = 11;
+  st.players[1 - meSeat].cards = [{}, {}];
+  page.state = st;
+  page._resultRecorded = false;
+  page._gameStartedAt = Date.now() - 100000;   // 100s 前开局 → 5s/回合
+  // 用累计量差值断言，不要依赖 recs[0]：战绩按 at 倒序，同一毫秒写入时
+  // 新记录未必排第一，直接取首条会读到上一局的旧指标。
+  const beforeRecs = U2.getRecords().slice();
+  const beforeTotals = L2.fromRecords(beforeRecs);
+  page.maybeRecordResult();
+  const recs = U2.getRecords();
+  assert(recs.length === beforeRecs.length + 1, '结算应记一条战绩');
+  const totals = L2.fromRecords(recs);
+  assert(totals.games === beforeTotals.games + 1, '天梯榜应多统计一局');
+  assert(totals.totalTurns === beforeTotals.totalTurns + 20, '应累计本局回合数');
+  assert(totals.totalTurnMs > beforeTotals.totalTurnMs, '应累计回合平均耗时');
+  assert(totals.totalCards === beforeTotals.totalCards + 3, '应累计发展卡数');
+  assert(totals.totalNobles === beforeTotals.totalNobles + 1, '应累计贵族数');
+  assert(totals.wins === beforeTotals.wins + 1, '本局获胜应累计胜场');
+  assert(totals.bestWinScore >= 16, '最高胜场声望应取到本局 16 分');
+
+  page.onOpenLeaderboard();
+  assert(page.data.showLeaderboard === true, '应打开天梯榜弹层');
+  assert(page.data.leaderboard.rows.length >= 1, '至少展示本机一行');
+  assert(page.data.leaderboard.hasMe === true, '应能定位自己的行');
+  assert(page.data.leaderboard.formulaText.indexOf('胜率') >= 0, '评分口径要写在界面上');
+  page.onCloseLeaderboard();
+  assert(page.data.showLeaderboard === false, '天梯榜可关闭');
+  // 恢复现场，不要污染后面的「对局中改资料」用例
+  page.state = savedState;
+  page._resultRecorded = true;
+  console.log('OK  天梯榜 · 结算指标落库 / 弹层 / 综合评分口径');
+}
+
+// 对局中改资料：联机快照会整份替换 state.players，资料补丁必须在每次
+// refresh 前幂等重贴，否则 1.6s 轮询后就被旧快照打回原形。
+{
+  const oldNick = page.profile.nickname;
+  const oldAvatar = page.profile.avatar;
+  if (!page.state || !page.state.players) {
+    page.state = { players: [{ nickname: '云端旧名', name: '云端旧名', avatar: 'a0' }] };
+  }
+  page.profile = Object.assign({}, page.profile, { nickname: '牌桌改名', avatar: 'a7' });
+  const st = page.state;
+  st.players[page.mySeat].nickname = '云端旧名';
+  st.players[page.mySeat].name = '云端旧名';
+  page.refresh('');
+  assert(st.players[page.mySeat].nickname === '牌桌改名', '旧快照覆盖后应幂等贴回本机新昵称');
+  assert(page.data.meName === '牌桌改名', '视图模型应使用新昵称');
+  console.log('OK  对局中资料 · 旧快照覆盖后幂等贴回');
+  // 保存路径：资料里已有头像时不能因重跑图片压缩而让昵称保存静默失效
+  page.ui.profileDraft = {
+    nickname: '新昵称保存', avatar: 'a7',
+    avatarUrl: page.profile.avatarUrl || ''   // 与现值相同 = 本次没换头像
+  };
+  page.onSaveProfile();
+  // Promise.then 是 microtask，setImmediate 回调一定在它之后；
+  // onUnload 也必须放到这里，否则 _unloaded 会提前拦掉保存回调。
+  setImmediate(function () {
+    try {
+      assert(page.profile.nickname === '新昵称保存', '对局中保存昵称应写回 profile');
+      assert(st.players[page.mySeat].nickname === '新昵称保存', '保存后席位立即生效');
+      console.log('OK  对局中资料 · 已有头像时改昵称不再被压缩失败拖死');
+      page.profile = Object.assign({}, page.profile, { nickname: oldNick, avatar: oldAvatar });
+      page.onUnload();
+      console.log('ALL RUNTIME CHECKS PASSED');
+    } catch (e) {
+      console.error(String((e && e.message) || e));
+      process.exitCode = 1;
+    }
+  });
+}

@@ -73,7 +73,7 @@ function mockCloud() {
           })
         });
         if (writeRow) {
-          const field = writeRow.uid ? 'uid' : 'id';
+          const field = writeRow.id ? 'id' : 'uid';
           const key = String(writeRow[field]);
           const i = store[table].findIndex(function (r) { return String(r[field]) === key; });
           if (i >= 0) store[table][i] = Object.assign({}, store[table][i], writeRow);
