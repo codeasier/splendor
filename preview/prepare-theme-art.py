@@ -1,6 +1,6 @@
 """Compress generated 3x3 contact sheets for the shared theme art pipeline.
 
-Usage: uv run --with pillow python preview/prepare-theme-art.py SOURCE_DIRECTORY
+Usage: uv run --with pillow python preview/prepare-theme-art.py SOURCE_DIRECTORY [THEME ...]
 Raw generated images stay outside the mini-program project.
 """
 
@@ -9,10 +9,13 @@ import sys
 from PIL import Image
 
 source = Path(sys.argv[1])
+themes = sys.argv[2:] or ("pokemon", "cyberpunk", "ai")
+if any(theme not in ("pokemon", "cyberpunk", "ai") for theme in themes):
+    raise SystemExit("Unknown theme; choose pokemon, cyberpunk or ai")
 output = Path(__file__).resolve().parent / "thumbs" / "themes"
 output.mkdir(parents=True, exist_ok=True)
 
-for theme in ("pokemon", "cyberpunk", "ai"):
+for theme in themes:
     image = Image.open(source / f"splendor-{theme}-atlas.png").convert("RGB")
     atlas = Image.new("RGB", (480, 480))
     for row in range(3):

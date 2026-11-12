@@ -172,7 +172,6 @@
             <view class="card-photo {{item.photoClass}} {{item.artClass}}"></view>
             <view class="art-glaze"></view>
             <text class="card-name">{{item.name}}</text>
-            <text wx:if="{{item.themeCaption}}" class="theme-card-caption">{{item.themeCaption}}</text>
           </view>
           <text wx:if="{{item.pointsText}}" class="card-points">{{item.pointsText}}</text>
           <view class="card-gem gem-icon {{item.gemClass}}"></view>
@@ -220,7 +219,6 @@
               <view class="card-photo {{card.photoClass}} {{card.artClass}}"></view>
               <view class="art-glaze"></view>
               <text class="card-name">{{card.name}}</text>
-              <text wx:if="{{card.themeCaption}}" class="theme-card-caption">{{card.themeCaption}}</text>
             </view>
             <text wx:if="{{card.pointsText}}" class="card-points">{{card.pointsText}}</text>
             <view class="card-gem gem-icon {{card.gemClass}}"></view>
@@ -389,7 +387,6 @@
               <view class="card-photo {{item.card.photoClass}} {{item.card.artClass}}"></view>
               <view class="art-glaze"></view>
               <text class="card-name">{{item.card.name}}</text>
-              <text wx:if="{{item.card.themeCaption}}" class="theme-card-caption">{{item.card.themeCaption}}</text>
             </view>
             <text wx:if="{{item.card.pointsText}}" class="card-points">{{item.card.pointsText}}</text>
             <view class="card-gem gem-icon {{item.card.gemClass}}"></view>
@@ -666,7 +663,6 @@
               <view class="card-photo {{detail.card.photoClass}} {{detail.card.artClass}}"></view>
               <view class="art-glaze"></view>
               <text class="card-name">{{detail.card.name}}</text>
-              <text wx:if="{{detail.card.themeCaption}}" class="theme-card-caption">{{detail.card.themeCaption}}</text>
             </view>
             <text wx:if="{{detail.card.pointsText}}" class="card-points">{{detail.card.pointsText}}</text>
             <view class="card-gem gem-icon {{detail.card.gemClass}}"></view>
@@ -715,7 +711,6 @@
                 <view class="card-photo {{item.photoClass}} {{item.artClass}}"></view>
                 <view class="art-glaze"></view>
                 <text class="card-name">{{item.name}}</text>
-                <text wx:if="{{item.themeCaption}}" class="theme-card-caption">{{item.themeCaption}}</text>
               </view>
               <text wx:if="{{item.pointsText}}" class="card-points">{{item.pointsText}}</text>
               <view class="card-gem gem-icon {{item.gemClass}}"></view>
@@ -960,7 +955,6 @@
                     <view class="card-photo {{item.photoClass}} {{item.artClass}}"></view>
                     <view class="art-glaze"></view>
                     <text class="card-name">{{item.name}}</text>
-                    <text wx:if="{{item.themeCaption}}" class="theme-card-caption">{{item.themeCaption}}</text>
                   </view>
                   <text wx:if="{{item.pointsText}}" class="card-points">{{item.pointsText}}</text>
                   <view class="card-gem gem-icon {{item.gemClass}}"></view>

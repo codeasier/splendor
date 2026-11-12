@@ -86,6 +86,42 @@ async function main() {
   assert.equal(T.list()[0].name, '皇家商会');
   console.log('PASS theme registry, isolated UI, safe fallback and snapshot precedence');
 
+  const cards = [].concat.apply([], D.buildDecks(D.mulberry32(430)));
+  const originals = JSON.stringify(cards);
+  const whiteFirst = cards.find(function (card) { return card.id === 'L1-01'; });
+  assert.equal(T.cardName('pokemon', whiteFirst), '皮卡丘·初遇');
+  assert.equal(T.cardName('cyberpunk', whiteFirst), '雨夜集市·信标');
+  assert.equal(T.cardName('ai', whiteFirst), 'GPT·提示');
+  assert.equal(T.nobleTitle('ai', D.NOBLE_POOL[2]), 'Grok·导师');
+  for (const id of ['pokemon', 'cyberpunk', 'ai']) {
+    const names = cards.map(function (card) { return T.cardName(id, card); });
+    assert.equal(new Set(names).size, 90, id + ' needs 90 distinct card names');
+    const nobleNames = D.NOBLE_POOL.map(function (noble) { return T.nobleTitle(id, noble); });
+    assert.equal(new Set(names.concat(nobleNames)).size, 100, 'development and noble cards must not share a name');
+    cards.forEach(function (card) {
+      const name = T.cardName(id, card);
+      assert.notEqual(name, card.name, id + ' still displays the royal card name');
+      assert.equal(T.cardName(id, JSON.parse(JSON.stringify(card))), name, 'remote snapshots must resolve identically');
+      assert.equal(T.cardName(id, { id: card.id }), name, 'names must use stable identity, not payload art order');
+      assert.equal(T.text(id, '玩家 · 预留「' + card.name + '」'), '玩家 · 预留「' + name + '」');
+      assert.equal(T.text(id, '购入「' + card.name + '」 +1 声望'), '购入「' + name + '」 +1 声望');
+    });
+    D.NOBLE_POOL.forEach(function (noble) {
+      const title = T.nobleTitle(id, noble);
+      assert.notEqual(title, noble.title);
+      assert.equal(T.text(id, '获得贵族「' + noble.title + '」 +3 声望'), '获得贵族「' + title + '」 +3 声望');
+    });
+    assert.equal(T.cardName(id, { id: 'future-card', name: '自定义卡' }), '自定义卡');
+    assert.equal(T.nobleTitle(id, { id: 'future-noble', title: '自定义角色' }), '自定义角色');
+    assert.equal(T.text(id, '玩家昵称「' + whiteFirst.name + '」'), '玩家昵称「' + whiteFirst.name + '」');
+  }
+  assert.equal(JSON.stringify(cards), originals, 'theme names must never mutate canonical card data');
+  ['royal', 'future-theme', undefined].forEach(function (id) {
+    cards.forEach(function (card) { assert.equal(T.cardName(id, card), card.name); });
+    D.NOBLE_POOL.forEach(function (noble) { assert.equal(T.nobleTitle(id, noble), noble.title); });
+  });
+  console.log('PASS 90 distinct themed card names, ten noble titles, legacy log rendering and canonical data isolation');
+
   const baseline = E.createGame({ playerCount: 2, rand: D.mulberry32(430) });
   for (const id of ['pokemon', 'cyberpunk', 'ai']) {
     const themed = E.createGame({ playerCount: 2, rand: D.mulberry32(430) });
@@ -158,6 +194,57 @@ async function main() {
     page.onRoomStart();
     assert.equal(page.data.screen, 'game');
     assert.equal(page.state.themeId, id);
+    const target = page.state.board[0][0];
+    const targetName = T.cardName(id, target);
+    page.data.rows.forEach(function (row) {
+      row.cards.forEach(function (view) {
+        const source = cards.find(function (card) { return card.id === view.id; });
+        assert.equal(view.name, T.cardName(id, source));
+      });
+    });
+    page.data.nobles.forEach(function (view) {
+      assert.equal(view.title, T.nobleTitle(id, page.state.nobles.find(function (noble) { return noble.id === view.id; })));
+      assert.equal(view.photoClass, 'noble-photo-' + (Number(view.id.slice(1)) - 1), 'noble portraits must follow identity, not shuffled position');
+    });
+    tap(page, 'onTapCard', { lv: 0, index: 0 });
+    assert.equal(page.data.detail.card.name, targetName);
+    assert(page.data.pick.title.indexOf(targetName) === 0);
+    assert(page.applyPlayerAction({ type: 'reserveBoard', lv: 0, index: 0 }));
+    assert.equal(page.data.reservedCards[0].name, targetName);
+    assert.equal(page.ui.showcase.card.name, targetName);
+    assert(page.ui.showcase.title.indexOf(targetName) >= 0);
+    assert(page.data.lastMove.text.indexOf(targetName) >= 0);
+    assert(page.data.logText.indexOf(targetName) >= 0);
+    assert(page.data.hintText.indexOf(targetName) >= 0);
+    assert.equal(page.state.lastAction.card.name, target.name, 'wire snapshots retain canonical names');
+    tap(page, 'onTapPlayer', { index: 0 });
+    assert.equal(page.data.playerDetail.reservedCards[0].name, targetName);
+    page.ui.showPlayerDetail = false;
+    page.state.current = 0;
+    D.GEMS.forEach(function (gem) {
+      page.state.players[0].tokens[gem] = target.cost[gem];
+      page.state.bank[gem] -= target.cost[gem];
+    });
+    page.ui.detail = { kind: 'reserved', index: 0 };
+    page.refresh('');
+    assert(page.data.pick.title.indexOf(targetName) === 0);
+    assert(page.applyPlayerAction({ type: 'buyReserved', index: 0 }));
+    assert.equal(page.state.players[0].cards[0].name, target.name);
+    assert(page.data.logText.indexOf(targetName) >= 0);
+    page.state.lastAction = { id: 'remote-' + id, seat: 1, type: 'reserveBoard', lv: 0, index: 0, card: target };
+    page.replayRemoteAction(page.state);
+    assert.equal(page.ui.showcase.remote, true);
+    assert(page.ui.showcase.title.indexOf(targetName) >= 0);
+    const visitor = page.state.nobles.shift();
+    page.state.players[0].nobles.push(visitor);
+    page.state.players[0].points += visitor.points;
+    tap(page, 'onTapPlayer', { index: 0 });
+    assert.equal(page.data.playerDetail.nobles[0].title, T.nobleTitle(id, visitor));
+    page.state.pendingNoble = { seat: 0, options: page.state.nobles.map(function (noble) { return noble.id; }) };
+    page.refresh('');
+    page.data.nobleChoice.options.forEach(function (view) {
+      assert.equal(view.title, T.nobleTitle(id, page.state.nobles.find(function (noble) { return noble.id === view.id; })));
+    });
     page.onRestart();
     assert.equal(page.data.screen, 'room');
     assert.equal(page.data.themeId, id);
@@ -166,7 +253,7 @@ async function main() {
     page.onLeaveRoom();
     assert.equal(page.data.themeId, 'royal');
   }
-  console.log('PASS page selection, cancel, immutable room, seat changes, restart and exit');
+  console.log('PASS themed market/detail/reserve/purchase/replay/noble views, selection, restart and exit');
 
   const failingCloud = mockCloud();
   R.attachCloud(failingCloud);
