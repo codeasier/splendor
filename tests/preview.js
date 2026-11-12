@@ -447,7 +447,7 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
       provisional: false, rating: 512, ratingText: '512',
       wins: 9, winsText: '9', bestWinScore: 18, bestWinText: '18',
       avgScoreText: '15.2', avgCardsText: '10.5', avgNoblesText: '1.2',
-      avgTurnText: '4.8s', gamesText: '12', winRateText: '75%'
+      avgTurnText: '4.8s', gamesText: '12', winRateText: '75%', winRateFullText: '75%(9/12)'
     },
     {
       section: 'official', rankText: '2', rank: 2, sectionHead: '', sectionSub: '',
@@ -456,7 +456,7 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
       provisional: false, rating: 430, ratingText: '430',
       wins: 6, winsText: '6', bestWinScore: 16, bestWinText: '16',
       avgScoreText: '13.4', avgCardsText: '9.1', avgNoblesText: '0.8',
-      avgTurnText: '5.6s', gamesText: '8', winRateText: '75%'
+      avgTurnText: '5.6s', gamesText: '8', winRateText: '75%', winRateFullText: '75%(6/8)'
     },
     {
       section: 'trial', rankText: '1', rank: 1, sectionHead: '观察期', sectionSub: '满 3 局后晋级正式榜',
@@ -465,7 +465,7 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
       provisional: true, rating: 120, ratingText: '120',
       wins: 1, winsText: '1', bestWinScore: 15, bestWinText: '15',
       avgScoreText: '15.0', avgCardsText: '7.0', avgNoblesText: '0.0',
-      avgTurnText: '6.2s', gamesText: '1', winRateText: '100%'
+      avgTurnText: '6.2s', gamesText: '1', winRateText: '100%', winRateFullText: '100%(1/1)'
     }
   ];
   page.ui.showLeaderboard = false;
@@ -493,23 +493,21 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
   // 不能精确匹配 class="leaderboard-row is-me"：本机可能同时是榜首，
   // class 会带上 is-champion。这里只要求 class 里含 is-me。
   assert(/class="leaderboard-row[^"]*\bis-me\b/.test(lb), '本机行应高亮');
-  // 用户点名要的六项指标 + 名次/玩家/综合分，一个都不能少
-  ['名次', '玩家', '综合分', '胜场', '最高胜场声望', '场均声望', '场均发展卡', '场均贵族', '回合平均耗时']
+  // 用户点名要的指标 + 名次/玩家/综合分，一个都不能少。
+  // 胜场已合并进胜率列（显示为「50%(2/4)」），所以单独检查「胜率」而不检查「胜场」。
+  ['名次', '玩家', '综合分', '胜率', '最高胜场声望', '场均声望', '场均发展卡', '场均贵族', '回合平均耗时']
     .forEach(function (head) {
       assert(lb.indexOf('>' + head + '<') > 0, '榜单缺指标列：' + head);
     });
-  assert((lb.match(/class="lb-c-num"/g) || []).length >= 8, '表头应有 8 个数值列');
-  // 胜率必须出现在界面上。
-  // 曾经 winRateText 在视图模型里算好了、却没有任何 WXML 消费它，
-  // 结果「胜率」整列在界面上不存在，而所有测试都通过 —— 数据算对不等于渲染出来。
+  // 胜场列必须已移除：它和胜率并存时，横向空间被两份高度相关的数据占用
+  assert(lb.indexOf('>胜场<') < 0, '胜场列应已移除（合并进胜率）');
+  // 胜率列格式：50%(2/4) —— 百分比 + 分子/分母，让人看清样本基础
   {
-    // 不靠正则切表头块（嵌套 view 会让贪婪/非贪婪都出错），
-    // 直接按「胜率」这个列名与紧邻的表头 class 组合判断
     assert(lb.indexOf('>胜率<') > 0, '表头必须有「胜率」列');
-    // 数据行里应有胜率百分比：50% / 100% / 0% 都算
-    assert(/class="lb-c-num[^"]*">\s*\d+%\s*</.test(lb), '数据行应渲染胜率百分比');
-    const pcts = lb.match(/class="lb-c-num[^"]*">\s*(\d+)%\s*</g) || [];
-    assert(pcts.length >= 3, '三行数据都应有胜率，实际匹配 ' + pcts.length);
+    const merged = lb.match(/lb-c-rate[^"]*">\s*(\d+)%\((\d+)\/(\d+)\)/g) || [];
+    assert(merged.length >= 3, '三行都应显示「胜率%(胜场/局数)」，实际匹配 ' + merged.length);
+    // 具体校验第一行（珠宝大亨 12 局 9 胜 = 75%）
+    assert(lb.indexOf('75%(9/12)') > 0, '应显示 75%(9/12)，实际未见');
   }
   assert(lb.indexOf('class="leaderboard-row is-head"') > 0, '应有独立表头行');
   assert(lb.indexOf('leaderboard-formula') > 0, '应展示综合评分口径');

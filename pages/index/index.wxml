@@ -1229,7 +1229,7 @@
     <view class="dialog leaderboard-dialog" catchtap="noop">
       <view class="dialog-head">
         <text class="dialog-title">天梯榜</text>
-        <text class="dialog-sub">胜场 · 胜率 · 最高胜场声望 · 场均声望 · 场均发展卡 · 场均贵族 · 回合平均耗时，综合评分排名</text>
+        <text class="dialog-sub">胜率（含胜场/对局） · 最高胜场声望 · 场均声望 · 场均发展卡 · 场均贵族 · 回合平均耗时，综合评分排名</text>
       </view>
       <view class="leaderboard-body">
         <view class="leaderboard-meta">
@@ -1249,7 +1249,6 @@
             <text class="lb-c-rank">名次</text>
             <text class="lb-c-name">玩家</text>
             <text class="lb-c-num">综合分</text>
-            <text class="lb-c-num">胜场</text>
             <text class="lb-c-num">胜率</text>
             <text class="lb-c-num">最高胜场声望</text>
             <text class="lb-c-num">场均声望</text>
@@ -1291,8 +1290,7 @@
               <text wx:if="{{item.provisional}}" class="lb-provisional">观察期</text>
             </view>
             <text class="lb-c-num is-score">{{item.ratingText}}</text>
-            <text class="lb-c-num">{{item.winsText}}</text>
-            <text class="lb-c-num {{item.provisional ? 'is-provisional' : ''}}">{{item.winRateText}}</text>
+            <text class="lb-c-num lb-c-rate {{item.provisional ? 'is-provisional' : ''}}">{{item.winRateFullText}}</text>
             <text class="lb-c-num">{{item.bestWinText}}</text>
             <text class="lb-c-num">{{item.avgScoreText}}</text>
             <text class="lb-c-num">{{item.avgCardsText}}</text>

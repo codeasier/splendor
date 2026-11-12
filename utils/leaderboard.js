@@ -335,7 +335,14 @@ function formatRow(entry, rank, myUid) {
     avgNoblesText: fmt1(s.avgNobles),
     avgTurnText: fmt1(s.avgTurnSec) + 's',
     gamesText: String(s.games),
-    winRateText: Math.round(s.winRate * 100) + '%'
+    winRateText: Math.round(s.winRate * 100) + '%',
+    // 胜率列合并显示「50%(2/4)」：胜场单独占一列太浪费横向空间，
+    // 而「胜率 + 分子/分母」放一起才能看清这个百分比的样本基础 ——
+    // 100%(1/1) 和 70%(14/20) 的说服力差别一眼可见。
+    // 0 局不显示 0%(0/0)：那是无意义的除法，用一个破折号表述「还没数据」。
+    winRateFullText: s.games
+      ? (Math.round(s.winRate * 100) + '%(' + s.wins + '/' + s.games + ')')
+      : '—'
   };
 }
 

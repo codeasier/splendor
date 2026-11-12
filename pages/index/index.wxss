@@ -2934,6 +2934,9 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .lb-c-name { flex: 0 0 210px; display: flex; align-items: center; gap: 5px; min-width: 0; }
 .lb-c-num { flex: 1; text-align: center; }
 .lb-c-num.is-score { color: #ffd884; font-weight: 700; font-size: 15px; }
+/* 胜率列承载「50%(2/4)」，比纯数字宽，给两倍权重。
+   字号略收（11px）避免「100%(14/20)」在窄列里换行。 */
+.lb-c-num.lb-c-rate { flex: 1.6; font-size: 11px; white-space: nowrap; }
 /* 观察期胜率压暗：样本不足时这个百分比参考价值有限，
    与正式榜同样醒目会让人误以为「1局100%」比「20局70%」更强。 */
 .lb-c-num.is-provisional { color: #96a3b0; }

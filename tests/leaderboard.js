@@ -157,6 +157,30 @@ console.log('OK  综合评分 · 六项指标 + 活跃度都参与且方向正�
   assert(L.rating(many) > L.rating(few), '全胜时局数多的人分更高');
 
   console.log('OK  胜率可信度 · 样本少向下收缩 / 输家不抬分 / 稳定玩家优先');
+
+  // 胜率列文案「50%(2/4)」：百分比 + 分子/分母，让人看清样本基础
+  {
+    const row = L.formatRow(L.entryOf('u1', '甲', '', L.fromRecords([
+      { mode:'room', humanCount:2, win:true, score:15, cards:9, nobles:1, turns:10, turnAvgMs:4000 },
+      { mode:'room', humanCount:2, win:true, score:14, cards:8, nobles:0, turns:10, turnAvgMs:4000 },
+      { mode:'room', humanCount:2, win:false, score:12, cards:7, nobles:0, turns:10, turnAvgMs:4000 },
+      { mode:'room', humanCount:2, win:false, score:11, cards:6, nobles:0, turns:10, turnAvgMs:4000 }
+    ])), 1, 'x');
+    eq(row.winRateFullText, '50%(2/4)', '2 胜 4 局应显示 50%(2/4)');
+    // 原始胜率仍在，便于别的场合单独使用
+    eq(row.winRateText, '50%', 'winRateText 保持纯百分比');
+
+    // 1 局全胜必须显示 100%(1/1)，不能只给 100% —— 那会掩盖样本极少
+    const one = L.formatRow(L.entryOf('u2', '乙', '', L.fromRecords([
+      { mode:'room', humanCount:2, win:true, score:15, cards:13, nobles:1, turns:10, turnAvgMs:4000 }
+    ])), 1, 'x');
+    eq(one.winRateFullText, '100%(1/1)', '1 局全胜应显示 100%(1/1)');
+
+    // 0 局不能出现 0%(0/0) 这种无意义除法
+    const none = L.formatRow(L.entryOf('u3', '丙', '', L.fromRecords([])), 1, 'x');
+    eq(none.winRateFullText, '—', '0 局显示破折号而不是 0%(0/0)');
+  }
+  console.log('OK  胜率列文案 · 合并显示百分比与胜负场 / 0 局不显示无意义除法');
 }
 
 /* ---------- 4. 排名：稳定、同分有确定次序、我的行可定位 ---------- */
