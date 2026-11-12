@@ -101,21 +101,29 @@
         </view>
       </view>
 
-      <!-- top 由胶囊避让计算（topRightOffset），真机横屏时下移到胶囊下方 -->
-      <view class="top-right" style="top:{{topRightTop}}px;">
-        <view class="gold-box">
-          <view class="gold-coin coin-face coin-gold"><view class="pile-gem gem-icon gem-gold"></view></view>
-          <text class="gold-label">金 {{goldCount}}</text>
+      <!-- top 由胶囊避让计算（topRightOffset），真机横屏时下移到胶囊下方。
+           金数量不再放这里：桌面筹码区已经展示黄金存量，顶栏重复一遍既占位
+           又会把整条工具栏撑宽，遮住右侧贵族 / 牌列。
+           收起态只留一个圆形手柄，默认展开；点手柄收起后只占 40px，
+           不再压住牌桌内容。 -->
+      <view class="top-right {{topRightCollapsed ? 'is-collapsed' : ''}}" style="top:{{topRightTop}}px;">
+        <view class="round-btn top-right-toggle" bindtap="onToggleTopRight" hover-class="round-btn-hover">
+          <text>{{topRightToggleLabel}}</text>
         </view>
-        <!-- 退出：人机局＝放弃本局，联机局＝投降并转机器人托管。
-             放在最左侧（远离胶囊），常驻可见，不再只在房间模式出现。 -->
-        <view class="round-btn quit-btn" bindtap="onQuitGame" hover-class="round-btn-hover"><text>⏻</text></view>
-        <view wx:if="{{roomMode}}" class="round-btn room-btn" bindtap="onOpenLobby"><text>⚑</text></view>
-        <view class="round-btn" bindtap="onOpenProfile"><text>☻</text></view>
-        <view class="round-btn" bindtap="onShowRules"><text>?</text></view>
-        <view class="round-btn" bindtap="onRestart"><text>↺</text></view>
-        <!-- 局内快捷聊天入口：面板从顶栏下方展开，不占牌桌常驻空间 -->
-        <view class="round-btn chat-trigger {{chat.open ? 'is-open' : ''}}" bindtap="onToggleChatPanel" hover-class="round-btn-hover"><text>💬</text></view>
+        <!-- 这里必须用 view：WXML 的 block 标签在 H5 侧会被编译成行内元素 span，
+             与外层 flex 混排会把整条工具条挤成竖排并撑高、压住右侧贵族。
+             （注释里不要写出真实标签名，静态校验器按正则扫标签，会被当成未闭合标签。） -->
+        <view wx:if="{{!topRightCollapsed}}" class="top-right-group">
+          <!-- 退出：人机局＝放弃本局，联机局＝投降并转机器人托管。
+               放在最左侧（远离胶囊），常驻可见，不再只在房间模式出现。 -->
+          <view class="round-btn quit-btn" bindtap="onQuitGame" hover-class="round-btn-hover"><text>⏻</text></view>
+          <view wx:if="{{roomMode}}" class="round-btn room-btn" bindtap="onOpenLobby"><text>⚑</text></view>
+          <view class="round-btn" bindtap="onOpenProfile"><text>☻</text></view>
+          <view class="round-btn" bindtap="onShowRules"><text>?</text></view>
+          <view class="round-btn" bindtap="onRestart"><text>↺</text></view>
+          <!-- 局内快捷聊天入口：面板从顶栏下方展开，不占牌桌常驻空间 -->
+          <view class="round-btn chat-trigger {{chat.open ? 'is-open' : ''}}" bindtap="onToggleChatPanel" hover-class="round-btn-hover"><text>💬</text></view>
+        </view>
       </view>
     </view>
 
@@ -1247,12 +1255,29 @@
             <text class="lb-c-num">场均贵族</text>
             <text class="lb-c-num">回合平均耗时</text>
           </view>
-          <view wx:for="{{leaderboard.rows}}" wx:key="uid" class="leaderboard-row {{item.isMe ? 'is-me' : ''}}">
-            <text class="lb-c-rank">{{item.rank}}</text>
+          <view wx:for="{{leaderboard.rows}}" wx:key="uid" class="leaderboard-row {{item.isMe ? 'is-me' : ''}} {{item.isChampion ? 'is-champion' : ''}}">
+            <view class="lb-c-rank {{item.isChampion ? 'is-champion' : ''}}">
+              <view wx:if="{{item.isChampion}}" class="lb-c-rank-medal"></view>
+              <text class="lb-c-rank-num {{item.isChampion ? 'is-champion' : ''}}">{{item.rank}}</text>
+            </view>
             <view class="lb-c-name">
-              <view wx:if="{{item.avatarUrl}}" class="lb-avatar"><image src="{{item.avatarUrl}}" mode="aspectFill"></image></view>
-              <view wx:else class="lb-avatar is-preset"><text>{{item.initial}}</text></view>
-              <text class="lb-name">{{item.name}}</text>
+              <!-- 冠军头像框：金冠 + 双环 + 流光。结构与普通头像框分开，
+                   避免给非冠军行增加无用的嵌套节点。 -->
+              <!-- 用互斥 wx:if，不用 elif/else 链：本项目已多次踩到
+                   WXML 的 wx:elif / wx:else 在部分编译路径下不互斥，
+                   冠军行会同时渲染出专属框和一个多余的空头像圈。 -->
+              <view wx:if="{{item.isChampion}}" class="lb-avatar-crown">
+                <view class="lb-crown-glow"></view>
+                <view class="lb-avatar is-champion">
+                  <image wx:if="{{item.avatarUrl}}" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+                  <text wx:if="{{!item.avatarUrl}}">{{item.initial}}</text>
+                </view>
+                <view class="lb-crown"><text>♛</text><view class="lb-crown-gem"></view></view>
+              </view>
+              <view wx:if="{{!item.isChampion && item.avatarUrl}}" class="lb-avatar"><image src="{{item.avatarUrl}}" mode="aspectFill"></image></view>
+              <view wx:if="{{!item.isChampion && !item.avatarUrl}}" class="lb-avatar is-preset"><text>{{item.initial}}</text></view>
+              <text class="lb-name {{item.isChampion ? 'is-champion' : ''}}">{{item.name}}</text>
+              <text wx:if="{{item.isChampion}}" class="lb-champion">榜首</text>
               <text wx:if="{{item.isMe}}" class="lb-me">你</text>
               <text wx:if="{{item.provisional}}" class="lb-provisional">观察期</text>
             </view>
@@ -1269,6 +1294,9 @@
           </view>
         </view>
         <text class="leaderboard-formula">{{leaderboard.formulaText}}</text>
+        <!-- 准入规则必须写在界面上：否则打了人机局的玩家看到「还差 3 局」
+             会以为成绩没记上，实际是这类对局本就不进榜。 -->
+        <text class="leaderboard-rule">入榜条件：仅统计联机对局，且该局真人玩家不少于 2 人；人机对战与单人对局不计入。</text>
         <text class="leaderboard-note">仅使用你主动填写的昵称、头像与对局结果；云端未连接时只展示本机战绩。平台规则以微信官方最新审核规范为准。</text>
       </view>
       <view class="dialog-btns">

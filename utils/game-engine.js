@@ -55,6 +55,11 @@ function createGame(playerCount, rand) {
     ? playerCount : { playerCount: playerCount };
   const n = opt.playerCount || 2;
   const shuffleRand = rand || opt.rand || Math.random;
+  // 先手席位：联机局由房主随机后写进快照下发，人机局默认 0（本机先手）。
+  // 只改行动起点，不动 players 的排列 —— 席位索引是身份锚点，
+  // 重连与云端快照都按它对齐，打乱会导致认错席位。
+  const first = Math.floor(Number(opt.firstSeat) || 0);
+  const startSeat = (first >= 0 && first < n) ? first : 0;
   const perGem = n === 2 ? 4 : n === 3 ? 5 : 7;
   const state = {
     players: [],
@@ -65,7 +70,7 @@ function createGame(playerCount, rand) {
     decks: D.buildDecks(shuffleRand),
     board: [[], [], []],
     nobles: [],
-    current: 0,
+    current: startSeat,
     turnCount: 0,
     endAtTurn: -1,
     gameOver: false,

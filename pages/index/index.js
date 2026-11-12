@@ -1319,6 +1319,8 @@ function buildViewModel(state, ui, layout, ctx) {
       stageScale: layout.scale,
       stageRotate: layout.rotate,
       topRightTop: layout.topRight || 10,
+      topRightCollapsed: !!ui.topRightCollapsed,
+      topRightToggleLabel: ui.topRightCollapsed ? '☰' : '×',
       chatPanelTop: (layout.topRight || 10) + 44,
       // 非牌桌屏也要声明 chat：WXML 根变量缺声明会被静态校验拦下，
       // 且 setData 不带 chat 时 wx:for 遍历 undefined 会在部分 WebView 里报错
@@ -1711,6 +1713,8 @@ function buildViewModel(state, ui, layout, ctx) {
     stageScale: layout.scale,
     stageRotate: layout.rotate,
     topRightTop: layout.topRight || 10,
+    topRightCollapsed: !!ui.topRightCollapsed,
+    topRightToggleLabel: ui.topRightCollapsed ? '☰' : '×',
     chatPanelTop: (layout.topRight || 10) + 44,
     chat: (function () {
       const vm = C.chatVM(ui.chatMessages, seat, Date.now(), ui.chatPanelOpen, ui.chatTab, {
@@ -1931,7 +1935,10 @@ function freshUI(config) {
     // 天梯榜：弹层与数据
     showLeaderboard: false,
     leaderboard: null,
-    leaderboardLoading: false
+    leaderboardLoading: false,
+    // 右上角工具条收起态：真机胶囊避让会把它下推到贵族 / 牌列上方，
+    // 收起后只留 40px 手柄，把牌桌让出来。默认展开。
+    topRightCollapsed: false
   };
 }
 
@@ -2240,9 +2247,15 @@ Page({
     // 这是页面级计时，绝不写进 state 快照（联机两端节奏不同，写进去会分叉）。
     const elapsed = Math.max(0, Date.now() - (this._gameStartedAt || Date.now()));
     const turnAvgMs = Math.round(elapsed / Math.max(1, st.turnCount));
+    // 真人数：isAI=false 的席位。autoPlay（真人临时托管）仍算真人 ——
+    // 那是可以随时收回操作权的真人席位，用 isAI 表达就再也拿不回来了。
+    let humanCount = 0;
+    for (let i = 0; i < players.length; i++) if (!players[i].isAI) humanCount += 1;
     U.addRecord({
       mode: this.mode === 'room' ? 'room' : 'solo',
       playerCount: players.length,
+      // 天梯榜准入判断用：只有「联机 + 真人 ≥ 2」的对局才计入
+      humanCount: humanCount,
       rank: rank,
       score: me.points,
       win: st.winner === seat,
@@ -2380,6 +2393,22 @@ Page({
     this.ui.chatPanelOpen = !this.ui.chatPanelOpen;
     // 关面板时清掉未投出的表情，下次打开回到「选表情」而不是半截的「选目标」
     if (!this.ui.chatPanelOpen) this.ui.chatPendingEmoji = null;
+    this.refresh('');
+  },
+
+  /**
+   * 收起 / 展开右上角工具条。
+   * 真机上它会因胶囊避让被下推（top 10 → 66/89），正好压住右侧贵族与牌列，
+   * 而贵族卡是必须常看的信息。收起后只剩一个手柄，不再遮挡。
+   * 收起时顺带关闭聊天面板：面板靠 top-right 定位，留着会悬在半空。
+   */
+  onToggleTopRight() {
+    if (this.ui.screen !== 'game') return;
+    this.ui.topRightCollapsed = !this.ui.topRightCollapsed;
+    if (this.ui.topRightCollapsed) {
+      this.ui.chatPanelOpen = false;
+      this.ui.chatPendingEmoji = null;
+    }
     this.refresh('');
   },
 
@@ -4298,7 +4327,13 @@ Page({
     const seats = (this.room.seats || []).map(function (s, i) {
       return Object.assign({}, s, { index: i, ready: true });
     });
-    this.state = E.createGame({ playerCount: seats.length, seats: seats });
+    // 先手随机：联机局不再固定房主 0 号先动，否则后加入的人永远后手。
+    // 结果写进 state 随快照下发，其他端直接读 current，不各自抽签。
+    this.state = E.createGame({
+      playerCount: seats.length,
+      seats: seats,
+      firstSeat: R.randomFirstSeat(seats.length)
+    });
     // 回合计时随房间配置下发，所有设备看到同一份限时
     this.state.turnLimit = R.normTurnLimit(this.room.turnLimit);
     this.state.themeId = T.roomId(this.room);

@@ -433,14 +433,59 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
 // 3.07 天梯榜：舞台级全局弹层，牌桌屏也必须能打开；六项指标、综合评分口径、
 //      本机行与离线说明都要真的渲染出来，而不是只把数据挂到 VM 上。
 {
+  // 榜单只收「联机 + 真人≥2」的对局，且榜首需要脱离观察期（≥3 局）。
+  // H5 沙箱里的 user 模块与 Node 侧 require 不是同一份存储，写记录进不去，
+  // 所以这里直接按 rowsVM 的真实契约构造榜单数据 —— 本节要验的是「渲染」，
+  // 准入与评分规则由 tests/leaderboard.js 单独覆盖。
+  const rows = [
+    {
+      rank: 1, uid: 'u-champ', name: '珠宝大亨', initial: '珠',
+      avatarUrl: '', isMe: false, isChampion: true, championLabel: '榜首',
+      provisional: false, rating: 512, ratingText: '512',
+      wins: 9, winsText: '9', bestWinScore: 18, bestWinText: '18',
+      avgScoreText: '15.2', avgCardsText: '10.5', avgNoblesText: '1.2',
+      avgTurnText: '4.8s', gamesText: '12', winRateText: '75%'
+    },
+    {
+      rank: 2, uid: 'u-me', name: '本机玩家', initial: '本',
+      avatarUrl: '', isMe: true, isChampion: false, championLabel: '',
+      provisional: false, rating: 430, ratingText: '430',
+      wins: 6, winsText: '6', bestWinScore: 16, bestWinText: '16',
+      avgScoreText: '13.4', avgCardsText: '9.1', avgNoblesText: '0.8',
+      avgTurnText: '5.6s', gamesText: '8', winRateText: '75%'
+    },
+    {
+      rank: 3, uid: 'u-new', name: '新人', initial: '新',
+      avatarUrl: '', isMe: false, isChampion: false, championLabel: '',
+      provisional: true, rating: 120, ratingText: '120',
+      wins: 1, winsText: '1', bestWinScore: 15, bestWinText: '15',
+      avgScoreText: '15.0', avgCardsText: '7.0', avgNoblesText: '0.0',
+      avgTurnText: '6.2s', gamesText: '1', winRateText: '100%'
+    }
+  ];
+  page.ui.showLeaderboard = false;
+  page.ui.leaderboard = null;
   assert(page.ui.screen === 'game', '天梯榜用例在牌桌屏执行，验证全局弹层不依赖大厅');
   click('onOpenLeaderboard');
+  // onOpenLeaderboard 会先把「仅本机行」的同步视图写进 ui.leaderboard；
+  // 预览环境离线，loadLeaderboard 直接返回，不会覆盖。这里在它之后换成
+  // 一份含榜首的完整榜单，模拟「云端拉回后的稳定态」再重绘验渲染。
+  page.ui.leaderboard = {
+    rows: rows, myRow: rows[1], myRank: 2, hasMe: true,
+    provisional: false, needText: '', empty: false,
+    source: 'local', sourceText: '云端未连接 · 仅展示本机战绩',
+    sourceLine: '云端未连接 · 仅展示本机战绩', myRankText: '第 2 名 · 综合 430 分',
+    formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（归一化后加权）'
+  };
+  page.refresh('');
   const lb = a.host.innerHTML;
   assert(page.data.showLeaderboard === true, '应打开天梯榜弹层');
   assert(lb.indexOf('class="dialog leaderboard-dialog"') > 0, '应渲染天梯榜弹层结构');
   assert(page.data.leaderboard.rows.length >= 1, '至少展示本机一行');
   assert(page.data.leaderboard.hasMe === true, '应能定位自己的行');
-  assert(lb.indexOf('class="leaderboard-row is-me"') > 0, '本机行应高亮');
+  // 不能精确匹配 class="leaderboard-row is-me"：本机可能同时是榜首，
+  // class 会带上 is-champion。这里只要求 class 里含 is-me。
+  assert(/class="leaderboard-row[^"]*\bis-me\b/.test(lb), '本机行应高亮');
   // 用户点名要的六项指标 + 名次/玩家/综合分，一个都不能少
   ['名次', '玩家', '综合分', '胜场', '最高胜场声望', '场均声望', '场均发展卡', '场均贵族', '回合平均耗时']
     .forEach(function (head) {
@@ -451,10 +496,36 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
   assert(lb.indexOf('leaderboard-formula') > 0, '应展示综合评分口径');
   assert(lb.indexOf('胜率 220') > 0 && lb.indexOf('活跃度 80') > 0, '口径应写明各项权重');
   assert(lb.indexOf('云端未连接') > 0, '预览离线应如实说明数据来源，不能谎称全站榜单');
+  // 准入规则必须写在界面上，否则打了人机局的玩家会误以为成绩没记上
+  assert(lb.indexOf('入榜条件') > 0, '界面应说明入榜条件');
+  assert(lb.indexOf('真人玩家不少于 2 人') > 0, '准入文案要写清真人数要求');
+  assert(lb.indexOf('人机对战') > 0 && lb.indexOf('不计入') > 0, '准入文案要写清人机局不计入');
   assert(lb.indexOf('观察期') > 0, '不足 3 局应标注观察期');
   assert(lb.indexOf('undefined') < 0, '榜单不得含 undefined');
   assert(lb.indexOf('NaN') < 0, '榜单不得含 NaN');
   assert(lb.indexOf('{{') < 0, '榜单不得残留未求值模板');
+  // 榜首专属头像框：必须有真实的 DOM 节点与皇冠，不能只给了 class 没渲染内容
+  {
+    const champRows = page.data.leaderboard.rows.filter(function (r) { return r.isChampion; });
+    assert(champRows.length === 1, '应恰好有 1 名榜首');
+    assert(lb.indexOf('class="lb-avatar-crown"') > 0, '榜首应渲染专属头像框容器');
+    assert(lb.indexOf('class="lb-avatar is-champion"') > 0, '榜首头像应带专属样式');
+    assert(lb.indexOf('class="lb-crown"') > 0, '榜首应渲染皇冠');
+    assert(lb.indexOf('♛') > 0, '皇冠图形符号应存在');
+    assert(lb.indexOf('class="lb-crown-glow"') > 0, '榜首应有背后辉光层');
+    assert(lb.indexOf('class="lb-champion"') > 0, '榜首应有专属标签');
+    assert(/class="leaderboard-row[^"]*\bis-champion\b/.test(lb), '榜首行应有专属底色');
+    // 非榜首行不得出现皇冠，避免「人人有框」
+    const crowns = (lb.match(/class="lb-crown"/g) || []).length;
+    assert(crowns === 1, '皇冠只能出现 1 次，实际 ' + crowns);
+    // 冠军行只能有一个头像：WXML 的 wx:elif/wx:else 链在部分编译路径下不互斥，
+    // 曾导致冠军行同时渲染专属框和一个多余的空头像圈（截图可见两个圆圈）。
+    {
+      const avatars = (lb.match(/class="lb-avatar(?: is-champion| is-preset)?"/g) || []).length;
+      // 3 行数据、每行 1 个头像 = 3
+      assert(avatars === 3, '每行应只有 1 个头像，3 行共 3 个，实际 ' + avatars);
+    }
+  }
   // 与好友邀请提醒同理：弹层必须是 stage 的直接子层，否则不随舞台缩放会 1:1 出屏
   {
     const at = lb.indexOf('class="overlay" data-tap="onCloseLeaderboard"');

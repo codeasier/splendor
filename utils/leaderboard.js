@@ -34,6 +34,42 @@ const LEADERBOARD_TABLE = 'splendor_leaderboard';
 const MIN_GAMES = 3;       // 少于 3 局标「观察期」，不隐藏（榜单要能看到新玩家）
 const MAX_ROWS = 50;
 const FETCH_LIMIT = 100;
+const MIN_HUMANS = 2;      // 天梯准入：至少 2 名真人
+
+/**
+ * 天梯准入：只有「联机对局」且「真人席位 ≥ 2」才计入榜单。
+ * ------------------------------------------------------------------
+ * 为什么要卡这两条：
+ *   - 人机局可以刷。单人打 3 个送分机器人，胜率和场均声望都能轻松拉满，
+ *     不限制的话榜单会被本地刷分占据，失去比较意义。
+ *   - 联机但对面全是机器人（1 真人 + 3 机器人）本质仍是人机局，同理排除。
+ *
+ * 为什么以「真人数」而不是「总席位」为准：
+ *   4 人房里可能有 2 个机器人补位，总席位是 4 但只有 2 个真人，
+ *   这种局的计算强度与 4 真人局不同，用 humanCount 才准确。
+ *
+ * autoPlay（真人临时托管）仍算真人：那是可随时收回操作权的真人席位，
+ * 引擎里用 isAI 区分「天生机器人」与「临时托管」，这里沿用同一口径。
+ *
+ * 旧记录兼容：humanCount 是后加字段，早期记录没有。
+ * 缺字段时按「无法判定」处理 —— **不计入**，而不是默认放行。
+ * 宁可少算历史局，也不能让无法验证的局污染榜单。
+ */
+function eligible(rec) {
+  const r = rec || {};
+  if (r.mode !== 'room') return false;
+  const humans = Number(r.humanCount);
+  if (!isFinite(humans)) return false;
+  return humans >= MIN_HUMANS;
+}
+
+/** 本机战绩里有多少局够天梯资格（用于界面提示「还差几局」） */
+function eligibleCount(records) {
+  const list = Array.isArray(records) ? records : [];
+  let n = 0;
+  for (let i = 0; i < list.length; i++) if (eligible(list[i])) n += 1;
+  return n;
+}
 
 /* 综合评分权重，满分 680。局数少的人靠 volume 项天然压低，不需要硬门槛。 */
 const WEIGHTS = {
@@ -99,7 +135,8 @@ function mergeTotals(a, b) {
 function fromRecords(records) {
   let t = blank();
   const list = Array.isArray(records) ? records : [];
-  for (let i = 0; i < list.length; i++) t = mergeTotals(t, fromRecord(list[i]));
+  // 只累计够天梯资格的对局；人机局与非联机局一律不进榜
+  for (let i = 0; i < list.length; i++) if (eligible(list[i])) t = mergeTotals(t, fromRecord(list[i]));
   return t;
 }
 
@@ -180,6 +217,10 @@ async function publish(cloud, profile, totals) {
   try {
     const database = cloud && cloud.database;
     if (!database || !profile || !profile.uid) return { ok: false, error: 'no-cloud' };
+    // 没有任何合格对局就不上榜：否则「从没打过联机真人局的人」也会占一行 0 分，
+    // 榜单会被大量空行稀释。已有云端行的玩家若之后局数归零（清空战绩），
+    // 这里同样不会写回，云端旧行保持原样。
+    if (!num((totals || blank()).games)) return { ok: false, error: 'no-eligible-games' };
     const entry = entryOf(profile.uid, profile.nickname,
       profile.avatarData || '', totals || blank());
     const score = rating(summarize(entry.totals));
@@ -216,6 +257,10 @@ function fmt1(v) {
 function formatRow(entry, rank, myUid) {
   const s = summarize(entry.totals || blank());
   const score = rating(s);
+  // 冠军专属头像框：只在「有人真正上榜」时给第 1 名。
+  // 观察期（局数不足）的人不授予 —— 3 局不到就戴皇冠会误导，
+  // 宁可空着也不让「打一局就上榜」的人拿到最显眼的身份标识。
+  const isChampion = rank === 1 && s.games >= MIN_GAMES;
   return {
     rank: rank,
     uid: entry.uid,
@@ -223,6 +268,8 @@ function formatRow(entry, rank, myUid) {
     initial: String(entry.nickname || '珠').slice(0, 1),
     avatarUrl: entry.avatarUrl || '',
     isMe: entry.uid === myUid,
+    isChampion: isChampion,
+    championLabel: isChampion ? '榜首' : '',
     provisional: s.games < MIN_GAMES,
     rating: score,
     ratingText: String(score),
@@ -289,9 +336,12 @@ function rowsVM(entries, myUid, opts) {
 module.exports = {
   LEADERBOARD_TABLE: LEADERBOARD_TABLE,
   MIN_GAMES: MIN_GAMES,
+  MIN_HUMANS: MIN_HUMANS,
   MAX_ROWS: MAX_ROWS,
   WEIGHTS: WEIGHTS,
   blank: blank,
+  eligible: eligible,
+  eligibleCount: eligibleCount,
   fromRecord: fromRecord,
   mergeTotals: mergeTotals,
   fromRecords: fromRecords,

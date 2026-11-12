@@ -268,22 +268,23 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   border: 1px solid rgba(232, 188, 106, .36);
   background: linear-gradient(160deg, rgba(64, 32, 46, .78), rgba(22, 10, 18, .86));
   box-shadow: inset 0 1px 0 rgba(255, 240, 200, .2), 0 6px 16px rgba(0, 0, 0, .55);
+  transition: padding .16s ease, background .16s ease;
 }
-.gold-box {
-  display: flex; align-items: center; gap: 6px;
-  padding-right: 7px;
-  border-right: 1px solid rgba(243, 212, 139, .24);
-}
-.gold-coin {
-  position: relative; width: 34px; height: 34px; border-radius: 50%;
-  box-shadow: 0 2px 0 #8f6f33, 0 4px 0 #5a3d1f, 0 6px 10px rgba(0, 0, 0, .65);
-}
+/* 按钮组：外层 .top-right 是 flex 容器，收起手柄与按钮组并排。
+   这里显式声明横向 flex，避免 WXML 子节点被包成行内元素后竖排。 */
+.top-right-group { display: flex; align-items: center; gap: 8px; }
+/* 收起态：只剩手柄。用 auto 宽度而不是写死 40px —— 写死会和
+   展开态的 padding / gap 打架，出现「手柄在左、按钮组竖排」的错位。 */
+.top-right.is-collapsed { padding: 4px; gap: 0; border-radius: 50%; }
+.top-right.is-collapsed .top-right-group { display: none; }
+/* 收起手柄用更中性的描边，避免和「退出」共用破坏性红调 */
+.top-right-toggle { flex-shrink: 0; border-color: rgba(217, 171, 92, .8); }
+.top-right.is-collapsed .top-right-toggle { margin: 0; }
+.top-right-toggle text { font-size: 14px; }
+/* 顶栏不再显示黄金数量：桌面筹码区已有。原 .gold-box / .gold-coin /
+   .gold-label 三块样式随之移除，避免留下无主 CSS。
+   .pile-gem 仍被筹码面复用，保留。 */
 .pile-gem { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin-left: -11px; margin-top: -11px; }
-.gold-label {
-  font-family: "Songti SC", Georgia, serif;
-  font-size: 11px; font-weight: 700; color: #ffe6ae; letter-spacing: .5px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
-}
 .round-btn {
   width: 31px; height: 31px; border-radius: 50%;
   border: 1px solid #d9ab5c;
@@ -2830,6 +2831,9 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
   border: 1px solid rgba(226, 190, 126, .38); border-radius: 6px;
   background: rgba(12, 7, 11, .42);
 }
+/* 表格是滚动容器（overflow-y:auto 会同时裁掉溢出部分），
+   榜首行头像框与皇冠有轻微上溢，给第一行留一点内边距免得被裁头。 */
+.leaderboard-table { padding-top: 2px; }
 .leaderboard-row {
   display: flex; align-items: center; height: 34px; padding: 0 6px;
   border-bottom: 1px solid rgba(226, 190, 126, .16);
@@ -2842,7 +2846,7 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 }
 .leaderboard-row.is-me { background: rgba(54, 122, 96, .26); }
 .leaderboard-row:last-child { border-bottom: none; }
-.lb-c-rank { flex: 0 0 44px; text-align: center; }
+.lb-c-rank { flex: 0 0 44px; position: relative; display: flex; align-items: center; justify-content: center; }
 .lb-c-name { flex: 0 0 210px; display: flex; align-items: center; gap: 5px; min-width: 0; }
 .lb-c-num { flex: 1; text-align: center; }
 .lb-c-num.is-score { color: #ffd884; font-weight: 700; font-size: 15px; }
@@ -2854,6 +2858,106 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .lb-avatar image { width: 100%; height: 100%; }
 .lb-avatar.is-preset { background: linear-gradient(150deg, #7a4a5e, #24121c); }
 .lb-avatar.is-preset text { font-size: 12px; color: #fff3d8; }
+
+/* ========== 天梯榜首：专属头像框 ==========
+   样式目标「高贵华丽」：三层金环 + 顶部皇冠 + 背后暖金辉光。
+   尺寸比普通头像大一圈（26 vs 22），但行高固定 34px 不变，
+   靠 .lb-c-name 的 align-items:center 居中，不会把行撑高。
+   动画只做辉光的缓慢呼吸，不做位移 —— 表格里每行都在动会晃眼，
+   而且截图验收要靠 animation:none 停帧，位移类动画停帧后位置会偏。 */
+.lb-avatar-crown {
+  position: relative; flex-shrink: 0;
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+}
+.lb-avatar.is-champion {
+  width: 24px; height: 24px; border: none; position: relative; z-index: 2;
+  /* 冠军头像也要有自己的深色底：.lb-avatar 的基础底色很淡，
+     没有 is-preset 类时初始字是深棕色，落在浅底上几乎看不见（截图里像空白圈）。
+     这里用深酒红渐变托住文字，与外圈金色形成对比。 */
+  background: linear-gradient(155deg, #6d3a4e, #2a1420);
+  /* 四层金环：亮金细边 → 暗金实体环 → 半透金晕 → 外扩柔光。
+     单环看起来只是「描边」，多层才有金属包边的厚度感。 */
+  box-shadow:
+    0 0 0 1.5px #fff3cc,
+    0 0 0 3px #d9a63c,
+    0 0 0 4.5px #8a5f16,
+    0 0 0 5.5px rgba(255, 224, 150, .5),
+    0 0 11px 3px rgba(255, 190, 70, .8);
+}
+.lb-avatar.is-champion text { font-size: 12px; color: #ffe9b0; font-weight: 700; }
+/* 背后的暖金辉光，缓慢呼吸 */
+.lb-crown-glow {
+  position: absolute; left: 50%; top: 50%; width: 36px; height: 36px;
+  margin: -18px 0 0 -18px; border-radius: 50%; z-index: 1;
+  background: radial-gradient(circle, rgba(255, 226, 150, .7) 0%, rgba(255, 190, 60, .3) 48%, rgba(255, 170, 40, .1) 66%, transparent 76%);
+  animation: crownBreathe 2.6s ease-in-out infinite;
+}
+@keyframes crownBreathe {
+  0%, 100% { opacity: .62; transform: scale(.94); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+/* 三个冠齿：不用 clip-path（小程序 WebView 支持不稳，容易被忽略后变成一块方条），
+   改用三个小三角块并排。每个三角用 border 技巧画，颜色走金属金。 */
+.lb-crown::before,
+.lb-crown::after {
+  content: ''; position: absolute; bottom: 100%; width: 0; height: 0;
+  border-left: 3px solid transparent; border-right: 3px solid transparent;
+  border-bottom: 5px solid #ffdc84;
+  filter: drop-shadow(0 -1px 0 rgba(255, 255, 255, .55));
+}
+.lb-crown::before { left: 0; }
+.lb-crown::after { right: 0; }
+/* 中间的冠齿用主体自身的上边框尖角表达 */
+.lb-crown {
+  position: absolute; left: 50%; top: -4px; z-index: 3;
+  width: 16px; height: 11px; margin-left: -8px;
+  background: linear-gradient(180deg, #fff8da 0%, #ffdc84 34%, #e2a936 70%, #9c6a14 100%);
+  border-radius: 1px 1px 3px 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+/* 中间冠齿 */
+.lb-crown text {
+  display: block; position: absolute; left: 50%; bottom: 100%;
+  width: 0; height: 0; margin-left: -3px; font-size: 0;
+  border-left: 3px solid transparent; border-right: 3px solid transparent;
+  border-bottom: 6px solid #ffe9a8;
+  filter: drop-shadow(0 1px 0 rgba(160, 110, 20, .8));
+}
+/* 冠带正中的宝石 */
+.lb-crown-gem {
+  position: absolute; left: 50%; bottom: 2px; width: 3px; height: 3px;
+  margin-left: -1.5px; border-radius: 50%; z-index: 2;
+  background: radial-gradient(circle, #fffdf0 0%, #ffd979 60%, #b8862f 100%);
+  box-shadow: 0 0 2px rgba(255, 240, 190, .9);
+}
+
+/* 榜首整行：淡金底 + 左侧金条，与「你」的绿底区分开 */
+.leaderboard-row.is-champion {
+  background: linear-gradient(90deg, rgba(120, 88, 24, .48), rgba(70, 48, 12, .18) 62%, transparent);
+  box-shadow: inset 2px 0 0 #ffd77f;
+}
+/* 榜首名次：金色圆牌衬底。
+   不能用伪元素压在 text 上 —— 小程序里 text 的 ::before 层级不可靠，
+   实测会把数字完全盖住（只剩一个金球）。改为真实节点叠加：
+   .lb-c-rank 负责定位，.lb-c-rank-medal 是圆牌，.lb-c-rank-num 是数字。
+   列宽仍保持 44px（9 列表格靠列宽对齐，不能改 flex-basis）。 */
+.lb-c-rank-medal {
+  position: absolute; left: 50%; top: 50%;
+  width: 19px; height: 19px; margin: -9.5px 0 0 -9.5px; border-radius: 50%; z-index: 0;
+  background: radial-gradient(circle at 42% 34%, #fff6d0 0%, #ffd979 42%, #d49a28 74%, #8f6212 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .7);
+}
+.lb-c-rank-num { position: relative; z-index: 1; }
+.lb-c-rank-num.is-champion { color: #2a1a02; font-weight: 700; text-shadow: 0 1px 0 rgba(255, 246, 208, .85); }
+.lb-name.is-champion { color: #ffe9b0; font-weight: 700; max-width: 92px; }
+.lb-champion {
+  flex-shrink: 0; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 700;
+  color: #3a2606;
+  background: linear-gradient(180deg, #fff2c4, #ffd979 55%, #e0a631);
+  border: 1px solid rgba(255, 240, 190, .9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+}
 .lb-name { max-width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-me, .lb-provisional {
   flex-shrink: 0; font-size: 10px; padding: 1px 4px; border-radius: 4px;
@@ -2863,3 +2967,5 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .leaderboard-empty { padding: 20px; text-align: center; font-size: 12px; color: #c9ac81; }
 .leaderboard-formula { font-size: 12px; line-height: 1.45; color: #c6a981; }
 .leaderboard-note { font-size: 11px; line-height: 1.45; color: #aa8e6f; }
+/* 入榜条件比免责说明更重要，用暖金提高可读性 */
+.leaderboard-rule { font-size: 12px; line-height: 1.45; color: #e8c48a; }

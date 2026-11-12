@@ -864,6 +864,10 @@ assert(page.data.meSeatLabel === '1 号位', '本机工作台标注自己的号�
 assert(page.data.rivals.length === 2, '其余席位进入顶部条');
 assert(page.data.rivals[0].seatNo === 2 && page.data.rivals[1].seatNo === 3, '对手席位条带号位');
 assert(page.data.rivals[0].seatLabel === '2 号位', '副标题用「n 号位」表述');
+// 开局先手已改为随机（不再恒为房主），本用例只验「号位标注」口径，
+// 所以把 current 钉回 1 号位再做断言；先手随机性由下面的专项用例覆盖。
+page.state.current = 0;
+page.refresh('');
 assert(page.data.statusText.indexOf('你的回合 · 1 号位') === 0, '回合状态行含号位：' + page.data.statusText);
 assert(page.data.statusLong === false, '自己的状态行用大字号，不降档');
 page.mySeat = 1;
@@ -873,6 +877,78 @@ assert(page.data.statusLong === true, '别人的状态行更长，降档保住�
 page.mySeat = 0;
 page.refresh('');
 console.log('OK  号位标注 · 席位条 / 工作台 / 状态行同一口径');
+
+/* ---------- 开局先手随机：不能恒为房主，且全场必须一致 ---------- */
+{
+  const E2 = require(ROOT + '/utils/game-engine.js');
+  const R2 = require(ROOT + '/utils/room.js');
+
+  // 分布：4 人局每个席位都应有机会先手
+  const seen = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  for (let i = 0; i < 2000; i++) seen[R2.randomFirstSeat(4)] += 1;
+  const each = Object.keys(seen).filter(function (k) { return seen[k] > 300; });
+  assert(each.length === 4, '4 人局四个席位都应能先手：' + JSON.stringify(seen));
+
+  // 边界：单人 / 非法人数回退 0，绝不返回越界值
+  assert(R2.randomFirstSeat(1) === 0, '单人局先手恒 0');
+  assert(R2.randomFirstSeat(0) === 0, '人数为 0 时回退 0');
+  assert(R2.randomFirstSeat(-3) === 0, '负数人数回退 0');
+
+  // 引擎只改行动起点，不动 players 排列（席位索引是身份锚点）
+  const seats = [{ name: 'A', uid: 'a' }, { name: 'B', uid: 'b' }, { name: 'C', uid: 'c' }];
+  const g = E2.createGame({ playerCount: 3, seats: seats, firstSeat: 2 });
+  assert(g.current === 2, '引擎接受 firstSeat 作为行动起点');
+  assert(g.players.length === 3, '人数不变');
+  assert(g.players[0].name === 'A' && g.players[2].name === 'C', '席位顺序不被打乱，重连仍能按 uid 认回');
+  assert(E2.createGame({ playerCount: 3, seats: seats }).current === 0, '不传 firstSeat 时仍是 0（人机局默认本机先手）');
+  assert(E2.createGame({ playerCount: 3, seats: seats, firstSeat: 99 }).current === 0, '越界 firstSeat 安全回退 0');
+
+  // 页面级：房主开局后 current 落在合法范围，且补丁能带出「先手是谁」
+  page.mode = 'room';
+  page.mySeat = 0;
+  page.openRoom();
+  page.room.seats[0] = Object.assign({}, page.room.seats[0], { name: '房主甲', nickname: '房主甲', uid: 'host-a' });
+  page.room.seats[1] = Object.assign({}, page.room.seats[1], { joined: true, uid: 'guest-b', name: '好友乙', nickname: '好友乙', ready: true });
+  page.room.seats[2] = Object.assign({}, page.room.seats[2], { joined: true, uid: 'guest-c', name: '好友丙', nickname: '好友丙', ready: true });
+  page.refresh('');
+  page.onRoomStart();
+  assert(page.ui.screen === 'game', '房主可开局');
+  const cur = page.state.current;
+  assert(cur >= 0 && cur < page.state.players.length, '先手席位在合法范围内：' + cur);
+  assert(page.state.players.length === 3, '开局人数正确');
+  // 先手不是自己时，状态行要能标出对方号位（不写死 1 号位）
+  assert(page.state.current === cur, '先手在开局后不再变动');
+
+  console.log('OK  开局先手随机 · 分布覆盖四席 / 越界回退 / 席位顺序不变');
+}
+
+/* ---------- 右上工具条收起：不遮挡牌桌 ---------- */
+{
+  page.mode = 'room';
+  page.mySeat = 0;
+  page.ui.screen = 'game';
+  page.refresh('');
+  assert(page.data.topRightCollapsed === false, '工具条默认展开');
+  assert(page.data.topRightToggleLabel === '×', '展开态手柄显示收起符号：' + page.data.topRightToggleLabel);
+
+  page.ui.chatPanelOpen = true;
+  page.onToggleTopRight();
+  assert(page.data.topRightCollapsed === true, '可以收起工具条');
+  assert(page.data.topRightToggleLabel === '☰', '收起态手柄显示展开符号：' + page.data.topRightToggleLabel);
+  assert(page.ui.chatPanelOpen === false, '收起时顺带关掉聊天面板，避免面板悬空');
+
+  page.onToggleTopRight();
+  assert(page.data.topRightCollapsed === false, '可以再次展开');
+  assert(page.data.topRightToggleLabel === '×', '展开态恢复收起符号');
+
+  // 非牌桌屏不应响应，避免在大厅误触
+  page.ui.screen = 'home';
+  page.refresh('');
+  page.onToggleTopRight();
+  assert(page.data.topRightCollapsed === false, '非牌桌屏不响应收起');
+
+  console.log('OK  右上工具条 · 收起展开 / 联动关面板 / 非牌桌不响应');
+}
 
 /* ---------- 回合计时：建房选定 / 大厅可改 / 超时托管 ---------- */
 const RT = require(ROOT + '/utils/room.js');
@@ -899,6 +975,11 @@ assert(page.room.turnLimit === 0 && page.data.roomScreen.turnLimitText === '不�
 page.onRoomTurnLimit({ currentTarget: { dataset: { value: '60' } } });
 
 page.beginRoomGame();
+// 开局先手已随机；本用例验的是「轮到自己时的提醒与倒计时」，
+// 所以把先手钉回房主 0 号席，避免随机性让用例本身变得不确定。
+page.state.current = 0;
+page.resetTurnUI();
+page.refresh('');
 assert(page.state.turnLimit === 60, '开局快照要带上限时，其他设备据此显示');
 assert(page.data.turnClock.on === true, '限时局应显示倒计时');
 assert(page.data.turnClock.text === '1:00', '开局显示满额：' + page.data.turnClock.text);
@@ -1323,7 +1404,13 @@ console.log('OK  终局提示 · 指名达标者 / 剩余回合 / 结算后消�
   const L2 = require(ROOT + '/utils/leaderboard.js');
   const E2 = require(ROOT + '/utils/game-engine.js');
   const savedState = page.state;
-  const st = E2.createGame(2);
+  const savedMode = page.mode;
+  // 天梯只收「联机 + 真人≥2」的对局，所以本用例按联机 2 真人构造：
+  // 两个席位都给 isAI=false，mode 切到 room，这样 maybeRecordResult 写出的记录
+  // 才会被 leaderboard 判为合格。
+  const st = E2.createGame({ playerCount: 2, seats: [{ name: '我', isAI: false }, { name: '对手', isAI: false }] });
+  st.players.forEach(function (p) { p.isAI = false; p.type = 'remote'; });
+  page.mode = 'room';
   const meSeat = page.mySeat || 0;
   st.gameOver = true;
   st.winner = meSeat;
@@ -1361,8 +1448,87 @@ console.log('OK  终局提示 · 指名达标者 / 剩余回合 / 结算后消�
   assert(page.data.showLeaderboard === false, '天梯榜可关闭');
   // 恢复现场，不要污染后面的「对局中改资料」用例
   page.state = savedState;
+  page.mode = savedMode;
   page._resultRecorded = true;
   console.log('OK  天梯榜 · 结算指标落库 / 弹层 / 综合评分口径');
+}
+
+// 天梯准入：人机局即便赢了也不进榜。判定在 leaderboard.eligible，
+// 记账时只负责如实写下 mode 与真人数，不在页面层做业务裁剪。
+{
+  const U3 = require(ROOT + '/utils/user.js');
+  const L3 = require(ROOT + '/utils/leaderboard.js');
+  const E3 = require(ROOT + '/utils/game-engine.js');
+  const savedState = page.state;
+  const savedMode = page.mode;
+
+  // ① 人机局：本机 + 1 个机器人
+  const solo = E3.createGame(2);
+  solo.gameOver = true;
+  solo.winner = 0;
+  solo.turnCount = 10;
+  solo.players[0].points = 15;
+  page.state = solo;
+  page.mode = 'solo';
+  page.mySeat = 0;
+  page._resultRecorded = false;
+  page._gameStartedAt = Date.now() - 50000;
+  const idsBefore = U3.getRecords().map(function (r) { return r.id; });
+  page.maybeRecordResult();
+  const added = U3.getRecords().filter(function (r) { return idsBefore.indexOf(r.id) < 0; });
+  assert(added.length === 1, '本次结算应恰好新增 1 条记录，实际 ' + added.length);
+  const soloRec = added[0];
+  assert(soloRec.mode === 'solo', '人机局记录 mode=solo');
+  assert(soloRec.humanCount === 1, '人机局只有 1 名真人：' + soloRec.humanCount);
+  assert(L3.eligible(soloRec) === false, '人机局不进天梯');
+
+  // ② 联机 4 人房 2 机器人补位：仍只有 2 真人，属于合格局。
+  // 注意引擎约定：seat.isAI 不显式给时会按「除 0 号外都是机器人」默认，
+  // 所以真人席位必须显式写 isAI:false（makeSeats 就是这么做的）。
+  const room = E3.createGame({ playerCount: 4, seats: [
+    { name: '我', type: 'remote', isAI: false }, { name: '好友', type: 'remote', isAI: false },
+    { name: '机器人 3', isAI: true }, { name: '机器人 4', isAI: true }
+  ] });
+  let humans = 0;
+  room.players.forEach(function (p) { if (!p.isAI) humans += 1; });
+  room.gameOver = true;
+  room.winner = 0;
+  room.turnCount = 12;
+  room.players[0].points = 15;
+  page.state = room;
+  page.mode = 'room';
+  page._resultRecorded = false;
+  page._gameStartedAt = Date.now() - 60000;
+  const idsBefore2 = U3.getRecords().map(function (r) { return r.id; });
+  page.maybeRecordResult();
+  const added2 = U3.getRecords().filter(function (r) { return idsBefore2.indexOf(r.id) < 0; });
+  assert(added2.length === 1, '本次结算应恰好新增 1 条记录');
+  const roomRec = added2[0];
+  assert(roomRec.humanCount === humans && humans === 2, '4 人房 2 机器人补位时真人数为 2：' + roomRec.humanCount);
+  assert(L3.eligible(roomRec) === true, '联机 2 真人局进天梯');
+
+  // ③ 联机但只有 1 真人（其余机器人）：不算合格
+  const one = E3.createGame({ playerCount: 2, seats: [{ name: '我', type: 'remote' }, { name: '机器人', isAI: true }] });
+  one.gameOver = true;
+  one.winner = 0;
+  one.turnCount = 8;
+  one.players[0].points = 15;
+  page.state = one;
+  page.mode = 'room';
+  page._resultRecorded = false;
+  page._gameStartedAt = Date.now() - 40000;
+  const idsBefore3 = U3.getRecords().map(function (r) { return r.id; });
+  page.maybeRecordResult();
+  const added3 = U3.getRecords().filter(function (r) { return idsBefore3.indexOf(r.id) < 0; });
+  assert(added3.length === 1, '本次结算应恰好新增 1 条记录');
+  const oneRec = added3[0];
+  assert(oneRec.humanCount === 1, '联机 1 真人 1 机器人真人数为 1');
+  assert(L3.eligible(oneRec) === false, '联机但只有 1 名真人不进天梯');
+
+  page.state = savedState;
+  page.mode = savedMode;
+  page._resultRecorded = true;
+  console.log('OK  天梯准入 · 人机局与单真人局不计入 / 2 真人合格');
 }
 
 // 对局中改资料：联机快照会整份替换 state.players，资料补丁必须在每次

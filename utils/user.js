@@ -279,6 +279,12 @@ function addRecord(input, profile) {
     cards: Math.max(0, Number(src.cards) || 0),
     nobles: Math.max(0, Number(src.nobles) || 0),
     turnAvgMs: Math.max(0, Number(src.turnAvgMs) || 0),
+    // 本局真人席位数（isAI=false 的席位；托管中的真人仍算）。
+    // 天梯榜只收「联机 + 真人 ≥ 2」的对局；旧记录没有该字段，
+    // 由 leaderboard 侧按 -1 处理为「无法判定」，不计入榜单。
+    humanCount: src.humanCount === undefined
+      ? undefined
+      : Math.min(4, Math.max(0, Number(src.humanCount) || 0)),
     at: Number(src.at) || Date.now(),
     roomCode: src.roomCode || '',
     opponents: (src.opponents || []).slice(0, 3)

@@ -7,10 +7,12 @@ function assert(cond, msg) { if (!cond) throw new Error('FAIL: ' + msg); }
 function eq(a, b, msg) { assert(a === b, msg + ' expect=' + JSON.stringify(b) + ' got=' + JSON.stringify(a)); }
 function near(a, b, msg) { assert(Math.abs(a - b) < 1e-6, msg + ' expect≈' + b + ' got=' + a); }
 
+// 天梯准入：必须是联机局（mode='room'）且真人 ≥ 2。
+// 本文件后面所有「正常对局」样本都满足该条件。
 const RECORDS = [
-  { win: true, score: 18, cards: 12, nobles: 2, turns: 20, turnAvgMs: 5000 },
-  { win: false, score: 9, cards: 6, nobles: 0, turns: 10, turnAvgMs: 3000 },
-  { win: true, score: 16, cards: 10, nobles: 1, turns: 20, turnAvgMs: 7000 }
+  { mode: 'room', humanCount: 2, win: true, score: 18, cards: 12, nobles: 2, turns: 20, turnAvgMs: 5000 },
+  { mode: 'room', humanCount: 3, win: false, score: 9, cards: 6, nobles: 0, turns: 10, turnAvgMs: 3000 },
+  { mode: 'room', humanCount: 4, win: true, score: 16, cards: 10, nobles: 1, turns: 20, turnAvgMs: 7000 }
 ];
 
 /* ---------- 1. 六项指标：累计量 → 均值 ---------- */
@@ -32,20 +34,51 @@ near(s.avgTurnMs, 5400, '回合平均耗时按回合数加权');
 near(s.avgTurnSec, 5.4, '回合平均耗时（秒）');
 console.log('OK  六项指标 · 累计量 / 均值 / 按回合加权');
 
-/* ---------- 2. 旧战绩兼容 + 空数据 ---------- */
-const legacy = L.fromRecords([{ win: false, score: 7, turns: 12 }]);
-eq(legacy.games, 1, '旧记录仍计一局');
-eq(legacy.totalCards, 0, '旧记录缺发展卡记 0');
-eq(legacy.totalTurnMs, 0, '旧记录缺耗时记 0');
+/* ---------- 2. 旧战绩兼容 + 空数据 ----------
+   注意口径变化：天梯准入要求「联机 + 真人≥2」，旧记录既没有 mode 也没有
+   humanCount，属于「无法判定」，一律不计入榜单 —— 这里验的正是这条。
+   字段缺失但准入合法的记录，缺的那几项指标仍按 0 计，不影响其余统计。 */
+const legacyNotEligible = L.fromRecords([{ win: false, score: 7, turns: 12 }]);
+eq(legacyNotEligible.games, 0, '缺 mode/humanCount 的旧记录不进天梯');
+const legacyOk = L.fromRecords([{ mode: 'room', humanCount: 2, win: false, score: 7, turns: 12 }]);
+eq(legacyOk.games, 1, '准入合法但缺指标字段时仍计一局');
+eq(legacyOk.totalCards, 0, '旧记录缺发展卡记 0');
+eq(legacyOk.totalTurnMs, 0, '旧记录缺耗时记 0');
 eq(L.rating(L.summarize(L.blank())), 0, '无对局评分 0');
 eq(L.fromRecords(null).games, 0, '非数组输入不抛错');
 console.log('OK  旧记录兼容 · 空数据安全');
 
+/* ---------- 2.1 天梯准入：人机局 / 单真人局不收 ---------- */
+{
+  const solo = { mode: 'solo', humanCount: 1, win: true, score: 15, cards: 9, nobles: 1, turns: 10, turnAvgMs: 4000 };
+  const roomOneHuman = { mode: 'room', humanCount: 1, win: true, score: 15, cards: 9, nobles: 1, turns: 10, turnAvgMs: 4000 };
+  const roomTwoHuman = { mode: 'room', humanCount: 2, win: true, score: 15, cards: 9, nobles: 1, turns: 10, turnAvgMs: 4000 };
+  const noHumanField = { mode: 'room', win: true, score: 15, cards: 9, nobles: 1, turns: 10, turnAvgMs: 4000 };
+
+  eq(L.eligible(solo), false, '人机局不进天梯');
+  eq(L.eligible(roomOneHuman), false, '联机但只有 1 名真人不进天梯');
+  eq(L.eligible(roomTwoHuman), true, '联机 2 名真人可进天梯');
+  eq(L.eligible(noHumanField), false, '缺 humanCount 视为无法判定，不放行');
+  eq(L.eligible(null), false, '空记录不抛错且不放行');
+
+  // 4 人房 2 机器人补位：只算 2 真人，仍合格
+  eq(L.eligible({ mode: 'room', humanCount: 2, playerCount: 4 }), true, '4 人房 2 真人 2 机器人仍合格');
+  // 托管中的真人仍是真人（引擎用 isAI 区分，humanCount 已按此口径算好）
+  eq(L.eligible({ mode: 'room', humanCount: 2, autoPlay: true }), true, '真人托管不降低真人数');
+
+  eq(L.fromRecords([solo, roomOneHuman, roomTwoHuman]).games, 1, '混合记录只累计合格局');
+  eq(L.eligibleCount([solo, roomOneHuman, roomTwoHuman, roomTwoHuman]), 2, 'eligibleCount 只数合格局');
+
+  // 全不合格时评分为 0，且发布应被拦截（不能占一行 0 分）
+  eq(L.rating(L.summarize(L.fromRecords([solo, roomOneHuman]))), 0, '无合格局评分 0');
+  console.log('OK  天梯准入 · 人机局与单真人局被排除');
+}
+
 /* ---------- 3. 综合评分：每一项都要真正影响分数 ---------- */
 const base = L.summarize(L.fromRecords([
-  { win: true, score: 16, cards: 10, nobles: 1, turns: 20, turnAvgMs: 5000 },
-  { win: false, score: 10, cards: 8, nobles: 0, turns: 20, turnAvgMs: 5000 },
-  { win: true, score: 17, cards: 11, nobles: 2, turns: 20, turnAvgMs: 5000 }
+  { mode: 'room', humanCount: 2, win: true, score: 16, cards: 10, nobles: 1, turns: 20, turnAvgMs: 5000 },
+  { mode: 'room', humanCount: 2, win: false, score: 10, cards: 8, nobles: 0, turns: 20, turnAvgMs: 5000 },
+  { mode: 'room', humanCount: 2, win: true, score: 17, cards: 11, nobles: 2, turns: 20, turnAvgMs: 5000 }
 ]));
 const baseScore = L.rating(base);
 assert(baseScore > 0, '有效战绩评分必须 > 0');
@@ -70,7 +103,7 @@ console.log('OK  综合评分 · 六项指标 + 活跃度都参与且方向正�
 /* ---------- 4. 排名：稳定、同分有确定次序、我的行可定位 ---------- */
 const a = L.entryOf('u-a', '甲', '', L.fromRecords(RECORDS));
 const b = L.entryOf('u-b', '乙', '', L.fromRecords([
-  { win: false, score: 5, cards: 3, nobles: 0, turns: 10, turnAvgMs: 9000 }
+  { mode: 'room', humanCount: 2, win: false, score: 5, cards: 3, nobles: 0, turns: 10, turnAvgMs: 9000 }
 ]));
 const c = L.entryOf('u-c', '丙', '', L.blank());
 const ranked = L.rankRows([c, b, a], 'u-b');
@@ -98,6 +131,47 @@ eq(localVM.empty, true, '空榜单有空态');
 eq(localVM.hasMe, false, '空榜单无我的行');
 assert(localVM.sourceText.indexOf('云端未连接') >= 0, '离线来源如实说明');
 console.log('OK  视图模型 · 格式化 / 空态 / 离线说明');
+
+/* ---------- 6. 榜首专属头像框：只给真正上榜的第 1 名 ---------- */
+{
+  // a 是 3 局全优的强玩家，排名第一
+  const top = L.entryOf('u-a', '甲', '', L.fromRecords(RECORDS));
+  // 造一个只有 1 局的弱玩家：即便凑数排到前面，观察期也不该戴皇冠
+  const rookie = L.entryOf('u-r', '新人', '', L.fromRecords([
+    { mode: 'room', humanCount: 2, win: true, score: 15, cards: 5, nobles: 0, turns: 10, turnAvgMs: 2000 }
+  ]));
+
+  const vmChamp = L.rowsVM([top, b, c], 'u-b', { source: 'cloud' });
+  eq(vmChamp.rows[0].uid, 'u-a', '强玩家排第一');
+  eq(vmChamp.rows[0].isChampion, true, '榜首应获得专属头像框');
+  eq(vmChamp.rows[0].championLabel, '榜首', '榜首标签文案');
+  // 其余行一律不是冠军，不能出现「人人有框」
+  eq(vmChamp.rows[1].isChampion, false, '第二名没有专属框');
+  eq(vmChamp.rows[2].isChampion, false, '观察期玩家没有专属框');
+  eq(vmChamp.rows[2].championLabel, '', '非榜首标签为空');
+
+  // 观察期玩家即使排到第 1 名也不授予皇冠（打一局就拿最显眼标识会误导）
+  const vmRookie = L.rowsVM([rookie], 'u-x', { source: 'cloud' });
+  eq(vmRookie.rows[0].rank, 1, '只有一局时也是第 1 名');
+  eq(vmRookie.rows[0].provisional, true, '一局属于观察期');
+  eq(vmRookie.rows[0].isChampion, false, '观察期不授予榜首头像框');
+
+  // 空榜单不能崩，也不能凭空给框
+  const vmEmpty = L.rowsVM([], 'u-x', { source: 'local' });
+  eq(vmEmpty.rows.length, 0, '空榜单没有行');
+  assert(!vmEmpty.rows.some(function (r) { return r.isChampion; }), '空榜单没有冠军');
+
+  // 并列时只能有一个冠军（名次唯一，不会并列）
+  const twin = [
+    L.entryOf('u-1', '甲', '', L.fromRecords(RECORDS)),
+    L.entryOf('u-2', '乙', '', L.fromRecords(RECORDS))
+  ];
+  const vmTwin = L.rowsVM(twin, 'u-1', { source: 'cloud' });
+  const champs = vmTwin.rows.filter(function (r) { return r.isChampion; });
+  eq(champs.length, 1, '同分并列时冠军也只授 1 人');
+
+  console.log('OK  榜首头像框 · 仅第 1 名且脱离观察期 / 并列只授一人');
+}
 
 /* ---------- 6. 云端表字段往返 ---------- */
 const cloudRow = L.entryToCloud(a, L.rating(L.summarize(a.totals)));
@@ -150,7 +224,20 @@ async function runCloud() {
   const bad = mockCloud([], true);
   eq((await L.publish(bad.cloud, { uid: 'u-a' }, totals)).ok, false, '云端报错时 publish 降级');
   eq((await L.fetchRows(bad.cloud)).length, 0, '云端报错时 fetchRows 返回空');
-  console.log('OK  云端契约 · 独立表 / 字段映射 / 无云与报错均静默降级');
+
+  // 没有任何合格对局时不许上榜：否则「只打过人机局的人」也会占一行 0 分
+  const empty = mockCloud([], false);
+  const pubEmpty = await L.publish(empty.cloud, { uid: 'u-a', nickname: '甲' }, L.blank());
+  eq(pubEmpty.ok, false, '0 局不上榜');
+  eq(pubEmpty.error, 'no-eligible-games', '0 局时给出明确原因');
+  eq(empty.calls.length, 0, '0 局时根本不该发起写请求');
+
+  // 只有不合格对局（人机局）时同样不上榜
+  const soloOnly = L.fromRecords([{ mode: 'solo', humanCount: 1, win: true, score: 15, turns: 10 }]);
+  eq(soloOnly.games, 0, '人机局累计为 0 局');
+  const soloCloud = mockCloud([], false);
+  eq((await L.publish(soloCloud.cloud, { uid: 'u-a', nickname: '甲' }, soloOnly)).ok, false, '只有人机局不上榜');
+  console.log('OK  云端契约 · 独立表 / 字段映射 / 无云与报错均静默降级 / 无合格局不上榜');
 }
 
 runCloud().then(function () {

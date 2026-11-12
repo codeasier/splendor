@@ -112,6 +112,28 @@ function normTurnLimit(v) {
   return 0;
 }
 
+/**
+ * 随机开局先手席位。
+ * ------------------------------------------------------------------
+ * 联机开房时座位按「房主先进 = 0 号」固定分配，如果先手恒为 0 号，
+ * 房主每局都先动，后加入的人永远后手，不公平。
+ *
+ * 关键约束：**只随机先手，不打乱 seats 数组**。
+ * seats 的索引同时是身份锚点 —— 加入房间按 uid 占位、重连按 uid 认回、
+ * 云端快照按索引对齐。一旦打乱数组，重连就会认到别人的席位、客户端
+ * 与快照错位。所以随机量只落在 state.current 这一个字段上。
+ *
+ * 结果由房主生成并随快照下发，其他端直接读 state.current，
+ * 不各自抽签（各自抽必然不一致，牌局立刻分叉）。
+ */
+function randomFirstSeat(playerCount, rand) {
+  const n = Math.floor(Number(playerCount) || 0);
+  if (n <= 1) return 0;
+  const r = typeof rand === 'function' ? rand() : Math.random();
+  const seat = Math.floor(r * n);
+  return (seat >= 0 && seat < n) ? seat : 0;
+}
+
 function defaultProfile() {
   return {
     uid: uid(),
@@ -647,6 +669,7 @@ module.exports = {
   // 供 utils/user.js 复用同一套存储后端（wx / localStorage / Node 内存）
   storageBackend: backend,
   makeSeats: makeSeats,
+  randomFirstSeat: randomFirstSeat,
   createRoom: createRoom,
   getRoom: getRoom,
   updateSeat: updateSeat,
