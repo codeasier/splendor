@@ -3278,17 +3278,75 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
    字号下限：844×390 下 scale≈0.696，舞台字 10px 只剩 ~7 物理像素。
    榜单是「一眼扫九列」的读表场景，表头 / 数值 / 评分口径统一不低于 12px；
    只有「你 / 观察期」这类带底色胶囊的辅助角标允许 10px。 */
-.leaderboard-dialog { width: 930px; }
-.leaderboard-body { display: flex; flex-direction: column; gap: 8px; }
+/* 弹层高度必须受限：舞台只有 560px 高，内容（表格 + 公式 + 准入说明 + 免责）
+   累加后已经到 550px，只剩上下各 5px。再增加一行文案就会顶破舞台。
+   给上限 + 内部滚动，让文案可以自由加长而不破坏布局。 */
+.leaderboard-dialog {
+  width: 930px;
+  max-height: 520px;
+  display: flex; flex-direction: column;
+}
+.leaderboard-dialog .dialog-body,
+.leaderboard-dialog .leaderboard-body {
+  min-height: 0; overflow-y: auto;
+}
+.leaderboard-body {
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: 0; flex: 1 1 auto;
+  /* 不能写 overflow: hidden —— 内容超限时会被静默裁掉（提示条与说明文字消失）。
+     改 auto：超限可滚，内容始终可达。 */
+  overflow-y: auto;
+}
 .leaderboard-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 12px; }
 .leaderboard-source { color: #c9ac81; }
 .leaderboard-my { color: #ffe4a8; font-weight: 700; }
 .leaderboard-provisional { color: #ffb98a; }
+/* 表格是可伸缩项：弹层高度受限时，优先压缩表格（它本来就能滚动），
+   而不是让公式 / 准入说明被压出可视区（那样会出现文字叠在表格上的重影）。
+   min-height/max-height 都取「整行倍数」，避免滚动截断卡在行中间：
+   表头 30 + 数据行 34×N。234 = 30 + 34×6，装 6 行整；108 = 30 + 34×2，保底 2 行。 */
+/* 表格高度上限 259px：这是「公式 + 入榜条件 + 免责」三行文字必须常驻可见
+   的前提下能给出的最大空间（body 351 - 文字 92 = 259）。
+   取舍说明：入榜规则是玩家理解榜单的前提，不能为了多显示一行数据把它挤掉；
+   数据行可以滚动，规则不能。 */
 .leaderboard-table {
-  max-height: 264px; overflow-y: auto; box-sizing: border-box;
+  max-height: 208px; overflow-y: auto; box-sizing: border-box;
   border: 1px solid rgba(226, 190, 126, .38); border-radius: 6px;
   background: rgba(12, 7, 11, .42);
+  /* 表格自身保持可滚：即使 body 也能滚，表格内滚动体验更直接（不必滚整页）。 */
+  flex: 0 1 auto; min-height: 0;
 }
+/* 公式与说明文字不允许被压缩，它们是必须完整可读的内容 */
+.leaderboard-formula, .leaderboard-rule, .leaderboard-note { flex: 0 0 auto; }
+/* 表格外层包一层相对定位，用来放「可滚动」提示 */
+/* 包裹层只负责给提示条提供定位上下文，不参与横向分配。
+   不能写成 display:flex 且不指定方向 —— 那会让表格变成横向 flex item，
+   被压到「内容宽度」，九列的列宽计算全部失效（右侧数值列直接消失）。
+   flex-shrink 必须为 0 且高度写死：父级是 flex 列，允许收缩时会把它压到 163px，
+   表格高度跟着变，所有按 234px 算的布局（含提示条位置）全部错位。 */
+.leaderboard-table-wrap {
+  position: relative; display: block;
+  /* 必须与表格同高：只给表格 max-height、wrap 由内容决定的话，
+     表格会溢出 wrap（实测溢出 35px），后随的提示条正好落进溢出区，
+     视觉上压在公式文字上。两者同高才能保证提示条在表格真正底边之后。 */
+  /* 高度写死，不能只给 max-height：表格设了 overflow:auto 后不再撑开父级，
+     wrap 会塌成 0 高，后随的提示条被上提到表格内部（实测 hintTop 279 < 表格底 320）。
+     写死同高，提示条才落在表格真正的底边之后。 */
+  height: 208px;
+  flex: 0 0 208px;
+}
+.leaderboard-table-wrap .leaderboard-table { width: 100%; }
+/* 提示条不再覆盖在滚动容器上，而是放在表格「下方」独立成行。
+   原因：滚动容器内部的行位置取决于 scrollTop，任何绝对定位的覆盖层
+   都会随滚动状态时而盖住整行、时而露出半截，无法稳定对齐。
+   放到外面后，表格底部自然就是一条裁切边界，提示条在其下方说明「还有更多」。 */
+.leaderboard-scroll-hint {
+  position: static;
+  display: flex; align-items: center; justify-content: center;
+  height: 16px; margin: 2px 0 0; flex: 0 0 auto;
+  pointer-events: none;
+}
+.leaderboard-scroll-hint text { font-size: 10px; color: #e8c48a; opacity: .9; line-height: 1; }
 /* 表格是滚动容器（overflow-y:auto 会同时裁掉溢出部分），
    榜首行头像框与皇冠有轻微上溢，给第一行留一点内边距免得被裁头。 */
 .leaderboard-table { padding-top: 2px; }
@@ -6972,15 +7030,51 @@ function fromRecords(records) {
   return t;
 }
 
+/**
+ * 胜率可信度修正（单侧收缩）
+ * ------------------------------------------------------------------
+ * 直接用 wins/games 会奖励运气：1 局 1 胜就是 100%，拿满胜率分，
+ * 压过打 20 局赢 14 局（70%）的长期玩家 —— 前者只是样本少，不是更强。
+ *
+ * 为什么用「单侧」而不是标准贝叶斯收缩：
+ *   标准收缩把样本向先验 50% 拉，双向都会动。实测 0 胜 1 局会从 0%
+ *   被抬到 42% —— 等于给连输的人发安慰分，这对天梯是**有害的**：
+ *   输了就是输了，样本少不能成为「胜率凭空变高」的理由。
+ *   所以只在「胜率高于 50%」时向下收缩，低于 50% 保持原值。
+ *
+ * 效果：
+ *   1 局 1 胜   100% → 58%   （运气不再直接兑满分）
+ *   3 局 3 胜   100% → 69%
+ *   20 局 14 胜  70% → 66%   （真本事几乎不受影响）
+ *   0 胜 N 局     0% → 0%    （不抬高）
+ */
+const PRIOR_GAMES = 5;
+
+function adjustedWinRate(wins, games) {
+  if (!games) return 0;
+  const w = num(wins);
+  const g = num(games);
+  const raw = w / g;
+  // 只对「赢多于输」的成绩打折，输家不给补偿
+  if (raw <= 0.5) return raw;
+  const shrunk = (w + 0.5 * PRIOR_GAMES) / (g + PRIOR_GAMES);
+  return shrunk;
+}
+
 function summarize(totals) {
   const t = totals || blank();
   const games = num(t.games);
   const turns = num(t.totalTurns);
   const avgTurnMs = turns ? num(t.totalTurnMs) / turns : 0;
+  const wins = num(t.wins);
   return {
     games: games,
-    wins: num(t.wins),
-    winRate: games ? num(t.wins) / games : 0,
+    wins: wins,
+    // winRate 保留原始值：界面「胜率」一栏要显示真实数字（2/4 = 50%），
+    // 不能给用户看一个被平滑过的 50%→50% 或 100%→58%，那会像算错了。
+    winRate: games ? wins / games : 0,
+    // 评分专用：样本不足时向 50% 收缩，避免一局定榜
+    adjWinRate: adjustedWinRate(wins, games),
     bestWinScore: num(t.bestWinScore),
     avgScore: games ? num(t.totalScore) / games : 0,
     avgCards: games ? num(t.totalCards) / games : 0,
@@ -6991,14 +7085,19 @@ function summarize(totals) {
 }
 
 /** 综合评分：六项指标归一化后加权求和，速度取反向、活跃度取对数压缩 */
+/**
+ * 综合评分：六项指标归一化后加权求和，速度取反向、活跃度取对数压缩。
+ * 胜率用 adjWinRate（样本不足向 50% 收缩），不用原始 winRate。
+ */
 function rating(summary) {
   const s = summary || summarize(blank());
   if (!s.games) return 0;
   const speed = clamp01(1 - s.avgTurnSec / 45);
   const volume = clamp01(s.games / 30) * 0.6 +
     clamp01(Math.log2(1 + s.wins) / 5) * 0.4;
+  const winRate = s.adjWinRate === undefined ? clamp01(s.winRate) : clamp01(s.adjWinRate);
   const raw =
-    WEIGHTS.winRate * clamp01(s.winRate) +
+    WEIGHTS.winRate * winRate +
     WEIGHTS.bestWin * clamp01(s.bestWinScore / 20) +
     WEIGHTS.avgScore * clamp01(s.avgScore / 15) +
     WEIGHTS.avgCards * clamp01(s.avgCards / 12) +
@@ -7226,6 +7325,22 @@ function rowsVM(entries, myUid, opts) {
       ? ('再打 ' + (MIN_GAMES - games) + ' 局即可脱离观察期')
       : '',
     empty: ranked.list.length === 0,
+    // 是否真的需要滚动：按像素算，不靠行数猜。
+    // 表格内容区 232px（234 减 2px 边框），表头 30px，
+    // 分组标题 34px（每段一个），数据行 34px（带分组标题的首行 38px）。
+    // 之前用「行数 > 7」的粗判，5 行 + 2 个标题 = 7 被判为不需要滚动，
+    // 但实际 30 + 34*2 + 34*5 = 268px 装不下 —— 出现「明明截断了却没提示」。
+    scrollable: (function () {
+      const TABLE_INNER_H = 206;   // max-height 208 减去 2px 边框
+      const HEAD_H = 30;
+      const hasOfficial = ranked.officialCount > 0;
+      const hasTrial = ranked.trialCount > 0;
+      const SEC_H = 34 * ((hasOfficial ? 1 : 0) + (hasTrial ? 1 : 0));
+      // 每个分段的首行因为要避开皇冠上溢，高 38px；其余 34px
+      const firstRows = (hasOfficial ? 1 : 0) + (hasTrial ? 1 : 0);
+      const ROW_H = 34 * ranked.list.length + 4 * firstRows;
+      return HEAD_H + SEC_H + ROW_H > TABLE_INNER_H;
+    })(),
     officialCount: ranked.officialCount,
     trialCount: ranked.trialCount,
     hasChampion: !!ranked.champion,
@@ -7245,7 +7360,9 @@ function rowsVM(entries, myUid, opts) {
     sourceLine: sourceText + (o.updatedAt ? ' · 更新于 ' + o.updatedAt : ''),
     myRankText: myRankText,
     loading: !!o.loading,
-    formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（各项归一化后加权）',
+    // 口径要写全：胜率项用了「样本量修正」的胜率（不是表里显示的原始胜率），
+    // 不说明的话，玩家会问「我胜率 100% 为什么不如胜率 70% 的人」。
+    formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（各项归一化后加权）。胜率一项按局数折算可信度：局数少时向 50% 收敛，避免「打一局全胜」直接拿满；表中胜率仍显示真实值。',
     updatedText: o.updatedAt ? ('更新于 ' + o.updatedAt) : ''
   };
 }
@@ -7277,7 +7394,7 @@ module.exports = {
 });
 
 
-var EXPR_TEXTS = ["themeId","stageRotate","stageScale","themeFallback","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.autoPlay ? 'is-auto' : ''","item.avatarHue","item.initial","item.autoPlay","item.seatNo","item.name","item.reservedCount","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","lastMove.text","turnClock.pct","topRightCollapsed ? 'is-collapsed' : ''","topRightTop","topRightToggleLabel","!topRightCollapsed","roomMode","chat.open ? 'is-open' : ''","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meSeatLabel","me.nameText","me.pointsReached ? 'is-reached' : ''","me.pointsText","me.reservedText","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && item.pickedCount > 0) ? 'is-picked' : ''","needDiscard && item.pickedCount > 0","item.pickedCount","isMyTurn ? '' : 'is-idle'","pick.kind","pick.delta > 0","pick.delta","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? pick.label : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","canAutoPlay","meAutoPlay ? 'is-on' : ''","meAutoPlay ? '收回' : '托管'","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","chatPanelTop","chat.open","chat.isText ? 'is-active' : ''","chat.isEmoji ? 'is-active' : ''","chat.isText","chat.texts","item.text","chat.isEmoji && chat.isPick","chat.emojis","item.icon","chat.isEmoji && chat.isTarget","chat.pending.icon","chat.pending.label","chat.targets","item.isSelf ? 'is-self' : ''","item.seat","item.seatSub","!chat.open","chat.bubbles","item.mine ? 'is-mine' : ''","item.isEmoji ? 'is-emoji' : ''","item.seatLabel","item.targetLabel","chat.projectiles","item.isThrow ? 'is-throw' : 'is-gift'","item.isThrow","item.targetStyle","item.isGift","item.fromLabel","item.toLabel","chat.flyList","screen === 'home'","home.avatarUrl","home.nickname","home.rankTitle","home.onlineReady ? 'is-ready' : 'is-pending'","home.onlineText","topRightTop > 82 ? topRightTop : 82","home.notice && !home.dialog","home.notice","friendsPanel.onlineCount > 0","friendsPanel.onlineCount","home.dialog","home.dialog === 'create' ? 'is-create' : ''","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))","home.dialog === 'create'","home.themes","item.active ? 'is-active' : ''","item.tag","item.description","item.active","home.dialog === 'quick'","home.soloCounts","item.n","item.n === 2 ? '1 名对手' : (item.n === 3 ? '2 名对手' : '3 名对手')","home.dialog === 'solo'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint","home.cloudHint","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.themeName","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.creating","roomScreen.createFailed","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.actionNote","detail.canBuy && detail.canAct","detail.buyLabel","!detail.canBuy && detail.canReserve && detail.canAct","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","endNotice","endNotice.leaderSeat","endNotice.leaderName","endNotice.leftText","gameOver","resultTitle","resultDetail","resultBoard","resultBoard.rows","item.isWinner ? 'is-winner' : ''","item.isMe ? 'is-me' : ''","item.rank === 1 ? 'is-first' : ''","item.rank","item.isMe","item.seat + 1","item.cardCount","item.cardPoints","item.nobleCount","item.noblePoints","item.totalTokens","item.disc","item.tok","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.showLogin","!profileDialog.canLogin","profileDialog.loginLabel","profileDialog.loginHint","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'","showFriends","friendsPanel.count","friendsPanel.query","friendsPanel.found","friendsPanel.found.avatarStyle","!friendsPanel.found.avatarUrl","friendsPanel.found.initial","friendsPanel.found.nickname","friendsPanel.notice","friendsPanel.list","item.online ? 'is-online' : ''","item.avatarStyle","!item.avatarUrl","item.nickname","item.statusText","item.shortId","item.canInvite","item.uid","!item.canInvite && !friendsPanel.canInvite","!item.canInvite && friendsPanel.canInvite","friendsPanel.empty","!friendsPanel.ready","friendsPanel.ready","friendsPanel.myId","invitePop","invitePop.fromName","invitePop.roomCode","invitePop.moreText","showLeaderboard && leaderboard","leaderboard.sourceLine","leaderboard.showLoginHint","leaderboard.hasMe","leaderboard.myRankText","leaderboard.provisional","leaderboard.needText","leaderboard.rows","item.isChampion ? 'is-champion' : ''","item.section === 'trial' ? 'is-trial' : ''","item.sectionHead","item.section","item.sectionSub","item.sectionHead ? 'has-section' : ''","item.isChampion","!item.isChampion && item.avatarUrl","!item.isChampion && !item.avatarUrl","item.provisional","item.ratingText","item.winsText","item.bestWinText","item.avgScoreText","item.avgCardsText","item.avgNoblesText","item.avgTurnText","leaderboard.empty","leaderboard.formulaText"];
+var EXPR_TEXTS = ["themeId","stageRotate","stageScale","themeFallback","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.autoPlay ? 'is-auto' : ''","item.avatarHue","item.initial","item.autoPlay","item.seatNo","item.name","item.reservedCount","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","lastMove.text","turnClock.pct","topRightCollapsed ? 'is-collapsed' : ''","topRightTop","topRightToggleLabel","!topRightCollapsed","roomMode","chat.open ? 'is-open' : ''","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meSeatLabel","me.nameText","me.pointsReached ? 'is-reached' : ''","me.pointsText","me.reservedText","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && item.pickedCount > 0) ? 'is-picked' : ''","needDiscard && item.pickedCount > 0","item.pickedCount","isMyTurn ? '' : 'is-idle'","pick.kind","pick.delta > 0","pick.delta","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? pick.label : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","canAutoPlay","meAutoPlay ? 'is-on' : ''","meAutoPlay ? '收回' : '托管'","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","chatPanelTop","chat.open","chat.isText ? 'is-active' : ''","chat.isEmoji ? 'is-active' : ''","chat.isText","chat.texts","item.text","chat.isEmoji && chat.isPick","chat.emojis","item.icon","chat.isEmoji && chat.isTarget","chat.pending.icon","chat.pending.label","chat.targets","item.isSelf ? 'is-self' : ''","item.seat","item.seatSub","!chat.open","chat.bubbles","item.mine ? 'is-mine' : ''","item.isEmoji ? 'is-emoji' : ''","item.seatLabel","item.targetLabel","chat.projectiles","item.isThrow ? 'is-throw' : 'is-gift'","item.isThrow","item.targetStyle","item.isGift","item.fromLabel","item.toLabel","chat.flyList","screen === 'home'","home.avatarUrl","home.nickname","home.rankTitle","home.onlineReady ? 'is-ready' : 'is-pending'","home.onlineText","topRightTop > 82 ? topRightTop : 82","home.notice && !home.dialog","home.notice","friendsPanel.onlineCount > 0","friendsPanel.onlineCount","home.dialog","home.dialog === 'create' ? 'is-create' : ''","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))","home.dialog === 'create'","home.themes","item.active ? 'is-active' : ''","item.tag","item.description","item.active","home.dialog === 'quick'","home.soloCounts","item.n","item.n === 2 ? '1 名对手' : (item.n === 3 ? '2 名对手' : '3 名对手')","home.dialog === 'solo'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint","home.cloudHint","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.themeName","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.creating","roomScreen.createFailed","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.actionNote","detail.canBuy && detail.canAct","detail.buyLabel","!detail.canBuy && detail.canReserve && detail.canAct","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","endNotice","endNotice.leaderSeat","endNotice.leaderName","endNotice.leftText","gameOver","resultTitle","resultDetail","resultBoard","resultBoard.rows","item.isWinner ? 'is-winner' : ''","item.isMe ? 'is-me' : ''","item.rank === 1 ? 'is-first' : ''","item.rank","item.isMe","item.seat + 1","item.cardCount","item.cardPoints","item.nobleCount","item.noblePoints","item.totalTokens","item.disc","item.tok","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.showLogin","!profileDialog.canLogin","profileDialog.loginLabel","profileDialog.loginHint","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'","showFriends","friendsPanel.count","friendsPanel.query","friendsPanel.found","friendsPanel.found.avatarStyle","!friendsPanel.found.avatarUrl","friendsPanel.found.initial","friendsPanel.found.nickname","friendsPanel.notice","friendsPanel.list","item.online ? 'is-online' : ''","item.avatarStyle","!item.avatarUrl","item.nickname","item.statusText","item.shortId","item.canInvite","item.uid","!item.canInvite && !friendsPanel.canInvite","!item.canInvite && friendsPanel.canInvite","friendsPanel.empty","!friendsPanel.ready","friendsPanel.ready","friendsPanel.myId","invitePop","invitePop.fromName","invitePop.roomCode","invitePop.moreText","showLeaderboard && leaderboard","leaderboard.sourceLine","leaderboard.showLoginHint","leaderboard.hasMe","leaderboard.myRankText","leaderboard.provisional","leaderboard.needText","leaderboard.rows","item.isChampion ? 'is-champion' : ''","item.section === 'trial' ? 'is-trial' : ''","item.sectionHead","item.section","item.sectionSub","item.sectionHead ? 'has-section' : ''","item.isChampion","!item.isChampion && item.avatarUrl","!item.isChampion && !item.avatarUrl","item.provisional","item.ratingText","item.winsText","item.bestWinText","item.avgScoreText","item.avgCardsText","item.avgNoblesText","item.avgTurnText","leaderboard.empty","leaderboard.scrollable","leaderboard.formulaText"];
 var EXPR_CACHE = {};
 function EV(id, scope) {
   var fn = EXPR_CACHE[id] || (EXPR_CACHE[id] = new Function('$s', 'with ($s) { return (' + EXPR_TEXTS[id] + '); }'));
@@ -13429,6 +13546,11 @@ window.renderStage = function (data) {
     $h.push("</div>");
     $h.push("<div");
     $h.push(" class=\"");
+    $h.push(ESC("leaderboard-table-wrap"));
+    $h.push("\"");
+    $h.push(">");
+    $h.push("<div");
+    $h.push(" class=\"");
     $h.push(ESC("leaderboard-table"));
     $h.push("\"");
     $h.push(">");
@@ -13746,12 +13868,25 @@ window.renderStage = function (data) {
       $h.push("</div>");
     }
     $h.push("</div>");
+    $h.push("</div>");
+    if (EV(436, $s)) {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("leaderboard-scroll-hint"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<text");
+      $h.push(">");
+      $h.push("▼ 榜单可下滑查看更多");
+      $h.push("</text>");
+      $h.push("</div>");
+    }
     $h.push("<text");
     $h.push(" class=\"");
     $h.push(ESC("leaderboard-formula"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(436, $s)));
+    $h.push(ESC(EV(437, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");

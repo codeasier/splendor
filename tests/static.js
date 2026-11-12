@@ -166,7 +166,34 @@ for (let i = 0; i < wxss.length; i++) {
 if (depth !== 0) fail('WXSS 大括号不平衡，剩余 ' + depth);
 else ok('WXSS 大括号平衡');
 
-// 7. 本地引用检查（require 路径）
+// 7. 天梯榜布局守卫：这几条约束是反复调试后才稳定的，改坏会导致
+//    表格压住公式文字、说明文字被裁、或提示条与半截行重叠。
+{
+  const rules = [
+    // 提示条必须在 body 里作为独立行，不能在 wrap 内绝对定位覆盖
+    [/\.leaderboard-scroll-hint\s*\{[^}]*position:\s*static/, '提示条应为独立行（position: static），不能覆盖表格'],
+    // wrap 必须与表格同高写死，否则塌陷后提示条上提到表格内部
+    [/\.leaderboard-table-wrap\s*\{[^}]*height:\s*\d+px/, 'wrap 必须写死高度，否则塌陷导致提示条错位'],
+    // body 必须允许滚动，写 hidden 会静默裁掉说明文字
+    // body 的滚动约束由下方「overflow: hidden」独立检查负责（正则跨行匹配不稳）
+    // 表格高度上限要留出三行文字的空间
+    [/\.leaderboard-table\s*\{[^}]*max-height:\s*\d+px/, '表格需有 max-height 上限'],
+  ];
+  let bad = [];
+  rules.forEach(function (pair) {
+    if (!pair[0].test(wxss)) bad.push(pair[1]);
+  });
+  if (bad.length) fail('天梯榜布局守卫: ' + bad.join('；'));
+  else ok('天梯榜布局守卫（提示条独立行 / wrap 定高 / body 可滚 / 表格限高）');
+
+  // 同一条规则里不能同时出现 overflow: hidden 与 overflow-y: auto（后者会被覆盖）
+  const bodyRule = /\.leaderboard-body\s*\{([^}]*)\}/.exec(wxss);
+  if (bodyRule && /overflow:\s*hidden/.test(bodyRule[1])) {
+    fail('leaderboard-body 内不得写 overflow: hidden（会覆盖 overflow-y: auto 并裁掉文字）');
+  }
+}
+
+// 8. 本地引用检查（require 路径）
 const reqRe = /require\(['"]([^'"]+)['"]\)/g;
 let qm;
 while ((qm = reqRe.exec(pageJs)) !== null) {

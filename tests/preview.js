@@ -482,7 +482,7 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
     officialEmpty: false, trialHint: '1 人处于观察期，暂列下方',
     source: 'local', sourceText: '云端未连接 · 仅展示本机战绩',
     sourceLine: '云端未连接 · 仅展示本机战绩', myRankText: '第 2 名 · 综合 430 分',
-    formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（归一化后加权）'
+    formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（归一化后加权）。胜率一项按局数折算可信度：局数少时向 50% 收敛，避免「打一局全胜」直接拿满；表中胜率仍显示真实值。'
   };
   page.refresh('');
   const lb = a.host.innerHTML;
@@ -525,6 +525,12 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
     // 分组标题各自只出现一次
     assert((lb.match(/lb-section-head is-official/g) || []).length === 1, '正式榜标题只出现 1 次');
     assert((lb.match(/lb-section-head is-trial/g) || []).length === 1, '观察期标题只出现 1 次');
+  }
+  // 公式文案必须写清胜率可信度修正：否则玩家会问「我胜率 100% 为什么不如 70% 的人」
+  {
+    const f = page.data.leaderboard.formulaText;
+    assert(f.indexOf('局数少时向 50% 收敛') > 0, '公式应说明胜率按局数折算可信度');
+    assert(f.indexOf('表中胜率仍显示真实值') > 0, '要说明列表里的胜率是真实值');
   }
   // 榜首专属头像框：必须有真实的 DOM 节点与皇冠，不能只给了 class 没渲染内容
   {

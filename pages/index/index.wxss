@@ -2820,17 +2820,75 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
    字号下限：844×390 下 scale≈0.696，舞台字 10px 只剩 ~7 物理像素。
    榜单是「一眼扫九列」的读表场景，表头 / 数值 / 评分口径统一不低于 12px；
    只有「你 / 观察期」这类带底色胶囊的辅助角标允许 10px。 */
-.leaderboard-dialog { width: 930px; }
-.leaderboard-body { display: flex; flex-direction: column; gap: 8px; }
+/* 弹层高度必须受限：舞台只有 560px 高，内容（表格 + 公式 + 准入说明 + 免责）
+   累加后已经到 550px，只剩上下各 5px。再增加一行文案就会顶破舞台。
+   给上限 + 内部滚动，让文案可以自由加长而不破坏布局。 */
+.leaderboard-dialog {
+  width: 930px;
+  max-height: 520px;
+  display: flex; flex-direction: column;
+}
+.leaderboard-dialog .dialog-body,
+.leaderboard-dialog .leaderboard-body {
+  min-height: 0; overflow-y: auto;
+}
+.leaderboard-body {
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: 0; flex: 1 1 auto;
+  /* 不能写 overflow: hidden —— 内容超限时会被静默裁掉（提示条与说明文字消失）。
+     改 auto：超限可滚，内容始终可达。 */
+  overflow-y: auto;
+}
 .leaderboard-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 12px; }
 .leaderboard-source { color: #c9ac81; }
 .leaderboard-my { color: #ffe4a8; font-weight: 700; }
 .leaderboard-provisional { color: #ffb98a; }
+/* 表格是可伸缩项：弹层高度受限时，优先压缩表格（它本来就能滚动），
+   而不是让公式 / 准入说明被压出可视区（那样会出现文字叠在表格上的重影）。
+   min-height/max-height 都取「整行倍数」，避免滚动截断卡在行中间：
+   表头 30 + 数据行 34×N。234 = 30 + 34×6，装 6 行整；108 = 30 + 34×2，保底 2 行。 */
+/* 表格高度上限 259px：这是「公式 + 入榜条件 + 免责」三行文字必须常驻可见
+   的前提下能给出的最大空间（body 351 - 文字 92 = 259）。
+   取舍说明：入榜规则是玩家理解榜单的前提，不能为了多显示一行数据把它挤掉；
+   数据行可以滚动，规则不能。 */
 .leaderboard-table {
-  max-height: 264px; overflow-y: auto; box-sizing: border-box;
+  max-height: 208px; overflow-y: auto; box-sizing: border-box;
   border: 1px solid rgba(226, 190, 126, .38); border-radius: 6px;
   background: rgba(12, 7, 11, .42);
+  /* 表格自身保持可滚：即使 body 也能滚，表格内滚动体验更直接（不必滚整页）。 */
+  flex: 0 1 auto; min-height: 0;
 }
+/* 公式与说明文字不允许被压缩，它们是必须完整可读的内容 */
+.leaderboard-formula, .leaderboard-rule, .leaderboard-note { flex: 0 0 auto; }
+/* 表格外层包一层相对定位，用来放「可滚动」提示 */
+/* 包裹层只负责给提示条提供定位上下文，不参与横向分配。
+   不能写成 display:flex 且不指定方向 —— 那会让表格变成横向 flex item，
+   被压到「内容宽度」，九列的列宽计算全部失效（右侧数值列直接消失）。
+   flex-shrink 必须为 0 且高度写死：父级是 flex 列，允许收缩时会把它压到 163px，
+   表格高度跟着变，所有按 234px 算的布局（含提示条位置）全部错位。 */
+.leaderboard-table-wrap {
+  position: relative; display: block;
+  /* 必须与表格同高：只给表格 max-height、wrap 由内容决定的话，
+     表格会溢出 wrap（实测溢出 35px），后随的提示条正好落进溢出区，
+     视觉上压在公式文字上。两者同高才能保证提示条在表格真正底边之后。 */
+  /* 高度写死，不能只给 max-height：表格设了 overflow:auto 后不再撑开父级，
+     wrap 会塌成 0 高，后随的提示条被上提到表格内部（实测 hintTop 279 < 表格底 320）。
+     写死同高，提示条才落在表格真正的底边之后。 */
+  height: 208px;
+  flex: 0 0 208px;
+}
+.leaderboard-table-wrap .leaderboard-table { width: 100%; }
+/* 提示条不再覆盖在滚动容器上，而是放在表格「下方」独立成行。
+   原因：滚动容器内部的行位置取决于 scrollTop，任何绝对定位的覆盖层
+   都会随滚动状态时而盖住整行、时而露出半截，无法稳定对齐。
+   放到外面后，表格底部自然就是一条裁切边界，提示条在其下方说明「还有更多」。 */
+.leaderboard-scroll-hint {
+  position: static;
+  display: flex; align-items: center; justify-content: center;
+  height: 16px; margin: 2px 0 0; flex: 0 0 auto;
+  pointer-events: none;
+}
+.leaderboard-scroll-hint text { font-size: 10px; color: #e8c48a; opacity: .9; line-height: 1; }
 /* 表格是滚动容器（overflow-y:auto 会同时裁掉溢出部分），
    榜首行头像框与皇冠有轻微上溢，给第一行留一点内边距免得被裁头。 */
 .leaderboard-table { padding-top: 2px; }

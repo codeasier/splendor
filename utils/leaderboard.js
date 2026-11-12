@@ -140,15 +140,51 @@ function fromRecords(records) {
   return t;
 }
 
+/**
+ * 胜率可信度修正（单侧收缩）
+ * ------------------------------------------------------------------
+ * 直接用 wins/games 会奖励运气：1 局 1 胜就是 100%，拿满胜率分，
+ * 压过打 20 局赢 14 局（70%）的长期玩家 —— 前者只是样本少，不是更强。
+ *
+ * 为什么用「单侧」而不是标准贝叶斯收缩：
+ *   标准收缩把样本向先验 50% 拉，双向都会动。实测 0 胜 1 局会从 0%
+ *   被抬到 42% —— 等于给连输的人发安慰分，这对天梯是**有害的**：
+ *   输了就是输了，样本少不能成为「胜率凭空变高」的理由。
+ *   所以只在「胜率高于 50%」时向下收缩，低于 50% 保持原值。
+ *
+ * 效果：
+ *   1 局 1 胜   100% → 58%   （运气不再直接兑满分）
+ *   3 局 3 胜   100% → 69%
+ *   20 局 14 胜  70% → 66%   （真本事几乎不受影响）
+ *   0 胜 N 局     0% → 0%    （不抬高）
+ */
+const PRIOR_GAMES = 5;
+
+function adjustedWinRate(wins, games) {
+  if (!games) return 0;
+  const w = num(wins);
+  const g = num(games);
+  const raw = w / g;
+  // 只对「赢多于输」的成绩打折，输家不给补偿
+  if (raw <= 0.5) return raw;
+  const shrunk = (w + 0.5 * PRIOR_GAMES) / (g + PRIOR_GAMES);
+  return shrunk;
+}
+
 function summarize(totals) {
   const t = totals || blank();
   const games = num(t.games);
   const turns = num(t.totalTurns);
   const avgTurnMs = turns ? num(t.totalTurnMs) / turns : 0;
+  const wins = num(t.wins);
   return {
     games: games,
-    wins: num(t.wins),
-    winRate: games ? num(t.wins) / games : 0,
+    wins: wins,
+    // winRate 保留原始值：界面「胜率」一栏要显示真实数字（2/4 = 50%），
+    // 不能给用户看一个被平滑过的 50%→50% 或 100%→58%，那会像算错了。
+    winRate: games ? wins / games : 0,
+    // 评分专用：样本不足时向 50% 收缩，避免一局定榜
+    adjWinRate: adjustedWinRate(wins, games),
     bestWinScore: num(t.bestWinScore),
     avgScore: games ? num(t.totalScore) / games : 0,
     avgCards: games ? num(t.totalCards) / games : 0,
@@ -159,14 +195,19 @@ function summarize(totals) {
 }
 
 /** 综合评分：六项指标归一化后加权求和，速度取反向、活跃度取对数压缩 */
+/**
+ * 综合评分：六项指标归一化后加权求和，速度取反向、活跃度取对数压缩。
+ * 胜率用 adjWinRate（样本不足向 50% 收缩），不用原始 winRate。
+ */
 function rating(summary) {
   const s = summary || summarize(blank());
   if (!s.games) return 0;
   const speed = clamp01(1 - s.avgTurnSec / 45);
   const volume = clamp01(s.games / 30) * 0.6 +
     clamp01(Math.log2(1 + s.wins) / 5) * 0.4;
+  const winRate = s.adjWinRate === undefined ? clamp01(s.winRate) : clamp01(s.adjWinRate);
   const raw =
-    WEIGHTS.winRate * clamp01(s.winRate) +
+    WEIGHTS.winRate * winRate +
     WEIGHTS.bestWin * clamp01(s.bestWinScore / 20) +
     WEIGHTS.avgScore * clamp01(s.avgScore / 15) +
     WEIGHTS.avgCards * clamp01(s.avgCards / 12) +
@@ -394,6 +435,22 @@ function rowsVM(entries, myUid, opts) {
       ? ('再打 ' + (MIN_GAMES - games) + ' 局即可脱离观察期')
       : '',
     empty: ranked.list.length === 0,
+    // 是否真的需要滚动：按像素算，不靠行数猜。
+    // 表格内容区 232px（234 减 2px 边框），表头 30px，
+    // 分组标题 34px（每段一个），数据行 34px（带分组标题的首行 38px）。
+    // 之前用「行数 > 7」的粗判，5 行 + 2 个标题 = 7 被判为不需要滚动，
+    // 但实际 30 + 34*2 + 34*5 = 268px 装不下 —— 出现「明明截断了却没提示」。
+    scrollable: (function () {
+      const TABLE_INNER_H = 206;   // max-height 208 减去 2px 边框
+      const HEAD_H = 30;
+      const hasOfficial = ranked.officialCount > 0;
+      const hasTrial = ranked.trialCount > 0;
+      const SEC_H = 34 * ((hasOfficial ? 1 : 0) + (hasTrial ? 1 : 0));
+      // 每个分段的首行因为要避开皇冠上溢，高 38px；其余 34px
+      const firstRows = (hasOfficial ? 1 : 0) + (hasTrial ? 1 : 0);
+      const ROW_H = 34 * ranked.list.length + 4 * firstRows;
+      return HEAD_H + SEC_H + ROW_H > TABLE_INNER_H;
+    })(),
     officialCount: ranked.officialCount,
     trialCount: ranked.trialCount,
     hasChampion: !!ranked.champion,
@@ -413,7 +470,9 @@ function rowsVM(entries, myUid, opts) {
     sourceLine: sourceText + (o.updatedAt ? ' · 更新于 ' + o.updatedAt : ''),
     myRankText: myRankText,
     loading: !!o.loading,
-    formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（各项归一化后加权）',
+    // 口径要写全：胜率项用了「样本量修正」的胜率（不是表里显示的原始胜率），
+    // 不说明的话，玩家会问「我胜率 100% 为什么不如胜率 70% 的人」。
+    formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（各项归一化后加权）。胜率一项按局数折算可信度：局数少时向 50% 收敛，避免「打一局全胜」直接拿满；表中胜率仍显示真实值。',
     updatedText: o.updatedAt ? ('更新于 ' + o.updatedAt) : ''
   };
 }

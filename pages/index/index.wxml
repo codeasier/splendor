@@ -1243,6 +1243,7 @@
           <text wx:if="{{leaderboard.hasMe}}" class="leaderboard-my">我的排名 {{leaderboard.myRankText}}</text>
           <text wx:if="{{leaderboard.provisional}}" class="leaderboard-provisional">{{leaderboard.needText}}</text>
         </view>
+        <view class="leaderboard-table-wrap">
         <view class="leaderboard-table">
           <view class="leaderboard-row is-head">
             <text class="lb-c-rank">名次</text>
@@ -1301,6 +1302,10 @@
             <text>还没有榜单数据。打完一局并结算后，这里会出现你的成绩。</text>
           </view>
         </view>
+        </view>
+        <!-- 只在确实有滚动余量时提示。必须放在 wrap 外面：
+             放里面时它参与 wrap 的高度分配，会压到公式文字上。 -->
+        <view wx:if="{{leaderboard.scrollable}}" class="leaderboard-scroll-hint"><text>▼ 榜单可下滑查看更多</text></view>
         <text class="leaderboard-formula">{{leaderboard.formulaText}}</text>
         <!-- 准入规则必须写在界面上：否则打了人机局的玩家看到「还差 3 局」
              会以为成绩没记上，实际是这类对局本就不进榜。 -->

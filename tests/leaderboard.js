@@ -100,6 +100,65 @@ const more = L.summarize(L.fromRecords(RECORDS.concat(RECORDS)));
 assert(L.rating(more) > baseScore, '局数更多应提高活跃度得分');
 console.log('OK  综合评分 · 六项指标 + 活跃度都参与且方向正确');
 
+/* ---------- 3.1 胜率可信度：样本少不能靠运气刷满胜率分 ---------- */
+{
+  function mk(g, w) {
+    return L.summarize({
+      games: g, wins: w, bestWinScore: 15, totalScore: g * 14,
+      totalCards: g * 9, totalNobles: 0, totalTurns: g * 30, totalTurnMs: g * 30 * 4000
+    });
+  }
+
+  // 原始胜率照旧保留真实值：界面显示「1/1 = 100%」，不能被平滑成 58%
+  const one = mk(1, 1);
+  eq(one.winRate, 1, '原始胜率保持 100%，界面要显示真实数字');
+  assert(one.adjWinRate < 1, '1 局全胜的评分用胜率必须打折，实际 ' + one.adjWinRate);
+  near(one.adjWinRate, (1 + 2.5) / 6, '1 局全胜收缩到 58.3%');
+
+  // 样本越多越接近真实胜率
+  const three = mk(3, 3);
+  const ten = mk(10, 10);
+  const twenty = mk(20, 20);
+  assert(one.adjWinRate < three.adjWinRate, '3 局全胜的可信度应高于 1 局');
+  assert(three.adjWinRate < ten.adjWinRate, '10 局更高');
+  assert(ten.adjWinRate < twenty.adjWinRate, '20 局更高');
+  assert(twenty.adjWinRate < 1, '即使 20 局全胜也不给满，永远留一手');
+
+  // 只向下收缩：输家不给安慰分
+  const lose1 = mk(1, 0);
+  eq(lose1.adjWinRate, 0, '0 胜 1 局不得被抬高到 42%');
+  const half = mk(4, 2);
+  near(half.adjWinRate, 0.5, '恰好 50% 不做任何调整');
+  const below = mk(10, 3);
+  near(below.adjWinRate, 0.3, '低于 50% 保持原值，不向上抬');
+
+  // 核心诉求：稳定玩家必须压过一局运气
+  const lucky = mk(1, 1);
+  const solid = L.summarize({
+    games: 20, wins: 14, bestWinScore: 15, totalScore: 290,
+    totalCards: 180, totalNobles: 12, totalTurns: 600, totalTurnMs: 600 * 4000
+  });
+  assert(L.rating(solid) > L.rating(lucky),
+    '20 局 14 胜应高于 1 局 1 胜，实际 solid=' + L.rating(solid) + ' lucky=' + L.rating(lucky));
+
+  // 评分必须真的用 adjWinRate 而不是原始胜率：
+  // 1 局里「赢」比「输」多拿的分，应是收缩后的额度（约 128），
+  // 而不是满额 220 —— 否则等于胜率项没打折扣。
+  const winDiff = L.rating(mk(1, 1)) - L.rating(mk(1, 0));
+  const fullYield = L.WEIGHTS.winRate;
+  assert(winDiff < fullYield * 0.75,
+    '1 局全胜不应拿满胜率分，实际差值 ' + winDiff + '（满分 ' + fullYield + '）');
+  assert(winDiff > fullYield * 0.4,
+    '差距也不能小到胜率失去意义，实际差值 ' + winDiff);
+
+  // 同胜率、样本不同 → 样本多的分更高
+  const few = mk(3, 3);
+  const many = mk(20, 20);
+  assert(L.rating(many) > L.rating(few), '全胜时局数多的人分更高');
+
+  console.log('OK  胜率可信度 · 样本少向下收缩 / 输家不抬分 / 稳定玩家优先');
+}
+
 /* ---------- 4. 排名：稳定、同分有确定次序、我的行可定位 ---------- */
 const a = L.entryOf('u-a', '甲', '', L.fromRecords(RECORDS));
 const b = L.entryOf('u-b', '乙', '', L.fromRecords([
