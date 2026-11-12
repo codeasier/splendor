@@ -499,6 +499,18 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
       assert(lb.indexOf('>' + head + '<') > 0, '榜单缺指标列：' + head);
     });
   assert((lb.match(/class="lb-c-num"/g) || []).length >= 8, '表头应有 8 个数值列');
+  // 胜率必须出现在界面上。
+  // 曾经 winRateText 在视图模型里算好了、却没有任何 WXML 消费它，
+  // 结果「胜率」整列在界面上不存在，而所有测试都通过 —— 数据算对不等于渲染出来。
+  {
+    // 不靠正则切表头块（嵌套 view 会让贪婪/非贪婪都出错），
+    // 直接按「胜率」这个列名与紧邻的表头 class 组合判断
+    assert(lb.indexOf('>胜率<') > 0, '表头必须有「胜率」列');
+    // 数据行里应有胜率百分比：50% / 100% / 0% 都算
+    assert(/class="lb-c-num[^"]*">\s*\d+%\s*</.test(lb), '数据行应渲染胜率百分比');
+    const pcts = lb.match(/class="lb-c-num[^"]*">\s*(\d+)%\s*</g) || [];
+    assert(pcts.length >= 3, '三行数据都应有胜率，实际匹配 ' + pcts.length);
+  }
   assert(lb.indexOf('class="leaderboard-row is-head"') > 0, '应有独立表头行');
   assert(lb.indexOf('leaderboard-formula') > 0, '应展示综合评分口径');
   assert(lb.indexOf('胜率 220') > 0 && lb.indexOf('活跃度 80') > 0, '口径应写明各项权重');
