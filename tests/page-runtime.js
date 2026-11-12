@@ -1531,6 +1531,96 @@ console.log('OK  终局提示 · 指名达标者 / 剩余回合 / 结算后消�
   console.log('OK  天梯准入 · 人机局与单真人局不计入 / 2 真人合格');
 }
 
+// 榜单合并策略：本机行只在「确实比云端新」时覆盖，且 0 局不入榜。
+// 这两条决定了不同玩家打开榜单看到的是不是同一份数据。
+{
+  const L4 = require(ROOT + '/utils/leaderboard.js');
+  const R4 = require(ROOT + '/utils/room.js');
+  const savedUi = page.ui.leaderboard;
+  const savedShow = page.ui.showLeaderboard;
+  const origGetCloud = R4.getCloud;
+  const origHasCloud = R4.hasCloud;
+  const myUid = page.profile.uid;
+  const g = global;
+
+  // 直接把「本机已记录的战绩」注入 leaderboard 读取路径：
+  // 页面用 U.getRecords() 现算本机条目，这里替换它比写真存储更可控。
+  function fakeRecords(n) {
+    const list = [];
+    for (let i = 0; i < n; i++) {
+      list.push({ id: 'r' + i, mode: 'room', humanCount: 2, win: false, score: 9,
+        cards: 5, nobles: 0, turns: 10, turnAvgMs: 5000, at: Date.now() - i });
+    }
+    return list;
+  }
+
+  function cloudWith(rows) {
+    const q = {
+      from: function () { return q; }, select: function () { return q; },
+      order: function () { return q; }, limit: function () { return q; },
+      then: function (ok) { return Promise.resolve({ data: rows, error: null }).then(ok); }
+    };
+    R4.getCloud = function () { return { database: { from: function () { return q; } } }; };
+    R4.hasCloud = function () { return true; };
+  }
+
+  g.__runMergeCase = function (rows, localGames) {
+    cloudWith(rows);
+    g.__localGames = localGames;
+    return page.loadLeaderboard();
+  };
+
+  // loadLeaderboard 内部读 U.getRecords()。这里用 monkey patch 让本机局数可控。
+  const U4 = require(ROOT + '/utils/user.js');
+  const origGetRecords = U4.getRecords;
+  const mineOnCloud1 = L4.entryOf(myUid, '我', '', L4.fromRecords(fakeRecords(1)));
+  const other1 = L4.entryOf('wx:other', '别人', '', L4.fromRecords(fakeRecords(1)));
+  const mineOnCloud3 = L4.entryOf(myUid, '我', '', L4.fromRecords(fakeRecords(3)));
+
+  (async function () {
+    try {
+      // ① 本机 1 局 == 云端 1 局 → 用云端，不覆盖
+      U4.getRecords = function () { return fakeRecords(1); };
+      page.ui.showLeaderboard = true;
+      await g.__runMergeCase([L4.entryToCloud(other1), L4.entryToCloud(mineOnCloud1)], 1);
+      let vm = page.ui.leaderboard;
+      assert(vm && vm.rows.length === 2, '应渲染云端 2 行，实际 ' + (vm ? vm.rows.length : 'null'));
+      assert(vm.rows.some(function (r) { return r.isMe; }), '应能定位我的行');
+
+      // ② 本机 3 局 > 云端 1 局 → 用本机覆盖
+      U4.getRecords = function () { return fakeRecords(3); };
+      await g.__runMergeCase([L4.entryToCloud(other1), L4.entryToCloud(mineOnCloud1)], 3);
+      vm = page.ui.leaderboard;
+      const meRow = vm.rows.filter(function (r) { return r.isMe; })[0];
+      assert(meRow && meRow.gamesText === '3', '本机较新时应用本机 3 局，实际 ' + (meRow && meRow.gamesText));
+
+      // ③ 本机 1 局 < 云端 3 局 → 用云端，不被本机旧值拉回去
+      U4.getRecords = function () { return fakeRecords(1); };
+      await g.__runMergeCase([L4.entryToCloud(other1), L4.entryToCloud(mineOnCloud3)], 1);
+      vm = page.ui.leaderboard;
+      const meRow2 = vm.rows.filter(function (r) { return r.isMe; })[0];
+      assert(meRow2 && meRow2.gamesText === '3', '云端较新时应保留云端 3 局，实际 ' + (meRow2 && meRow2.gamesText));
+
+      // ④ 本机 0 局且云端没有我 → 不许追加
+      U4.getRecords = function () { return fakeRecords(0); };
+      await g.__runMergeCase([L4.entryToCloud(other1)], 0);
+      vm = page.ui.leaderboard;
+      assert(vm.rows.length === 1, '0 局时不得把自己追加进榜，实际 ' + vm.rows.length + ' 行');
+      assert(!vm.rows.some(function (r) { return r.isMe; }), '0 局不应出现在榜单上');
+
+      console.log('OK  榜单合并 · 云端较新用云端 / 本机较新才覆盖 / 0 局不入榜');
+    } finally {
+      U4.getRecords = origGetRecords;
+      delete g.__runMergeCase;
+      delete g.__localGames;
+      R4.getCloud = origGetCloud;
+      R4.hasCloud = origHasCloud;
+      page.ui.leaderboard = savedUi;
+      page.ui.showLeaderboard = savedShow;
+    }
+  })();
+}
+
 // 对局中改资料：联机快照会整份替换 state.players，资料补丁必须在每次
 // refresh 前幂等重贴，否则 1.6s 轮询后就被旧快照打回原形。
 {

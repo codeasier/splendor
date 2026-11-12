@@ -3292,16 +3292,42 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 /* 表格是滚动容器（overflow-y:auto 会同时裁掉溢出部分），
    榜首行头像框与皇冠有轻微上溢，给第一行留一点内边距免得被裁头。 */
 .leaderboard-table { padding-top: 2px; }
+/* 每行改成纵向：上面可能有分组标题，下面是数据行。
+   分组标题必须独占一行，否则会被挤进九列里错位。
+   表头行（is-head）没有分组标题，直接横向排列。 */
 .leaderboard-row {
-  display: flex; align-items: center; height: 34px; padding: 0 6px;
+  padding: 0 6px;
   border-bottom: 1px solid rgba(226, 190, 126, .16);
   font-size: 12px; color: #f0dcb8;
 }
+.lb-row-inner { display: flex; align-items: center; height: 34px; }
 .leaderboard-row.is-head {
+  display: flex; align-items: center;
   height: 30px; font-weight: 700; color: #ffe0a0; font-size: 12px;
   background: linear-gradient(180deg, rgba(94, 56, 72, .95), rgba(44, 22, 32, .95));
   border-bottom-color: rgba(226, 190, 126, .45);
 }
+/* 分组标题：正式榜用金调，观察期用灰调，一眼能分清段位。
+   下内边距要留足 —— 下面的行里有皇冠（top:-4px 上溢），
+   标题贴着行会给皇冠压出「被截断」的错觉。 */
+.lb-section-head {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 7px 2px 8px;
+  border-bottom: 1px solid rgba(226, 190, 126, .28);
+}
+/* 紧随分组标题的数据行：多留 4px 高度而不是 padding-top。
+   用 padding 会把固定 34px 里的内容挤下去，反而更贴皇冠；
+   增高才能让皇冠（top:-4px）完整落在行框内不被裁。
+   用显式 class 而不是相邻选择器：WXSS 对 + 的支持不如标准 CSS 稳。 */
+.lb-row-inner.has-section { height: 38px; }
+.lb-section-title { font-size: 13px; font-weight: 700; letter-spacing: .5px; }
+.lb-section-sub { font-size: 11px; color: #b79a72; }
+.lb-section-head.is-official .lb-section-title { color: #ffd884; }
+.lb-section-head.is-trial .lb-section-title { color: #9fb0c0; }
+.lb-section-head.is-trial .lb-section-sub { color: #7d8b99; }
+/* 观察期行整体压暗，与正式榜拉开层次 */
+.leaderboard-row.is-trial { background: rgba(20, 26, 34, .28); }
+.leaderboard-row.is-trial .lb-c-num.is-score { color: #b9c6d3; font-weight: 400; }
 .leaderboard-row.is-me { background: rgba(54, 122, 96, .26); }
 .leaderboard-row:last-child { border-bottom: none; }
 .lb-c-rank { flex: 0 0 44px; position: relative; display: flex; align-items: center; justify-content: center; }
@@ -3427,6 +3453,22 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .leaderboard-note { font-size: 11px; line-height: 1.45; color: #aa8e6f; }
 /* 入榜条件比免责说明更重要，用暖金提高可读性 */
 .leaderboard-rule { font-size: 12px; line-height: 1.45; color: #e8c48a; }
+/* 未登录提示：整条可点，直接进资料/登录弹层 */
+.leaderboard-login-hint {
+  display: flex; align-items: center; gap: 10px;
+  margin: 6px 0 2px; padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 205, 120, .5);
+  background: linear-gradient(90deg, rgba(120, 82, 24, .5), rgba(70, 48, 14, .22));
+}
+.lb-hint-text { flex: 1; font-size: 12px; line-height: 1.4; color: #ffe2b0; }
+.lb-hint-btn {
+  flex-shrink: 0; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 4px;
+  color: #3a2606;
+  background: linear-gradient(180deg, #fff2c4, #ffd979 55%, #e0a631);
+  border: 1px solid rgba(255, 240, 190, .9);
+}
+.lb-hint-hover { opacity: .85; }
 
 
 #host .viewport { width: 100%; height: 100%; }
@@ -7022,12 +7064,22 @@ async function publish(cloud, profile, totals) {
   }
 }
 
-/** 拉全站榜单；不做服务端排序（SDK 链式能力有限），本地统一排序更可控 */
+/** 拉全站榜单；服务端按评分降序取前 N，本地再统一排序 */
 async function fetchRows(cloud) {
   try {
     const database = cloud && cloud.database;
     if (!database) return [];
-    const res = await database.from(LEADERBOARD_TABLE).select('*').limit(FETCH_LIMIT);
+    // 必须带 order 再 limit：PostgreSQL 不保证无序查询返回哪 100 行，
+    // 一旦玩家超过 FETCH_LIMIT，不同请求可能拿到不同子集 ——
+    // 那才会真的出现「每个人看到的榜单不一样」。
+    // 按 rating 降序取，保证截断时留下的是高分玩家；updated_at 兜底避免同分抖动。
+    let query = database.from(LEADERBOARD_TABLE).select('*');
+    try {
+      query = query.order('rating', { ascending: false }).order('updated_at', { ascending: false });
+    } catch (e) {
+      // 老版本 SDK 没有 order 链式方法时退化为原行为，不能让榜单整个挂掉
+    }
+    const res = await query.limit(FETCH_LIMIT);
     if (!res || res.error || !Array.isArray(res.data)) return [];
     const out = [];
     for (let i = 0; i < res.data.length; i++) {
@@ -7047,19 +7099,21 @@ function fmt1(v) {
 function formatRow(entry, rank, myUid) {
   const s = summarize(entry.totals || blank());
   const score = rating(s);
-  // 冠军专属头像框：只在「有人真正上榜」时给第 1 名。
-  // 观察期（局数不足）的人不授予 —— 3 局不到就戴皇冠会误导，
-  // 宁可空着也不让「打一局就上榜」的人拿到最显眼的身份标识。
-  const isChampion = rank === 1 && s.games >= MIN_GAMES;
+  // 授冠不在这里判断：皇冠归属由 rankRows 按「正式榜第 1」决定，
+  // 这里只给默认值，避免两处规则各说各话。
   return {
     rank: rank,
+    section: '',
+    rankText: String(rank),
+    sectionHead: '',
+    sectionSub: '',
     uid: entry.uid,
     name: entry.nickname,
     initial: String(entry.nickname || '珠').slice(0, 1),
     avatarUrl: entry.avatarUrl || '',
     isMe: entry.uid === myUid,
-    isChampion: isChampion,
-    championLabel: isChampion ? '榜首' : '',
+    isChampion: false,
+    championLabel: '',
     provisional: s.games < MIN_GAMES,
     rating: score,
     ratingText: String(score),
@@ -7077,6 +7131,16 @@ function formatRow(entry, rank, myUid) {
 }
 
 /** 稳定排序：综合分 → 胜场 → 局数 → uid，避免同分时每次打开名次乱跳 */
+/**
+ * 排名：正式榜与观察期榜**各自独立编号**。
+ * ------------------------------------------------------------------
+ * 为什么分段而不是混排：
+ *   混排时会出现「1 局的新人排第 1、打了 4 局的人排第 2」——
+ *   新人分数高只是因为样本少，不该占据榜首并拿走冠军标识。
+ *   分开后正式榜是真正的实力比较，观察期榜是「等够局数再晋级」的候选区。
+ *
+ * 皇冠（isChampion）只给正式榜第 1 名，观察期组内第 1 不授予。
+ */
 function rankRows(entries, myUid) {
   const list = (entries || []).slice().map(function (e) {
     return { entry: e, score: rating(summarize(e.totals || blank())), wins: num((e.totals || blank()).wins), games: num((e.totals || blank()).games) };
@@ -7087,10 +7151,41 @@ function rankRows(entries, myUid) {
     if (b.games !== a.games) return b.games - a.games;
     return a.entry.uid < b.entry.uid ? -1 : (a.entry.uid > b.entry.uid ? 1 : 0);
   });
-  const all = list.map(function (x, i) { return formatRow(x.entry, i + 1, myUid); });
+  const official = list.filter(function (x) { return x.games >= MIN_GAMES; });
+  const trial = list.filter(function (x) { return x.games < MIN_GAMES; });
+
+  const all = [];
+  official.forEach(function (x, i) {
+    const row = formatRow(x.entry, i + 1, myUid);
+    row.section = 'official';
+    // 只有正式榜第 1 名戴冠
+    row.isChampion = i === 0;
+    row.championLabel = row.isChampion ? '榜首' : '';
+    row.rankText = String(i + 1);
+    if (i === 0) { row.sectionHead = '正式榜'; row.sectionSub = '满 ' + MIN_GAMES + ' 局'; }
+    all.push(row);
+  });
+  trial.forEach(function (x, i) {
+    const row = formatRow(x.entry, i + 1, myUid);
+    row.section = 'trial';
+    row.isChampion = false;
+    row.championLabel = '';
+    row.rankText = String(i + 1);
+    if (i === 0) { row.sectionHead = '观察期'; row.sectionSub = '满 ' + MIN_GAMES + ' 局后晋级正式榜'; }
+    all.push(row);
+  });
+
   let myRow = null;
   for (let i = 0; i < all.length; i++) if (all[i].isMe) { myRow = all[i]; break; }
-  return { list: all.slice(0, MAX_ROWS), myRow: myRow, total: all.length };
+  const champ = all.filter(function (r) { return r.isChampion; })[0] || null;
+  return {
+    list: all.slice(0, MAX_ROWS),
+    myRow: myRow,
+    total: all.length,
+    officialCount: official.length,
+    trialCount: trial.length,
+    champion: champ
+  };
 }
 
 /** 榜单视图模型：所有展示字段预先格式化，WXML 不做算术 */
@@ -7099,24 +7194,56 @@ function rowsVM(entries, myUid, opts) {
   const ranked = rankRows(entries, myUid);
   const mine = ranked.myRow;
   const games = mine ? Number(mine.gamesText) : 0;
+  // 来源文案分三种，不能只分「云端 / 本机」两种：
+  //   cloud  —— 云端可用，全站榜单
+  //   login  —— 云端可用但未登录微信，只能看本机（这是「不同人看到不一样」的主因）
+  //   local  —— 云服务本身没就绪（未联网 / SDK 不可用）
+  // 未登录与云不可用对用户是两件完全不同的事：前者登录一下就能解决，
+  // 后者只能排查环境。混成一句「云端未连接」会让人以为是网络问题。
+  const source = o.source === 'cloud' ? 'cloud' : (o.loginRequired ? 'login' : 'local');
+  const SOURCE_TEXT = {
+    cloud: '全站榜单 · 数据来自云端',
+    login: '未登录微信 · 仅显示本机战绩，登录后可见全站排名',
+    local: '云端未连接 · 仅展示本机战绩'
+  };
+  const sourceText = SOURCE_TEXT[source];
+  // 我的名次文案要带分组前缀：观察期是 3 号，正式榜也是 3 号，
+  // 不加前缀会让人以为自己是「全站第 3」。
+  let myRankText = '';
+  if (mine) {
+    const prefix = mine.section === 'trial' ? '观察期第 ' : '第 ';
+    const suffix = mine.section === 'trial' ? ' 名（满 ' + MIN_GAMES + ' 局后转入正式榜）' : ' 名';
+    myRankText = prefix + mine.rank + suffix + ' · 综合 ' + mine.ratingText + ' 分';
+  }
   return {
     rows: ranked.list,
     myRow: mine,
     myRank: mine ? mine.rank : 0,
+    mySection: mine ? mine.section : '',
     hasMe: !!mine,
     provisional: !mine || games < MIN_GAMES,
     needText: games < MIN_GAMES
       ? ('再打 ' + (MIN_GAMES - games) + ' 局即可脱离观察期')
       : '',
     empty: ranked.list.length === 0,
-    source: o.source === 'cloud' ? 'cloud' : 'local',
-    sourceText: o.source === 'cloud'
-      ? '全站榜单 · 数据来自云端'
-      : '云端未连接 · 仅展示本机战绩',
+    officialCount: ranked.officialCount,
+    trialCount: ranked.trialCount,
+    hasChampion: !!ranked.champion,
+    championName: ranked.champion ? ranked.champion.name : '',
+    // 观察期人数提示：正式榜为空时要说明「为什么没人戴冠」
+    officialEmpty: ranked.officialCount === 0,
+    trialHint: ranked.trialCount > 0
+      ? (ranked.officialCount === 0
+        ? ('还没有人满 ' + MIN_GAMES + ' 局，正式榜待产生；下方 ' + ranked.trialCount + ' 人处于观察期')
+        : (ranked.trialCount + ' 人处于观察期，暂列下方'))
+      : '',
+    source: source,
+    loginRequired: source === 'login',
+    showLoginHint: source === 'login',
+    sourceText: sourceText,
     // 文案统一在 VM 里拼好：WXML 表达式里做字符串拼接在部分 WebView 不稳
-    sourceLine: (o.source === 'cloud' ? '全站榜单 · 数据来自云端' : '云端未连接 · 仅展示本机战绩') +
-      (o.updatedAt ? ' · 更新于 ' + o.updatedAt : ''),
-    myRankText: mine ? ('第 ' + mine.rank + ' 名 · 综合 ' + mine.ratingText + ' 分') : '',
+    sourceLine: sourceText + (o.updatedAt ? ' · 更新于 ' + o.updatedAt : ''),
+    myRankText: myRankText,
     loading: !!o.loading,
     formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（各项归一化后加权）',
     updatedText: o.updatedAt ? ('更新于 ' + o.updatedAt) : ''
@@ -7150,7 +7277,7 @@ module.exports = {
 });
 
 
-var EXPR_TEXTS = ["themeId","stageRotate","stageScale","themeFallback","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.autoPlay ? 'is-auto' : ''","item.avatarHue","item.initial","item.autoPlay","item.seatNo","item.name","item.reservedCount","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","lastMove.text","turnClock.pct","topRightCollapsed ? 'is-collapsed' : ''","topRightTop","topRightToggleLabel","!topRightCollapsed","roomMode","chat.open ? 'is-open' : ''","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meSeatLabel","me.nameText","me.pointsReached ? 'is-reached' : ''","me.pointsText","me.reservedText","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && item.pickedCount > 0) ? 'is-picked' : ''","needDiscard && item.pickedCount > 0","item.pickedCount","isMyTurn ? '' : 'is-idle'","pick.kind","pick.delta > 0","pick.delta","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? pick.label : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","canAutoPlay","meAutoPlay ? 'is-on' : ''","meAutoPlay ? '收回' : '托管'","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","chatPanelTop","chat.open","chat.isText ? 'is-active' : ''","chat.isEmoji ? 'is-active' : ''","chat.isText","chat.texts","item.text","chat.isEmoji && chat.isPick","chat.emojis","item.icon","chat.isEmoji && chat.isTarget","chat.pending.icon","chat.pending.label","chat.targets","item.isSelf ? 'is-self' : ''","item.seat","item.seatSub","!chat.open","chat.bubbles","item.mine ? 'is-mine' : ''","item.isEmoji ? 'is-emoji' : ''","item.seatLabel","item.targetLabel","chat.projectiles","item.isThrow ? 'is-throw' : 'is-gift'","item.isThrow","item.targetStyle","item.isGift","item.fromLabel","item.toLabel","chat.flyList","screen === 'home'","home.avatarUrl","home.nickname","home.rankTitle","home.onlineReady ? 'is-ready' : 'is-pending'","home.onlineText","topRightTop > 82 ? topRightTop : 82","home.notice && !home.dialog","home.notice","friendsPanel.onlineCount > 0","friendsPanel.onlineCount","home.dialog","home.dialog === 'create' ? 'is-create' : ''","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))","home.dialog === 'create'","home.themes","item.active ? 'is-active' : ''","item.tag","item.description","item.active","home.dialog === 'quick'","home.soloCounts","item.n","item.n === 2 ? '1 名对手' : (item.n === 3 ? '2 名对手' : '3 名对手')","home.dialog === 'solo'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint","home.cloudHint","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.themeName","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.creating","roomScreen.createFailed","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.actionNote","detail.canBuy && detail.canAct","detail.buyLabel","!detail.canBuy && detail.canReserve && detail.canAct","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","endNotice","endNotice.leaderSeat","endNotice.leaderName","endNotice.leftText","gameOver","resultTitle","resultDetail","resultBoard","resultBoard.rows","item.isWinner ? 'is-winner' : ''","item.isMe ? 'is-me' : ''","item.rank === 1 ? 'is-first' : ''","item.rank","item.isMe","item.seat + 1","item.cardCount","item.cardPoints","item.nobleCount","item.noblePoints","item.totalTokens","item.disc","item.tok","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.showLogin","!profileDialog.canLogin","profileDialog.loginLabel","profileDialog.loginHint","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'","showFriends","friendsPanel.count","friendsPanel.query","friendsPanel.found","friendsPanel.found.avatarStyle","!friendsPanel.found.avatarUrl","friendsPanel.found.initial","friendsPanel.found.nickname","friendsPanel.notice","friendsPanel.list","item.online ? 'is-online' : ''","item.avatarStyle","!item.avatarUrl","item.nickname","item.statusText","item.shortId","item.canInvite","item.uid","!item.canInvite && !friendsPanel.canInvite","!item.canInvite && friendsPanel.canInvite","friendsPanel.empty","!friendsPanel.ready","friendsPanel.ready","friendsPanel.myId","invitePop","invitePop.fromName","invitePop.roomCode","invitePop.moreText","showLeaderboard && leaderboard","leaderboard.sourceLine","leaderboard.hasMe","leaderboard.myRankText","leaderboard.provisional","leaderboard.needText","leaderboard.rows","item.isChampion ? 'is-champion' : ''","item.isChampion","!item.isChampion && item.avatarUrl","!item.isChampion && !item.avatarUrl","item.provisional","item.ratingText","item.winsText","item.bestWinText","item.avgScoreText","item.avgCardsText","item.avgNoblesText","item.avgTurnText","leaderboard.empty","leaderboard.formulaText"];
+var EXPR_TEXTS = ["themeId","stageRotate","stageScale","themeFallback","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.autoPlay ? 'is-auto' : ''","item.avatarHue","item.initial","item.autoPlay","item.seatNo","item.name","item.reservedCount","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","lastMove.text","turnClock.pct","topRightCollapsed ? 'is-collapsed' : ''","topRightTop","topRightToggleLabel","!topRightCollapsed","roomMode","chat.open ? 'is-open' : ''","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meSeatLabel","me.nameText","me.pointsReached ? 'is-reached' : ''","me.pointsText","me.reservedText","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && item.pickedCount > 0) ? 'is-picked' : ''","needDiscard && item.pickedCount > 0","item.pickedCount","isMyTurn ? '' : 'is-idle'","pick.kind","pick.delta > 0","pick.delta","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? pick.label : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","canAutoPlay","meAutoPlay ? 'is-on' : ''","meAutoPlay ? '收回' : '托管'","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","chatPanelTop","chat.open","chat.isText ? 'is-active' : ''","chat.isEmoji ? 'is-active' : ''","chat.isText","chat.texts","item.text","chat.isEmoji && chat.isPick","chat.emojis","item.icon","chat.isEmoji && chat.isTarget","chat.pending.icon","chat.pending.label","chat.targets","item.isSelf ? 'is-self' : ''","item.seat","item.seatSub","!chat.open","chat.bubbles","item.mine ? 'is-mine' : ''","item.isEmoji ? 'is-emoji' : ''","item.seatLabel","item.targetLabel","chat.projectiles","item.isThrow ? 'is-throw' : 'is-gift'","item.isThrow","item.targetStyle","item.isGift","item.fromLabel","item.toLabel","chat.flyList","screen === 'home'","home.avatarUrl","home.nickname","home.rankTitle","home.onlineReady ? 'is-ready' : 'is-pending'","home.onlineText","topRightTop > 82 ? topRightTop : 82","home.notice && !home.dialog","home.notice","friendsPanel.onlineCount > 0","friendsPanel.onlineCount","home.dialog","home.dialog === 'create' ? 'is-create' : ''","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))","home.dialog === 'create'","home.themes","item.active ? 'is-active' : ''","item.tag","item.description","item.active","home.dialog === 'quick'","home.soloCounts","item.n","item.n === 2 ? '1 名对手' : (item.n === 3 ? '2 名对手' : '3 名对手')","home.dialog === 'solo'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint","home.cloudHint","screen === 'room'","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.themeName","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.creating","roomScreen.createFailed","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.actionNote","detail.canBuy && detail.canAct","detail.buyLabel","!detail.canBuy && detail.canReserve && detail.canAct","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","endNotice","endNotice.leaderSeat","endNotice.leaderName","endNotice.leftText","gameOver","resultTitle","resultDetail","resultBoard","resultBoard.rows","item.isWinner ? 'is-winner' : ''","item.isMe ? 'is-me' : ''","item.rank === 1 ? 'is-first' : ''","item.rank","item.isMe","item.seat + 1","item.cardCount","item.cardPoints","item.nobleCount","item.noblePoints","item.totalTokens","item.disc","item.tok","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.showLogin","!profileDialog.canLogin","profileDialog.loginLabel","profileDialog.loginHint","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'","showFriends","friendsPanel.count","friendsPanel.query","friendsPanel.found","friendsPanel.found.avatarStyle","!friendsPanel.found.avatarUrl","friendsPanel.found.initial","friendsPanel.found.nickname","friendsPanel.notice","friendsPanel.list","item.online ? 'is-online' : ''","item.avatarStyle","!item.avatarUrl","item.nickname","item.statusText","item.shortId","item.canInvite","item.uid","!item.canInvite && !friendsPanel.canInvite","!item.canInvite && friendsPanel.canInvite","friendsPanel.empty","!friendsPanel.ready","friendsPanel.ready","friendsPanel.myId","invitePop","invitePop.fromName","invitePop.roomCode","invitePop.moreText","showLeaderboard && leaderboard","leaderboard.sourceLine","leaderboard.showLoginHint","leaderboard.hasMe","leaderboard.myRankText","leaderboard.provisional","leaderboard.needText","leaderboard.rows","item.isChampion ? 'is-champion' : ''","item.section === 'trial' ? 'is-trial' : ''","item.sectionHead","item.section","item.sectionSub","item.sectionHead ? 'has-section' : ''","item.isChampion","!item.isChampion && item.avatarUrl","!item.isChampion && !item.avatarUrl","item.provisional","item.ratingText","item.winsText","item.bestWinText","item.avgScoreText","item.avgCardsText","item.avgNoblesText","item.avgTurnText","leaderboard.empty","leaderboard.formulaText"];
 var EXPR_CACHE = {};
 function EV(id, scope) {
   var fn = EXPR_CACHE[id] || (EXPR_CACHE[id] = new Function('$s', 'with ($s) { return (' + EXPR_TEXTS[id] + '); }'));
@@ -13255,22 +13382,48 @@ window.renderStage = function (data) {
     $h.push(ESC(EV(411, $s)));
     $h.push("</text>");
     if (EV(412, $s)) {
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC("leaderboard-login-hint"));
+      $h.push("\"");
+      $h.push(" data-tap=\"onOpenProfile\"");
+      $h.push(" hover-class=\"");
+      $h.push(ESC("lb-hint-hover"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("lb-hint-text"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("当前仅显示你本机的战绩。登录微信后可查看全站排名与他人成绩。");
+      $h.push("</text>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("lb-hint-btn"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push("去登录");
+      $h.push("</text>");
+      $h.push("</div>");
+    }
+    if (EV(413, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("leaderboard-my"));
       $h.push("\"");
       $h.push(">");
       $h.push("我的排名 ");
-      $h.push(ESC(EV(413, $s)));
+      $h.push(ESC(EV(414, $s)));
       $h.push("</text>");
     }
-    if (EV(414, $s)) {
+    if (EV(415, $s)) {
       $h.push("<text");
       $h.push(" class=\"");
       $h.push(ESC("leaderboard-provisional"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(415, $s)));
+      $h.push(ESC(EV(416, $s)));
       $h.push("</text>");
     }
     $h.push("</div>");
@@ -13348,22 +13501,49 @@ window.renderStage = function (data) {
     $h.push("回合平均耗时");
     $h.push("</text>");
     $h.push("</div>");
-    var $list55 = EV(416, $s) || [];
+    var $list55 = EV(417, $s) || [];
     for (var $i55 = 0; $i55 < $list55.length; $i55++) {
       var $s55 = Object.create($s);
       $s55.item = $list55[$i55];
       $s55.index = $i55;
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("leaderboard-row " + String(EV(321, $s55)) + " " + String(EV(417, $s55)))));
+      $h.push(ESC(("leaderboard-row " + String(EV(321, $s55)) + " " + String(EV(418, $s55)) + " " + String(EV(419, $s55)))));
+      $h.push("\"");
+      $h.push(">");
+      if (EV(420, $s55)) {
+        $h.push("<div");
+        $h.push(" class=\"");
+        $h.push(ESC(("lb-section-head is-" + String(EV(421, $s55)))));
+        $h.push("\"");
+        $h.push(">");
+        $h.push("<text");
+        $h.push(" class=\"");
+        $h.push(ESC("lb-section-title"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push(ESC(EV(420, $s55)));
+        $h.push("</text>");
+        $h.push("<text");
+        $h.push(" class=\"");
+        $h.push(ESC("lb-section-sub"));
+        $h.push("\"");
+        $h.push(">");
+        $h.push(ESC(EV(422, $s55)));
+        $h.push("</text>");
+        $h.push("</div>");
+      }
+      $h.push("<div");
+      $h.push(" class=\"");
+      $h.push(ESC(("lb-row-inner " + String(EV(423, $s55)))));
       $h.push("\"");
       $h.push(">");
       $h.push("<div");
       $h.push(" class=\"");
-      $h.push(ESC(("lb-c-rank " + String(EV(417, $s55)))));
+      $h.push(ESC(("lb-c-rank " + String(EV(418, $s55)))));
       $h.push("\"");
       $h.push(">");
-      if (EV(418, $s55)) {
+      if (EV(424, $s55)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("lb-c-rank-medal"));
@@ -13373,10 +13553,10 @@ window.renderStage = function (data) {
       }
       $h.push("<text");
       $h.push(" class=\"");
-      $h.push(ESC(("lb-c-rank-num " + String(EV(417, $s55)))));
+      $h.push(ESC(("lb-c-rank-num " + String(EV(418, $s55)))));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(323, $s55)));
+      $h.push(ESC(EV(302, $s55)));
       $h.push("</text>");
       $h.push("</div>");
       $h.push("<div");
@@ -13384,7 +13564,7 @@ window.renderStage = function (data) {
       $h.push(ESC("lb-c-name"));
       $h.push("\"");
       $h.push(">");
-      if (EV(418, $s55)) {
+      if (EV(424, $s55)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("lb-avatar-crown"));
@@ -13437,7 +13617,7 @@ window.renderStage = function (data) {
         $h.push("</div>");
         $h.push("</div>");
       }
-      if (EV(419, $s55)) {
+      if (EV(425, $s55)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("lb-avatar"));
@@ -13454,7 +13634,7 @@ window.renderStage = function (data) {
         $h.push("</img>");
         $h.push("</div>");
       }
-      if (EV(420, $s55)) {
+      if (EV(426, $s55)) {
         $h.push("<div");
         $h.push(" class=\"");
         $h.push(ESC("lb-avatar is-preset"));
@@ -13468,12 +13648,12 @@ window.renderStage = function (data) {
       }
       $h.push("<text");
       $h.push(" class=\"");
-      $h.push(ESC(("lb-name " + String(EV(417, $s55)))));
+      $h.push(ESC(("lb-name " + String(EV(418, $s55)))));
       $h.push("\"");
       $h.push(">");
       $h.push(ESC(EV(17, $s55)));
       $h.push("</text>");
-      if (EV(418, $s55)) {
+      if (EV(424, $s55)) {
         $h.push("<text");
         $h.push(" class=\"");
         $h.push(ESC("lb-champion"));
@@ -13491,7 +13671,7 @@ window.renderStage = function (data) {
         $h.push("你");
         $h.push("</text>");
       }
-      if (EV(421, $s55)) {
+      if (EV(427, $s55)) {
         $h.push("<text");
         $h.push(" class=\"");
         $h.push(ESC("lb-provisional"));
@@ -13506,53 +13686,54 @@ window.renderStage = function (data) {
       $h.push(ESC("lb-c-num is-score"));
       $h.push("\"");
       $h.push(">");
-      $h.push(ESC(EV(422, $s55)));
-      $h.push("</text>");
-      $h.push("<text");
-      $h.push(" class=\"");
-      $h.push(ESC("lb-c-num"));
-      $h.push("\"");
-      $h.push(">");
-      $h.push(ESC(EV(423, $s55)));
-      $h.push("</text>");
-      $h.push("<text");
-      $h.push(" class=\"");
-      $h.push(ESC("lb-c-num"));
-      $h.push("\"");
-      $h.push(">");
-      $h.push(ESC(EV(424, $s55)));
-      $h.push("</text>");
-      $h.push("<text");
-      $h.push(" class=\"");
-      $h.push(ESC("lb-c-num"));
-      $h.push("\"");
-      $h.push(">");
-      $h.push(ESC(EV(425, $s55)));
-      $h.push("</text>");
-      $h.push("<text");
-      $h.push(" class=\"");
-      $h.push(ESC("lb-c-num"));
-      $h.push("\"");
-      $h.push(">");
-      $h.push(ESC(EV(426, $s55)));
-      $h.push("</text>");
-      $h.push("<text");
-      $h.push(" class=\"");
-      $h.push(ESC("lb-c-num"));
-      $h.push("\"");
-      $h.push(">");
-      $h.push(ESC(EV(427, $s55)));
-      $h.push("</text>");
-      $h.push("<text");
-      $h.push(" class=\"");
-      $h.push(ESC("lb-c-num"));
-      $h.push("\"");
-      $h.push(">");
       $h.push(ESC(EV(428, $s55)));
       $h.push("</text>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("lb-c-num"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(429, $s55)));
+      $h.push("</text>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("lb-c-num"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(430, $s55)));
+      $h.push("</text>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("lb-c-num"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(431, $s55)));
+      $h.push("</text>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("lb-c-num"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(432, $s55)));
+      $h.push("</text>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("lb-c-num"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(433, $s55)));
+      $h.push("</text>");
+      $h.push("<text");
+      $h.push(" class=\"");
+      $h.push(ESC("lb-c-num"));
+      $h.push("\"");
+      $h.push(">");
+      $h.push(ESC(EV(434, $s55)));
+      $h.push("</text>");
+      $h.push("</div>");
       $h.push("</div>");
     }
-    if (EV(429, $s)) {
+    if (EV(435, $s)) {
       $h.push("<div");
       $h.push(" class=\"");
       $h.push(ESC("leaderboard-empty"));
@@ -13570,7 +13751,7 @@ window.renderStage = function (data) {
     $h.push(ESC("leaderboard-formula"));
     $h.push("\"");
     $h.push(">");
-    $h.push(ESC(EV(430, $s)));
+    $h.push(ESC(EV(436, $s)));
     $h.push("</text>");
     $h.push("<text");
     $h.push(" class=\"");
@@ -15903,9 +16084,14 @@ Page({
 
   onOpenLeaderboard() {
     this.ui.showLeaderboard = true;
-    // 先同步渲染本机行，再异步拉云端，弹层不会白屏等待
-    this.ui.leaderboard = L.rowsVM([this.myLeaderboardEntry()],
-      (this.profile || R.getProfile()).uid, { source: 'local' });
+    // 先同步渲染本机行，再异步拉云端，弹层不会白屏等待。
+    // loginRequired 让界面能区分「没登录」与「云不可用」：前者登录即可看全站，
+    // 后者只能排查环境。两者的提示文案不该混用。
+    const uid = (this.profile || R.getProfile()).uid;
+    this.ui.leaderboard = L.rowsVM([this.myLeaderboardEntry()], uid, {
+      source: 'local',
+      loginRequired: R.requiresWechatLogin() && !R.getAuthenticatedUid()
+    });
     this.refresh('');
     this.loadLeaderboard();
   },
@@ -15916,24 +16102,37 @@ Page({
   },
 
   loadLeaderboard() {
-    if (!R.hasCloud()) return;
+    if (!R.hasCloud()) return Promise.resolve(false);
     const that = this;
     const ownerUid = this.profile.uid;
     const mine = this.myLeaderboardEntry();
-    L.fetchRows(R.getCloud()).then(function (rows) {
-      if (that._unloaded || that.profile.uid !== ownerUid || !that.ui.showLeaderboard) return;
+    const myGames = L.fromRecords(U.getRecords()).games;
+    // 返回 Promise 便于调用方与测试串联，也便于将来做「刷新中」态
+    return L.fetchRows(R.getCloud()).then(function (rows) {
+      if (that._unloaded || that.profile.uid !== ownerUid || !that.ui.showLeaderboard) return false;
       const merged = rows.slice();
       let found = false;
       for (let i = 0; i < merged.length; i++) {
-        if (merged[i].uid === ownerUid) { merged[i] = mine; found = true; break; }
+        if (merged[i].uid !== ownerUid) continue;
+        found = true;
+        // 只在「本机确实比云端新」时才覆盖：云端行可能是刚结算那一局之前写的，
+        // 用本机值能让玩家立刻看到新分数。但反过来无脑覆盖会让同一份云端数据
+        // 在不同设备上呈现不同——别人看你是云端旧值，你自己看是新值。
+        // 判据用累计局数：本机多则说明有尚未 publish 的局。
+        const cloudGames = Number((merged[i].totals || {}).games) || 0;
+        if (myGames > cloudGames) merged[i] = mine;
+        break;
       }
-      if (!found) merged.push(mine);
+      // 0 局不入榜，与 publish 的 no-eligible-games 口径保持一致：
+      // 否则新玩家一开榜就看到自己「0 局 0 分」挂在最后一名，像被羞辱。
+      if (!found && myGames > 0) merged.push(mine);
       that.ui.leaderboard = L.rowsVM(merged, ownerUid, {
         source: 'cloud',
         updatedAt: new Date().toTimeString().slice(0, 5)
       });
       that.refresh('');
-    }).catch(function () {});
+      return true;
+    }).catch(function () { return false; });
   },
 
   refresh(toast) {

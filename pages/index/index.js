@@ -2290,9 +2290,14 @@ Page({
 
   onOpenLeaderboard() {
     this.ui.showLeaderboard = true;
-    // 先同步渲染本机行，再异步拉云端，弹层不会白屏等待
-    this.ui.leaderboard = L.rowsVM([this.myLeaderboardEntry()],
-      (this.profile || R.getProfile()).uid, { source: 'local' });
+    // 先同步渲染本机行，再异步拉云端，弹层不会白屏等待。
+    // loginRequired 让界面能区分「没登录」与「云不可用」：前者登录即可看全站，
+    // 后者只能排查环境。两者的提示文案不该混用。
+    const uid = (this.profile || R.getProfile()).uid;
+    this.ui.leaderboard = L.rowsVM([this.myLeaderboardEntry()], uid, {
+      source: 'local',
+      loginRequired: R.requiresWechatLogin() && !R.getAuthenticatedUid()
+    });
     this.refresh('');
     this.loadLeaderboard();
   },
@@ -2303,24 +2308,37 @@ Page({
   },
 
   loadLeaderboard() {
-    if (!R.hasCloud()) return;
+    if (!R.hasCloud()) return Promise.resolve(false);
     const that = this;
     const ownerUid = this.profile.uid;
     const mine = this.myLeaderboardEntry();
-    L.fetchRows(R.getCloud()).then(function (rows) {
-      if (that._unloaded || that.profile.uid !== ownerUid || !that.ui.showLeaderboard) return;
+    const myGames = L.fromRecords(U.getRecords()).games;
+    // 返回 Promise 便于调用方与测试串联，也便于将来做「刷新中」态
+    return L.fetchRows(R.getCloud()).then(function (rows) {
+      if (that._unloaded || that.profile.uid !== ownerUid || !that.ui.showLeaderboard) return false;
       const merged = rows.slice();
       let found = false;
       for (let i = 0; i < merged.length; i++) {
-        if (merged[i].uid === ownerUid) { merged[i] = mine; found = true; break; }
+        if (merged[i].uid !== ownerUid) continue;
+        found = true;
+        // 只在「本机确实比云端新」时才覆盖：云端行可能是刚结算那一局之前写的，
+        // 用本机值能让玩家立刻看到新分数。但反过来无脑覆盖会让同一份云端数据
+        // 在不同设备上呈现不同——别人看你是云端旧值，你自己看是新值。
+        // 判据用累计局数：本机多则说明有尚未 publish 的局。
+        const cloudGames = Number((merged[i].totals || {}).games) || 0;
+        if (myGames > cloudGames) merged[i] = mine;
+        break;
       }
-      if (!found) merged.push(mine);
+      // 0 局不入榜，与 publish 的 no-eligible-games 口径保持一致：
+      // 否则新玩家一开榜就看到自己「0 局 0 分」挂在最后一名，像被羞辱。
+      if (!found && myGames > 0) merged.push(mine);
       that.ui.leaderboard = L.rowsVM(merged, ownerUid, {
         source: 'cloud',
         updatedAt: new Date().toTimeString().slice(0, 5)
       });
       that.refresh('');
-    }).catch(function () {});
+      return true;
+    }).catch(function () { return false; });
   },
 
   refresh(toast) {

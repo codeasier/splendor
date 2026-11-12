@@ -130,6 +130,30 @@ const localVM = L.rowsVM([], 'u-x', { source: 'local' });
 eq(localVM.empty, true, '空榜单有空态');
 eq(localVM.hasMe, false, '空榜单无我的行');
 assert(localVM.sourceText.indexOf('云端未连接') >= 0, '离线来源如实说明');
+
+/* ---------- 5.1 来源三态：云端 / 未登录 / 云不可用 ---------- */
+{
+  const cloudVM = L.rowsVM([a], 'u-a', { source: 'cloud', updatedAt: '22:30' });
+  eq(cloudVM.source, 'cloud', '云端可用时来源为 cloud');
+  eq(cloudVM.showLoginHint, false, '云端可用时不提示登录');
+  assert(cloudVM.sourceText.indexOf('全站榜单') >= 0, '云端应显示全站榜单');
+
+  const loginVM = L.rowsVM([a], 'u-a', { source: 'local', loginRequired: true });
+  eq(loginVM.source, 'login', '未登录时来源为 login');
+  eq(loginVM.loginRequired, true, '标记需要登录');
+  eq(loginVM.showLoginHint, true, '未登录应给出登录提示');
+  assert(loginVM.sourceText.indexOf('未登录') >= 0, '未登录要说明未登录');
+  assert(loginVM.sourceText.indexOf('登录后可见全站') >= 0, '要说明登录后能看到全站');
+  // 未登录与云不可用必须能区分，否则用户会去排查网络
+  assert(loginVM.sourceText.indexOf('云端未连接') < 0, '未登录不该说成云端未连接');
+
+  const localVM2 = L.rowsVM([a], 'u-a', { source: 'local' });
+  eq(localVM2.source, 'local', '云不可用时来源为 local');
+  eq(localVM2.showLoginHint, false, '云不可用时不提示登录');
+  assert(localVM2.sourceText.indexOf('云端未连接') >= 0, '云不可用才说云端未连接');
+
+  console.log('OK  来源三态 · 云端 / 未登录 / 云不可用互不混淆');
+}
 console.log('OK  视图模型 · 格式化 / 空态 / 离线说明');
 
 /* ---------- 6. 榜首专属头像框：只给真正上榜的第 1 名 ---------- */
@@ -173,6 +197,75 @@ console.log('OK  视图模型 · 格式化 / 空态 / 离线说明');
   console.log('OK  榜首头像框 · 仅第 1 名且脱离观察期 / 并列只授一人');
 }
 
+/* ---------- 7. 分段排名：正式榜与观察期各自独立编号 ---------- */
+{
+  const official1 = L.entryOf('u-off1', '老将', '', L.fromRecords([
+    { mode:'room', humanCount:2, win:true, score:15, cards:9, nobles:1, turns:20, turnAvgMs:5000 },
+    { mode:'room', humanCount:2, win:true, score:14, cards:8, nobles:0, turns:20, turnAvgMs:5000 },
+    { mode:'room', humanCount:2, win:false, score:12, cards:7, nobles:0, turns:20, turnAvgMs:5000 }
+  ]));
+  const official2 = L.entryOf('u-off2', '次将', '', L.fromRecords([
+    { mode:'room', humanCount:2, win:false, score:9, cards:5, nobles:0, turns:20, turnAvgMs:6000 },
+    { mode:'room', humanCount:2, win:false, score:8, cards:4, nobles:0, turns:20, turnAvgMs:6000 },
+    { mode:'room', humanCount:2, win:false, score:7, cards:3, nobles:0, turns:20, turnAvgMs:6000 }
+  ]));
+  // 新人分高但只有 1 局：混排会排第 1，分段后应落到观察期
+  const rookie = L.entryOf('u-new', '新人', '', L.fromRecords([
+    { mode:'room', humanCount:2, win:true, score:18, cards:12, nobles:2, turns:10, turnAvgMs:1000 }
+  ]));
+
+  const vm = L.rowsVM([rookie, official1, official2], 'u-new', { source: 'cloud' });
+
+  // 正式榜必须排在前面，且第 1 名是正式榜里分数最高的人
+  eq(vm.rows[0].uid, 'u-off1', '正式榜第一应是资深玩家，不是数据少的新人');
+  eq(vm.rows[0].section, 'official', '首行属于正式榜');
+  eq(vm.rows[0].isChampion, true, '冠军授予正式榜第 1 名');
+  eq(vm.rows[1].section, 'official', '第二行仍是正式榜');
+  eq(vm.rows[1].rankText, '2', '正式榜内部按 1、2 编号');
+  eq(vm.rows[1].isChampion, false, '正式榜第 2 不戴冠');
+
+  // 观察期独立编号：从 1 重新开始
+  eq(vm.rows[2].section, 'trial', '新人进入观察期段');
+  eq(vm.rows[2].rankText, '1', '观察期独立编号，从 1 开始（而不是混排第 3）');
+  eq(vm.rows[2].rank, 1, '观察期内部名次为 1');
+  eq(vm.rows[2].isChampion, false, '观察期第 1 不戴冠');
+  eq(vm.rows[2].championLabel, '', '观察期无榜首标签');
+
+  // 分组标题只出现在每段第一行
+  eq(vm.rows[0].sectionHead, '正式榜', '正式榜首行带标题');
+  eq(vm.rows[1].sectionHead, '', '正式榜第二行不重复标题');
+  eq(vm.rows[2].sectionHead, '观察期', '观察期首行带标题');
+
+  eq(vm.officialCount, 2, '正式榜人数');
+  eq(vm.trialCount, 1, '观察期人数');
+  eq(vm.hasChampion, true, '存在冠军');
+  eq(vm.championName, '老将', '冠军姓名');
+
+  // 我的名次文案必须带分组前缀，否则会被误读成全站第 1
+  assert(vm.myRankText.indexOf('观察期第 1') === 0, '观察期名次带分组前缀：' + vm.myRankText);
+  assert(vm.myRankText.indexOf('转入正式榜') > 0, '提示晋级条件');
+
+  console.log('OK  分段排名 · 正式榜在前 / 观察期独立从 1 编号 / 皇冠只给正式榜第一');
+}
+
+/* ---------- 7.1 只有观察期玩家时：正式榜为空，无人戴冠 ---------- */
+{
+  const r1 = L.entryOf('u-r1', '甲', '', L.fromRecords([
+    { mode:'room', humanCount:2, win:true, score:15, cards:9, nobles:1, turns:10, turnAvgMs:3000 }
+  ]));
+  const r2 = L.entryOf('u-r2', '乙', '', L.fromRecords([
+    { mode:'room', humanCount:2, win:false, score:9, cards:5, nobles:0, turns:10, turnAvgMs:4000 }
+  ]));
+  const vm = L.rowsVM([r1, r2], 'u-r1', { source: 'cloud' });
+  eq(vm.officialCount, 0, '无人满 3 局时正式榜为空');
+  eq(vm.hasChampion, false, '没有正式榜第一时不授冠');
+  assert(!vm.rows.some(function (r) { return r.isChampion; }), '全榜无人戴冠');
+  eq(vm.rows[0].rankText, '1', '观察期仍从 1 编号');
+  eq(vm.officialEmpty, true, '标记正式榜为空');
+  assert(vm.trialHint.indexOf('还没有人满') >= 0, '要说明为什么没人戴冠：' + vm.trialHint);
+  console.log('OK  分段排名 · 正式榜为空时如实说明且不授冠');
+}
+
 /* ---------- 6. 云端表字段往返 ---------- */
 const cloudRow = L.entryToCloud(a, L.rating(L.summarize(a.totals)));
 eq(cloudRow.uid, 'u-a', 'uid 落库');
@@ -193,6 +286,11 @@ function mockCloud(rows, fail) {
       return Promise.resolve(fail ? { error: { message: 'table missing' } } : { data: [row], error: null });
     },
     select() { calls.push(['select']); return q; },
+    // 与真实 SDK 同签名：order(column, { ascending, nullsFirst })
+    order(col, opt) {
+      calls.push(['order', col, opt && opt.ascending]);
+      return q;
+    },
     limit(n) { calls.push(['limit', n]); return q; },
     then(resolve, reject) {
       return Promise.resolve(fail ? { error: { message: 'boom' } } : { data: rows || [], error: null })
@@ -237,7 +335,21 @@ async function runCloud() {
   eq(soloOnly.games, 0, '人机局累计为 0 局');
   const soloCloud = mockCloud([], false);
   eq((await L.publish(soloCloud.cloud, { uid: 'u-a', nickname: '甲' }, soloOnly)).ok, false, '只有人机局不上榜');
-  console.log('OK  云端契约 · 独立表 / 字段映射 / 无云与报错均静默降级 / 无合格局不上榜');
+
+  // fetchRows 必须带 order 再 limit：否则超过上限时返回子集不确定，
+  // 不同玩家会看到不同的榜单。这里断言查询链真的调用了 order。
+  const ordered = mockCloud([cloudRow], false);
+  await L.fetchRows(ordered.cloud);
+  const orderCalls = ordered.calls.filter(function (c) { return c[0] === 'order'; });
+  assert(orderCalls.length >= 1, 'fetchRows 必须按评分排序，实际 order 调用 ' + orderCalls.length);
+  eq(orderCalls[0][1], 'rating', '首要排序字段为 rating');
+  eq(orderCalls[0][2], false, '按 rating 降序（ascending=false）');
+  // order 必须在 limit 之前生效，否则先截断再排序等于没排
+  const iOrder = ordered.calls.findIndex(function (c) { return c[0] === 'order'; });
+  const iLimit = ordered.calls.findIndex(function (c) { return c[0] === 'limit'; });
+  assert(iOrder >= 0 && iLimit > iOrder, 'order 必须先于 limit（先排序再截断）');
+
+  console.log('OK  云端契约 · 独立表 / 字段映射 / 无云与报错均静默降级 / 无合格局不上榜 / 拉取有序');
 }
 
 runCloud().then(function () {

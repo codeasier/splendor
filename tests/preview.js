@@ -437,9 +437,12 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
   // H5 沙箱里的 user 模块与 Node 侧 require 不是同一份存储，写记录进不去，
   // 所以这里直接按 rowsVM 的真实契约构造榜单数据 —— 本节要验的是「渲染」，
   // 准入与评分规则由 tests/leaderboard.js 单独覆盖。
+  // 与 rowsVM 的真实产物同形：带 section / rankText / sectionHead。
+  // 1 号为正式榜（冠军），2 号本机也在正式榜，3 号为观察期 —— 覆盖分段边界。
   const rows = [
     {
-      rank: 1, uid: 'u-champ', name: '珠宝大亨', initial: '珠',
+      section: 'official', rankText: '1', rank: 1, sectionHead: '正式榜', sectionSub: '满 3 局',
+      uid: 'u-champ', name: '珠宝大亨', initial: '珠',
       avatarUrl: '', isMe: false, isChampion: true, championLabel: '榜首',
       provisional: false, rating: 512, ratingText: '512',
       wins: 9, winsText: '9', bestWinScore: 18, bestWinText: '18',
@@ -447,7 +450,8 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
       avgTurnText: '4.8s', gamesText: '12', winRateText: '75%'
     },
     {
-      rank: 2, uid: 'u-me', name: '本机玩家', initial: '本',
+      section: 'official', rankText: '2', rank: 2, sectionHead: '', sectionSub: '',
+      uid: 'u-me', name: '本机玩家', initial: '本',
       avatarUrl: '', isMe: true, isChampion: false, championLabel: '',
       provisional: false, rating: 430, ratingText: '430',
       wins: 6, winsText: '6', bestWinScore: 16, bestWinText: '16',
@@ -455,7 +459,8 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
       avgTurnText: '5.6s', gamesText: '8', winRateText: '75%'
     },
     {
-      rank: 3, uid: 'u-new', name: '新人', initial: '新',
+      section: 'trial', rankText: '1', rank: 1, sectionHead: '观察期', sectionSub: '满 3 局后晋级正式榜',
+      uid: 'u-new', name: '新人', initial: '新',
       avatarUrl: '', isMe: false, isChampion: false, championLabel: '',
       provisional: true, rating: 120, ratingText: '120',
       wins: 1, winsText: '1', bestWinScore: 15, bestWinText: '15',
@@ -471,8 +476,10 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
   // 预览环境离线，loadLeaderboard 直接返回，不会覆盖。这里在它之后换成
   // 一份含榜首的完整榜单，模拟「云端拉回后的稳定态」再重绘验渲染。
   page.ui.leaderboard = {
-    rows: rows, myRow: rows[1], myRank: 2, hasMe: true,
+    rows: rows, myRow: rows[1], myRank: 2, mySection: 'official', hasMe: true,
     provisional: false, needText: '', empty: false,
+    officialCount: 2, trialCount: 1, hasChampion: true, championName: '珠宝大亨',
+    officialEmpty: false, trialHint: '1 人处于观察期，暂列下方',
     source: 'local', sourceText: '云端未连接 · 仅展示本机战绩',
     sourceLine: '云端未连接 · 仅展示本机战绩', myRankText: '第 2 名 · 综合 430 分',
     formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（归一化后加权）'
@@ -504,6 +511,21 @@ console.log('交互链路：规则 / 卡牌详情 / 预留卡 弹层渲染 OK');
   assert(lb.indexOf('undefined') < 0, '榜单不得含 undefined');
   assert(lb.indexOf('NaN') < 0, '榜单不得含 NaN');
   assert(lb.indexOf('{{') < 0, '榜单不得残留未求值模板');
+  // 分段渲染：正式榜与观察期各自独立编号，分组标题必须真的渲染出来。
+  // 这三行注入数据里 1 号是满 3 局的、2/3 号是观察期，正好覆盖分段边界。
+  {
+    const sections = page.data.leaderboard.rows.map(function (r) { return r.section; });
+    assert(sections.indexOf('official') >= 0, '注入数据应含正式榜');
+    assert(sections.indexOf('trial') >= 0, '注入数据应含观察期');
+    assert(lb.indexOf('lb-section-head') > 0, '应渲染分组标题容器');
+    assert(lb.indexOf('正式榜') > 0, '应渲染「正式榜」标题');
+    assert(lb.indexOf('观察期') > 0, '应渲染「观察期」标题');
+    // 观察期行要带独立样式，与正式榜拉开层次
+    assert(/class="leaderboard-row[^"]*\bis-trial\b/.test(lb), '观察期行应有独立样式');
+    // 分组标题各自只出现一次
+    assert((lb.match(/lb-section-head is-official/g) || []).length === 1, '正式榜标题只出现 1 次');
+    assert((lb.match(/lb-section-head is-trial/g) || []).length === 1, '观察期标题只出现 1 次');
+  }
   // 榜首专属头像框：必须有真实的 DOM 节点与皇冠，不能只给了 class 没渲染内容
   {
     const champRows = page.data.leaderboard.rows.filter(function (r) { return r.isChampion; });

@@ -1234,6 +1234,12 @@
       <view class="leaderboard-body">
         <view class="leaderboard-meta">
           <text class="leaderboard-source">{{leaderboard.sourceLine}}</text>
+          <!-- 未登录与云不可用是两件事：前者登录即可看到全站，后者只能排查环境。
+               这里给出可操作入口，避免用户误以为是网络故障。 -->
+          <view wx:if="{{leaderboard.showLoginHint}}" class="leaderboard-login-hint" bindtap="onOpenProfile" hover-class="lb-hint-hover">
+            <text class="lb-hint-text">当前仅显示你本机的战绩。登录微信后可查看全站排名与他人成绩。</text>
+            <text class="lb-hint-btn">去登录</text>
+          </view>
           <text wx:if="{{leaderboard.hasMe}}" class="leaderboard-my">我的排名 {{leaderboard.myRankText}}</text>
           <text wx:if="{{leaderboard.provisional}}" class="leaderboard-provisional">{{leaderboard.needText}}</text>
         </view>
@@ -1249,10 +1255,17 @@
             <text class="lb-c-num">场均贵族</text>
             <text class="lb-c-num">回合平均耗时</text>
           </view>
-          <view wx:for="{{leaderboard.rows}}" wx:key="uid" class="leaderboard-row {{item.isMe ? 'is-me' : ''}} {{item.isChampion ? 'is-champion' : ''}}">
+          <view wx:for="{{leaderboard.rows}}" wx:key="uid" class="leaderboard-row {{item.isMe ? 'is-me' : ''}} {{item.isChampion ? 'is-champion' : ''}} {{item.section === 'trial' ? 'is-trial' : ''}}">
+            <!-- 分组标题：正式榜 / 观察期各自独立编号，必须显式标出分界，
+                 否则用户会把观察期第 1 误读成全站第 1。 -->
+            <view wx:if="{{item.sectionHead}}" class="lb-section-head is-{{item.section}}">
+              <text class="lb-section-title">{{item.sectionHead}}</text>
+              <text class="lb-section-sub">{{item.sectionSub}}</text>
+            </view>
+            <view class="lb-row-inner {{item.sectionHead ? 'has-section' : ''}}">
             <view class="lb-c-rank {{item.isChampion ? 'is-champion' : ''}}">
               <view wx:if="{{item.isChampion}}" class="lb-c-rank-medal"></view>
-              <text class="lb-c-rank-num {{item.isChampion ? 'is-champion' : ''}}">{{item.rank}}</text>
+              <text class="lb-c-rank-num {{item.isChampion ? 'is-champion' : ''}}">{{item.rankText}}</text>
             </view>
             <view class="lb-c-name">
               <!-- 冠军头像框：金冠 + 双环 + 流光。结构与普通头像框分开，
@@ -1282,6 +1295,7 @@
             <text class="lb-c-num">{{item.avgCardsText}}</text>
             <text class="lb-c-num">{{item.avgNoblesText}}</text>
             <text class="lb-c-num">{{item.avgTurnText}}</text>
+            </view>
           </view>
           <view wx:if="{{leaderboard.empty}}" class="leaderboard-empty">
             <text>还没有榜单数据。打完一局并结算后，这里会出现你的成绩。</text>

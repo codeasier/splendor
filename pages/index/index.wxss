@@ -2834,16 +2834,42 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 /* 表格是滚动容器（overflow-y:auto 会同时裁掉溢出部分），
    榜首行头像框与皇冠有轻微上溢，给第一行留一点内边距免得被裁头。 */
 .leaderboard-table { padding-top: 2px; }
+/* 每行改成纵向：上面可能有分组标题，下面是数据行。
+   分组标题必须独占一行，否则会被挤进九列里错位。
+   表头行（is-head）没有分组标题，直接横向排列。 */
 .leaderboard-row {
-  display: flex; align-items: center; height: 34px; padding: 0 6px;
+  padding: 0 6px;
   border-bottom: 1px solid rgba(226, 190, 126, .16);
   font-size: 12px; color: #f0dcb8;
 }
+.lb-row-inner { display: flex; align-items: center; height: 34px; }
 .leaderboard-row.is-head {
+  display: flex; align-items: center;
   height: 30px; font-weight: 700; color: #ffe0a0; font-size: 12px;
   background: linear-gradient(180deg, rgba(94, 56, 72, .95), rgba(44, 22, 32, .95));
   border-bottom-color: rgba(226, 190, 126, .45);
 }
+/* 分组标题：正式榜用金调，观察期用灰调，一眼能分清段位。
+   下内边距要留足 —— 下面的行里有皇冠（top:-4px 上溢），
+   标题贴着行会给皇冠压出「被截断」的错觉。 */
+.lb-section-head {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 7px 2px 8px;
+  border-bottom: 1px solid rgba(226, 190, 126, .28);
+}
+/* 紧随分组标题的数据行：多留 4px 高度而不是 padding-top。
+   用 padding 会把固定 34px 里的内容挤下去，反而更贴皇冠；
+   增高才能让皇冠（top:-4px）完整落在行框内不被裁。
+   用显式 class 而不是相邻选择器：WXSS 对 + 的支持不如标准 CSS 稳。 */
+.lb-row-inner.has-section { height: 38px; }
+.lb-section-title { font-size: 13px; font-weight: 700; letter-spacing: .5px; }
+.lb-section-sub { font-size: 11px; color: #b79a72; }
+.lb-section-head.is-official .lb-section-title { color: #ffd884; }
+.lb-section-head.is-trial .lb-section-title { color: #9fb0c0; }
+.lb-section-head.is-trial .lb-section-sub { color: #7d8b99; }
+/* 观察期行整体压暗，与正式榜拉开层次 */
+.leaderboard-row.is-trial { background: rgba(20, 26, 34, .28); }
+.leaderboard-row.is-trial .lb-c-num.is-score { color: #b9c6d3; font-weight: 400; }
 .leaderboard-row.is-me { background: rgba(54, 122, 96, .26); }
 .leaderboard-row:last-child { border-bottom: none; }
 .lb-c-rank { flex: 0 0 44px; position: relative; display: flex; align-items: center; justify-content: center; }
@@ -2969,3 +2995,19 @@ page, .viewport { width: 100%; height: 100vh; overflow: hidden; }
 .leaderboard-note { font-size: 11px; line-height: 1.45; color: #aa8e6f; }
 /* 入榜条件比免责说明更重要，用暖金提高可读性 */
 .leaderboard-rule { font-size: 12px; line-height: 1.45; color: #e8c48a; }
+/* 未登录提示：整条可点，直接进资料/登录弹层 */
+.leaderboard-login-hint {
+  display: flex; align-items: center; gap: 10px;
+  margin: 6px 0 2px; padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 205, 120, .5);
+  background: linear-gradient(90deg, rgba(120, 82, 24, .5), rgba(70, 48, 14, .22));
+}
+.lb-hint-text { flex: 1; font-size: 12px; line-height: 1.4; color: #ffe2b0; }
+.lb-hint-btn {
+  flex-shrink: 0; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 4px;
+  color: #3a2606;
+  background: linear-gradient(180deg, #fff2c4, #ffd979 55%, #e0a631);
+  border: 1px solid rgba(255, 240, 190, .9);
+}
+.lb-hint-hover { opacity: .85; }

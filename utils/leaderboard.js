@@ -232,12 +232,22 @@ async function publish(cloud, profile, totals) {
   }
 }
 
-/** 拉全站榜单；不做服务端排序（SDK 链式能力有限），本地统一排序更可控 */
+/** 拉全站榜单；服务端按评分降序取前 N，本地再统一排序 */
 async function fetchRows(cloud) {
   try {
     const database = cloud && cloud.database;
     if (!database) return [];
-    const res = await database.from(LEADERBOARD_TABLE).select('*').limit(FETCH_LIMIT);
+    // 必须带 order 再 limit：PostgreSQL 不保证无序查询返回哪 100 行，
+    // 一旦玩家超过 FETCH_LIMIT，不同请求可能拿到不同子集 ——
+    // 那才会真的出现「每个人看到的榜单不一样」。
+    // 按 rating 降序取，保证截断时留下的是高分玩家；updated_at 兜底避免同分抖动。
+    let query = database.from(LEADERBOARD_TABLE).select('*');
+    try {
+      query = query.order('rating', { ascending: false }).order('updated_at', { ascending: false });
+    } catch (e) {
+      // 老版本 SDK 没有 order 链式方法时退化为原行为，不能让榜单整个挂掉
+    }
+    const res = await query.limit(FETCH_LIMIT);
     if (!res || res.error || !Array.isArray(res.data)) return [];
     const out = [];
     for (let i = 0; i < res.data.length; i++) {
@@ -257,19 +267,21 @@ function fmt1(v) {
 function formatRow(entry, rank, myUid) {
   const s = summarize(entry.totals || blank());
   const score = rating(s);
-  // 冠军专属头像框：只在「有人真正上榜」时给第 1 名。
-  // 观察期（局数不足）的人不授予 —— 3 局不到就戴皇冠会误导，
-  // 宁可空着也不让「打一局就上榜」的人拿到最显眼的身份标识。
-  const isChampion = rank === 1 && s.games >= MIN_GAMES;
+  // 授冠不在这里判断：皇冠归属由 rankRows 按「正式榜第 1」决定，
+  // 这里只给默认值，避免两处规则各说各话。
   return {
     rank: rank,
+    section: '',
+    rankText: String(rank),
+    sectionHead: '',
+    sectionSub: '',
     uid: entry.uid,
     name: entry.nickname,
     initial: String(entry.nickname || '珠').slice(0, 1),
     avatarUrl: entry.avatarUrl || '',
     isMe: entry.uid === myUid,
-    isChampion: isChampion,
-    championLabel: isChampion ? '榜首' : '',
+    isChampion: false,
+    championLabel: '',
     provisional: s.games < MIN_GAMES,
     rating: score,
     ratingText: String(score),
@@ -287,6 +299,16 @@ function formatRow(entry, rank, myUid) {
 }
 
 /** 稳定排序：综合分 → 胜场 → 局数 → uid，避免同分时每次打开名次乱跳 */
+/**
+ * 排名：正式榜与观察期榜**各自独立编号**。
+ * ------------------------------------------------------------------
+ * 为什么分段而不是混排：
+ *   混排时会出现「1 局的新人排第 1、打了 4 局的人排第 2」——
+ *   新人分数高只是因为样本少，不该占据榜首并拿走冠军标识。
+ *   分开后正式榜是真正的实力比较，观察期榜是「等够局数再晋级」的候选区。
+ *
+ * 皇冠（isChampion）只给正式榜第 1 名，观察期组内第 1 不授予。
+ */
 function rankRows(entries, myUid) {
   const list = (entries || []).slice().map(function (e) {
     return { entry: e, score: rating(summarize(e.totals || blank())), wins: num((e.totals || blank()).wins), games: num((e.totals || blank()).games) };
@@ -297,10 +319,41 @@ function rankRows(entries, myUid) {
     if (b.games !== a.games) return b.games - a.games;
     return a.entry.uid < b.entry.uid ? -1 : (a.entry.uid > b.entry.uid ? 1 : 0);
   });
-  const all = list.map(function (x, i) { return formatRow(x.entry, i + 1, myUid); });
+  const official = list.filter(function (x) { return x.games >= MIN_GAMES; });
+  const trial = list.filter(function (x) { return x.games < MIN_GAMES; });
+
+  const all = [];
+  official.forEach(function (x, i) {
+    const row = formatRow(x.entry, i + 1, myUid);
+    row.section = 'official';
+    // 只有正式榜第 1 名戴冠
+    row.isChampion = i === 0;
+    row.championLabel = row.isChampion ? '榜首' : '';
+    row.rankText = String(i + 1);
+    if (i === 0) { row.sectionHead = '正式榜'; row.sectionSub = '满 ' + MIN_GAMES + ' 局'; }
+    all.push(row);
+  });
+  trial.forEach(function (x, i) {
+    const row = formatRow(x.entry, i + 1, myUid);
+    row.section = 'trial';
+    row.isChampion = false;
+    row.championLabel = '';
+    row.rankText = String(i + 1);
+    if (i === 0) { row.sectionHead = '观察期'; row.sectionSub = '满 ' + MIN_GAMES + ' 局后晋级正式榜'; }
+    all.push(row);
+  });
+
   let myRow = null;
   for (let i = 0; i < all.length; i++) if (all[i].isMe) { myRow = all[i]; break; }
-  return { list: all.slice(0, MAX_ROWS), myRow: myRow, total: all.length };
+  const champ = all.filter(function (r) { return r.isChampion; })[0] || null;
+  return {
+    list: all.slice(0, MAX_ROWS),
+    myRow: myRow,
+    total: all.length,
+    officialCount: official.length,
+    trialCount: trial.length,
+    champion: champ
+  };
 }
 
 /** 榜单视图模型：所有展示字段预先格式化，WXML 不做算术 */
@@ -309,24 +362,56 @@ function rowsVM(entries, myUid, opts) {
   const ranked = rankRows(entries, myUid);
   const mine = ranked.myRow;
   const games = mine ? Number(mine.gamesText) : 0;
+  // 来源文案分三种，不能只分「云端 / 本机」两种：
+  //   cloud  —— 云端可用，全站榜单
+  //   login  —— 云端可用但未登录微信，只能看本机（这是「不同人看到不一样」的主因）
+  //   local  —— 云服务本身没就绪（未联网 / SDK 不可用）
+  // 未登录与云不可用对用户是两件完全不同的事：前者登录一下就能解决，
+  // 后者只能排查环境。混成一句「云端未连接」会让人以为是网络问题。
+  const source = o.source === 'cloud' ? 'cloud' : (o.loginRequired ? 'login' : 'local');
+  const SOURCE_TEXT = {
+    cloud: '全站榜单 · 数据来自云端',
+    login: '未登录微信 · 仅显示本机战绩，登录后可见全站排名',
+    local: '云端未连接 · 仅展示本机战绩'
+  };
+  const sourceText = SOURCE_TEXT[source];
+  // 我的名次文案要带分组前缀：观察期是 3 号，正式榜也是 3 号，
+  // 不加前缀会让人以为自己是「全站第 3」。
+  let myRankText = '';
+  if (mine) {
+    const prefix = mine.section === 'trial' ? '观察期第 ' : '第 ';
+    const suffix = mine.section === 'trial' ? ' 名（满 ' + MIN_GAMES + ' 局后转入正式榜）' : ' 名';
+    myRankText = prefix + mine.rank + suffix + ' · 综合 ' + mine.ratingText + ' 分';
+  }
   return {
     rows: ranked.list,
     myRow: mine,
     myRank: mine ? mine.rank : 0,
+    mySection: mine ? mine.section : '',
     hasMe: !!mine,
     provisional: !mine || games < MIN_GAMES,
     needText: games < MIN_GAMES
       ? ('再打 ' + (MIN_GAMES - games) + ' 局即可脱离观察期')
       : '',
     empty: ranked.list.length === 0,
-    source: o.source === 'cloud' ? 'cloud' : 'local',
-    sourceText: o.source === 'cloud'
-      ? '全站榜单 · 数据来自云端'
-      : '云端未连接 · 仅展示本机战绩',
+    officialCount: ranked.officialCount,
+    trialCount: ranked.trialCount,
+    hasChampion: !!ranked.champion,
+    championName: ranked.champion ? ranked.champion.name : '',
+    // 观察期人数提示：正式榜为空时要说明「为什么没人戴冠」
+    officialEmpty: ranked.officialCount === 0,
+    trialHint: ranked.trialCount > 0
+      ? (ranked.officialCount === 0
+        ? ('还没有人满 ' + MIN_GAMES + ' 局，正式榜待产生；下方 ' + ranked.trialCount + ' 人处于观察期')
+        : (ranked.trialCount + ' 人处于观察期，暂列下方'))
+      : '',
+    source: source,
+    loginRequired: source === 'login',
+    showLoginHint: source === 'login',
+    sourceText: sourceText,
     // 文案统一在 VM 里拼好：WXML 表达式里做字符串拼接在部分 WebView 不稳
-    sourceLine: (o.source === 'cloud' ? '全站榜单 · 数据来自云端' : '云端未连接 · 仅展示本机战绩') +
-      (o.updatedAt ? ' · 更新于 ' + o.updatedAt : ''),
-    myRankText: mine ? ('第 ' + mine.rank + ' 名 · 综合 ' + mine.ratingText + ' 分') : '',
+    sourceLine: sourceText + (o.updatedAt ? ' · 更新于 ' + o.updatedAt : ''),
+    myRankText: myRankText,
     loading: !!o.loading,
     formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（各项归一化后加权）',
     updatedText: o.updatedAt ? ('更新于 ' + o.updatedAt) : ''
