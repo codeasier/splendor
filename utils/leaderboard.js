@@ -29,6 +29,7 @@
  */
 
 const R = require('./room.js');
+const Nick = require('./nickname.js');
 
 const LEADERBOARD_TABLE = 'splendor_leaderboard';
 const MIN_GAMES = 3;       // 少于 3 局标「观察期」，不隐藏（榜单要能看到新玩家）
@@ -328,8 +329,10 @@ function formatRow(entry, rank, myUid) {
     sectionHead: '',
     sectionSub: '',
     uid: entry.uid,
-    name: entry.nickname,
-    initial: String(entry.nickname || '珠').slice(0, 1),
+    // 名字与头像首字都要过滤：只改 name 不改 initial，
+    // 头像圈里仍会露出敏感字的首字。
+    name: Nick.maskName(entry.nickname),
+    initial: String(Nick.maskName(entry.nickname) || '珠').slice(0, 1),
     avatarUrl: entry.avatarUrl || '',
     isMe: entry.uid === myUid,
     isChampion: false,

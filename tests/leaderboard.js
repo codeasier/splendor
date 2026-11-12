@@ -195,7 +195,6 @@ console.log('OK  综合评分 · 六项指标 + 活跃度都参与且方向正�
 
   console.log('OK  速度项 · 阈值 90s / 正常节奏不吃亏 / 超时归零');
 
-
   // 胜率列文案「50%(2/4)」：百分比 + 分子/分母，让人看清样本基础
   {
     const row = L.formatRow(L.entryOf('u1', '甲', '', L.fromRecords([
@@ -475,6 +474,53 @@ async function runCloud() {
 
 runCloud().then(function () {
   console.log('ALL PASS');
+
+/* ---------- 18. 昵称敏感字过滤 ---------- */
+{
+  const N = require(path.join(__dirname, '..', 'utils', 'nickname.js'));
+
+  // 基本替换：命中字符变 '*'，长度不变
+  eq(N.maskName('康爸'), '*爸', '单位置命中替换');
+  eq(N.maskName('康康'), '**', '多处命中全部替换');
+  eq(N.maskName('健康'), '健*', '非首字命中同样替换');
+  eq(N.maskName('康'), '*', '单字昵称');
+  eq(N.maskName('康康康'), '***', '连续命中');
+  // 长度必须不变：长度若变化，榜单单宽与头像首字会跟着跳
+  eq(N.maskName('康爸').length, '康爸'.length, '替换后长度不变');
+  eq(N.maskName('康康').length, 2, '两字昵称替换后仍是两字');
+
+  // 不该动的
+  eq(N.maskName('珠宝商'), '珠宝商', '无敏感字原样返回');
+  eq(N.maskName('Vincent'), 'Vincent', '英文昵称不受影响');
+  eq(N.maskName(''), '', '空值原样返回，不要变成 *');
+  eq(N.maskName(null), '', 'null 安全');
+
+  // 天梯榜：名字与头像首字都必须过滤
+  {
+    // 必须满 MIN_GAMES 局才会进正式榜并授冠，否则测的是「无冠军」的分支
+    const e = L.entryOf('u-k', '康爸', '', L.fromRecords([
+      { mode:'room', humanCount:2, win:true, score:15, cards:9, nobles:1, turns:30, turnAvgMs:13000 },
+      { mode:'room', humanCount:2, win:true, score:14, cards:8, nobles:0, turns:30, turnAvgMs:13000 },
+      { mode:'room', humanCount:2, win:false, score:12, cards:7, nobles:0, turns:30, turnAvgMs:13000 }
+    ]));
+    const row = L.formatRow(e, 1, 'x');
+    eq(row.name, '*爸', '榜单名字应过滤');
+    eq(row.initial, '*', '头像首字也要过滤 —— 只改 name 会让首字露出敏感字');
+
+    // 冠军名走的是同一份 vm，也要过滤
+    const vm = L.rowsVM([e], 'x', { source: 'cloud' });
+    eq(vm.championName, '*爸', '冠军名字应过滤');
+    assert(JSON.stringify(vm.rows).indexOf('康') < 0, '整个视图模型不得残留敏感字');
+
+    // 「康康」两个字都要替换，不能只换第一个
+    const e2 = L.entryOf('u-k2', '康康', '', L.fromRecords([
+      { mode:'room', humanCount:2, win:true, score:15, cards:9, nobles:1, turns:30, turnAvgMs:13000 }
+    ]));
+    eq(L.formatRow(e2, 1, 'x').name, '**', '两字均命中');
+  }
+
+  console.log('OK  昵称敏感字过滤 · 全量替换 / 长度不变 / 榜单与首字均生效');
+}
 }).catch(function (e) {
   console.error(e.message || e);
   process.exitCode = 1;

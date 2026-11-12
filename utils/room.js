@@ -31,6 +31,7 @@
  */
 
 const T = require('./theme.js');
+const Nick = require('./nickname.js');
 const ROOM_KEY = 'splendor.room.v1';
 const PROFILE_KEY = 'splendor.profile.v1';
 /* 断线重连会话：房间号 + 席位 + 所在界面。小程序被杀、切后台回来、
@@ -227,8 +228,10 @@ function makeSeats(playerCount, bots, profile) {
     seats.push({
       index: i,
       uid: i === 0 ? profile.uid : '',
-      name: i === 0 ? profile.nickname : (isAI ? '机器人 ' + i : '等待加入'),
-      nickname: i === 0 ? profile.nickname : '',
+      // 席位名要过滤敏感字：这里是房间与牌桌唯一的显示源，
+      // 机器人名（'机器人 N'）是程序生成的，不含用户输入，无需过滤。
+      name: i === 0 ? Nick.maskName(profile.nickname) : (isAI ? '机器人 ' + i : '等待加入'),
+      nickname: i === 0 ? Nick.maskName(profile.nickname) : '',
       avatar: i === 0 ? profile.avatar : (isAI ? PRESET_AVATARS[i % PRESET_AVATARS.length].key : ''),
       // 席位里不放头像图片：房间行每 1.2s 轮询一次，塞 data URI 会把同步流量放大十几倍。
       // 头像由 uid 单独查资料表补齐（见 utils/user.js 的 fetchProfiles）。
@@ -290,7 +293,7 @@ function joinRoom(code, profile) {
     const s = room.seats[i];
     if (!s.joined && !s.isAI) {
       room.seats[i] = Object.assign({}, s, {
-        uid: p.uid, name: p.nickname, nickname: p.nickname,
+        uid: p.uid, name: Nick.maskName(p.nickname), nickname: Nick.maskName(p.nickname),
         avatar: p.avatar, avatarUrl: '',
         type: 'remote', joined: true
       });
@@ -622,8 +625,8 @@ async function cloudJoinRoom(code, profile) {
       seats[slot] = Object.assign({}, seats[slot], {
         index: slot,
         uid: p.uid,
-        name: p.nickname,
-        nickname: p.nickname,
+        name: Nick.maskName(p.nickname),
+        nickname: Nick.maskName(p.nickname),
         avatar: p.avatar,
         avatarUrl: p.avatarUrl || '',
         type: 'remote',

@@ -8,6 +8,7 @@ const U = require('../../utils/user.js');
 const F = require('../../utils/friend.js');
 const C = require('../../utils/chat.js');
 const L = require('../../utils/leaderboard.js');
+const Nick = require('../../utils/nickname.js');
 const T = require('../../utils/theme.js');
 
 // 设计稿舞台尺寸（与参考截图比例一致），运行时等比缩放适配屏幕
@@ -543,6 +544,18 @@ function seatRowsVM(state, idx) {
  * 那是「某台设备本地文件」的路径，推到云端后别人的设备一定加载失败。
  * 这就是上一版「只能看到自己的头像」的根因。
  */
+/**
+ * 从玩家/席位对象取显示名，统一做敏感字过滤。
+ * ------------------------------------------------------------------
+ * 页面里有多处「p.nickname || p.name || 兜底」的重复取值（席位、日志、
+ * 结算排名、好友列表）。分散着改必然漏，集中到这里只剩一个出口。
+ * fallback 用参数传入而不是靠 || 拼在外面，避免嵌套在 String(...) 里时括号错位。
+ */
+function displayName(p, fallback) {
+  const src = (p && (p.nickname || p.name)) || fallback || '';
+  return Nick.maskName(src);
+}
+
 function seatVM(state, index, room, selfSeat, avatars) {
   const p = state.players[index];
   const s = (room && room.seats && room.seats[index]) || {};
@@ -551,7 +564,7 @@ function seatVM(state, index, room, selfSeat, avatars) {
   const isSelf = index === (selfSeat || 0);
   const type = p.type || (p.isAI ? 'bot' : 'human');
   const seatNo = index + 1;
-  const name = p.nickname || p.name || ('玩家 ' + seatNo);
+  const name = displayName(p, '玩家 ' + seatNo);
   const isCurrent = state.current === index && !state.gameOver;
   return {
     index: index,
@@ -777,7 +790,7 @@ function chatTargetsVM(state, mySeat, avatars) {
   const out = [];
   for (let i = 0; i < state.players.length; i++) {
     const p = state.players[i] || {};
-    const name = String(p.nickname || p.name || ('玩家 ' + (i + 1))).slice(0, 8);
+    const name = String(displayName(p, '玩家 ' + (i + 1))).slice(0, 8);
     out.push({
       seat: i,
       seatLabel: (i + 1) + ' 号位',
@@ -926,10 +939,10 @@ function roomScreenVM(ui, room, profile, mySeat, avatars) {
       label: isHost ? '房主' : (isBot ? '机器人' : '席位 ' + (i + 1) + (isSelf ? ' · 你' : '')),
       name: isSelf
         ? ((profile && profile.nickname) || '珠宝商')
-        : (s.nickname || s.name || (isBot ? '机器人 ' + (i + 1) : '等待好友')),
+        : displayName(s, isBot ? '机器人 ' + (i + 1) : '等待好友'),
       initial: String(isSelf
         ? ((profile && profile.nickname) || '珠宝商')
-        : (s.nickname || s.name || (isBot ? '机器人' : '+'))).slice(0, 1),
+        : displayName(s, isBot ? '机器人' : '+')).slice(0, 1),
       avatarHue: avatarHue(isSelf
         ? ((profile && profile.avatar) || 'a0')
         : (s.avatar || R.PRESET_AVATARS[i % R.PRESET_AVATARS.length].key)),
@@ -1009,6 +1022,9 @@ function profileVM(ui, profile) {
   const login = U.wechatLoginStatus();
   const stats = U.statsOf();
   return {
+    // 设置页显示原文，不做敏感字过滤：
+    // 用户在输入框里看到「*爸」会以为自己输错了，也没法正常编辑。
+    // 过滤只发生在公开展示处（榜单/席位/聊天/结算）。
     nickname: draft.nickname || '',
     avatarUrl: draft.avatarUrl || '',
     avatarName: draft.avatarUrl ? '微信头像' : R.avatarName(draft.avatar),
@@ -1126,7 +1142,7 @@ function buildActionShowcase(state, action, actorSeat, mySeat, seq, cardOverride
   if (!p) return null;
   const self = mySeat || 0;
   const isSelf = actorSeat === self;
-  const actorName = p.nickname || p.name || ('玩家 ' + (actorSeat + 1));
+  const actorName = displayName(p, '玩家 ' + (actorSeat + 1));
 
   let rivalIdx = 0;
   for (let si = 0; si < state.players.length; si++) {
@@ -1650,8 +1666,8 @@ function buildViewModel(state, ui, layout, ctx) {
       for (let k = 0; k < p.nobles.length; k++) noblePts += p.nobles[k].points;
       return {
         seat: i,
-        name: p.nickname || p.name || ('玩家 ' + (i + 1)),
-        initial: String(p.nickname || p.name || '玩').slice(0, 1),
+        name: displayName(p, '玩家 ' + (i + 1)),
+        initial: String(displayName(p, '玩')).slice(0, 1),
         avatarHue: avatarHue(p.avatar || 'a0'),
         avatarUrl: (p.uid && avatars && avatars[p.uid]) || '',
         points: p.points,
@@ -1775,8 +1791,8 @@ function buildViewModel(state, ui, layout, ctx) {
       tokens: tokensVM(rival, GEMS)
     },
     me: {
-      name: me.name,
-      nameText: me.nickname || me.name,
+      name: displayName(me),
+      nameText: displayName(me, me.name),
       points: me.points,
       pointsText: String(me.points),
       // 声望达到终局线后不截断：显示真实值，只换成金色高亮
@@ -2240,7 +2256,7 @@ Page({
     const opponents = [];
     for (let i = 0; i < order.length; i++) {
       if (order[i].i === seat) continue;
-      opponents.push((order[i].p.nickname || order[i].p.name) + ' ' + order[i].p.points);
+      opponents.push(displayName(order[i].p, '玩家 ' + (order[i].i + 1)) + ' ' + order[i].p.points);
     }
     this._resultRecorded = true;
     // 回合平均耗时：以「本局开始 → 结算」的总耗时 / 回合数。
@@ -2530,7 +2546,7 @@ Page({
     const aim = C.aimFor(msg.tone || '');
     const nameOf = function (s) {
       const p = players[s] || {};
-      return String(p.nickname || p.name || ((s + 1) + ' 号位')).slice(0, 8);
+      return String(displayName(p, (s + 1) + ' 号位')).slice(0, 8);
     };
     const item = {
       id: C.makeId(),
@@ -2622,7 +2638,7 @@ Page({
       if (!that.ui || that.ui.screen !== 'game' || !that.state) return;
       const p = that.state.players[seat] || {};
       const msg = C.makeMessage(that.chatRoomCode(), seat, '',
-        p.nickname || p.name || ((seat + 1) + ' 号位'), 'emoji', preset,
+        displayName(p, (seat + 1) + ' 号位'), 'emoji', preset,
         Date.now(), that.mySeat || 0);
       that.pushChatMessage(msg, false);       // 本地即可，别再触发机器人自回复
       // 只回气泡，不调 showChatFly：大表情是玩家主动打出的全屏效果，动画 1600ms，
@@ -2762,7 +2778,7 @@ Page({
     if (!mine && !isRoom) { this.ui.turnFlash = null; return; }
     const p = state.players[state.current] || {};
     const seatNo = state.current + 1;
-    const name = p.nickname || p.name || ('玩家 ' + seatNo);
+    const name = displayName(p, '玩家 ' + seatNo);
     const limitText = limit > 0 ? '限时 ' + limit + ' 秒' : '不限时';
     this.ui.turnFlash = {
       id: this._turnKey + '-' + (mine ? 'me' : 'other'),

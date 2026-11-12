@@ -21,6 +21,7 @@
  */
 
 const R = require('./room.js');
+const Nick = require('./nickname.js');
 
 const FRIEND_TABLE = 'splendor_friends';
 const INVITE_TABLE = 'splendor_invites';
@@ -117,7 +118,7 @@ async function listFriends(myUid) {
     const list = rows.map(function (r) {
       return {
         uid: r.friend_uid,
-        nickname: r.friend_name || '',
+        nickname: Nick.maskName(r.friend_name || ''),
         since: r.created_at || ''
       };
     }).filter(function (f) { return !!f.uid; });
@@ -253,7 +254,7 @@ async function findPlayer(uid) {
       ok: true,
       player: {
         uid: row.uid,
-        nickname: row.nickname || '珠宝商',
+        nickname: Nick.maskName(row.nickname) || '珠宝商',
         avatar: row.avatar || 'a0',
         avatarUrl: row.avatar_url || ''
       }

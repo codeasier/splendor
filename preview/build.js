@@ -255,7 +255,10 @@ function compileWxml(wxml) {
 const wxml = read('pages/index/index.wxml');
 const compiled = compileWxml(wxml);
 
+// nickname 必须排在最前：__def 是立即执行（不是惰性注册），
+// 其余模块在函数体顶部就 require 它，排在后面会 module not found。
 const moduleFiles = [
+  ['nickname', 'utils/nickname.js'],
   ['game-data', 'utils/game-data.js'],
   ['game-engine', 'utils/game-engine.js'],
   ['ai', 'utils/ai.js'],

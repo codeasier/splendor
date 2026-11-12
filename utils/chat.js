@@ -91,7 +91,8 @@ function makeMessage(roomCode, seat, uid, name, kind, preset, at, targetSeat) {
     roomCode: roomCode || '',
     seat: Number(seat) || 0,
     uid: uid || '',
-    name: String(name || '').slice(0, 12),
+    // 聊天昵称与局内快捷聊天共用一个显示名，统一在这里过滤
+    name: Nick.maskName(String(name || '').slice(0, 12)),
     kind: kind,
     text: kind === 'text' ? preset.text : '',
     icon: kind === 'emoji' ? preset.icon : '',
@@ -159,7 +160,7 @@ async function list(cloud, roomCode, now) {
     return res.data.map(function (row) {
       return {
         id: row.id, roomCode: row.room_code, seat: Number(row.seat) || 0,
-        uid: row.from_uid || '', name: row.from_name || '', kind: row.kind,
+        uid: row.from_uid || '', name: Nick.maskName(row.from_name || ''), kind: row.kind,
         text: row.text || '', icon: row.icon || '', label: row.label || '',
         tone: row.tone || '',
         aim: row.kind === 'emoji' ? aimFor(row.tone || '') : '',
@@ -192,7 +193,7 @@ function chatVM(messages, mySeat, now, panelOpen, tab, opts) {
       id: m.id,
       seat: m.seat,
       seatLabel: (m.seat + 1) + ' 号位',
-      name: m.name || ((m.seat + 1) + ' 号位'),
+      name: Nick.maskName(m.name) || ((m.seat + 1) + ' 号位'),
       mine: m.seat === mySeat,
       text: m.kind === 'emoji' ? (m.label || '') : m.text,
       icon: m.kind === 'emoji' ? m.icon : '',
@@ -245,3 +246,4 @@ module.exports = {
   list: list,
   chatVM: chatVM
 };
+const Nick = require('./nickname.js');
