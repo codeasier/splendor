@@ -53,6 +53,14 @@
       {
         "type": "file",
         "value": "package-lock.json"
+      },
+      {
+        "type": "file",
+        "value": ".gitignore"
+      },
+      {
+        "type": "regexp",
+        "value": "(^|/)\\.DS_Store$"
       }
     ],
     "include": []
