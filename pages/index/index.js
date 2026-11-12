@@ -110,8 +110,7 @@ function cardVM(state, card, seat, r, c) {
   return {
     id: card.id,
     empty: false,
-    name: card.name,
-    themeCaption: T.caption(state && state.themeId, GEMS.indexOf(card.gem) * 3 + card.art % 3),
+    name: T.cardName(state && state.themeId, card),
     level: card.level,
     pointsText: card.points > 0 ? String(card.points) : '',
     pointsLabel: card.points + ' 声望',
@@ -426,7 +425,7 @@ function pickVM(state, ui, seat, takeError, needDiscard) {
       }
       out.mode = 'buy';
       out.kind = '购买发展卡';
-      out.title = card.name + ' · 实付 ' + paid + ' 枚' + (pay.gold ? '（含黄金 ' + pay.gold + ' 枚）' : '');
+      out.title = T.cardName(state.themeId, card) + ' · 实付 ' + paid + ' 枚' + (pay.gold ? '（含黄金 ' + pay.gold + ' 枚）' : '');
       out.lines = paidLines.map(function (l) {
         l.sign = '−' + l.count;
         l.negative = true;
@@ -447,7 +446,7 @@ function pickVM(state, ui, seat, takeError, needDiscard) {
       const getGold = state.bank.gold > 0 ? 1 : 0;
       out.mode = 'reserve';
       out.kind = '预留卡牌';
-      out.title = card.name + ' · 预留后名额 ' + (p.reserved.length + 1) + '/3';
+      out.title = T.cardName(state.themeId, card) + ' · 预留后名额 ' + (p.reserved.length + 1) + '/3';
       out.lines = [{ key: 'gold', label: '黄金', count: getGold, gemClass: 'gem-gold', isGold: true, sign: '+' + getGold, positive: true }];
       out.items = getGold ? out.lines : [];
       out.goldLine = getGold ? '预留附赠 1 枚黄金万能筹码' : '银行黄金已发完，本次预留不再附赠黄金';
@@ -472,7 +471,7 @@ function pickVM(state, ui, seat, takeError, needDiscard) {
     shortfall = Math.max(0, shortfall - (p.tokens.gold || 0));
     out.mode = 'buy';
     out.kind = '购买发展卡';
-    out.title = card.name + ' · 暂不可购买';
+    out.title = T.cardName(state.themeId, card) + ' · 暂不可购买';
     out.lines = [];
     out.items = [];
     out.goldLine = '';
@@ -635,13 +634,13 @@ function playerDetailVM(state, index, room, selfSeat, avatars) {
   let noblePoints = 0;
   const nobles = p.nobles.map(function (n) {
     noblePoints += n.points;
-    return { id: n.id, title: n.title, points: n.points, reqs: nobleReqs(n) };
+    return { id: n.id, title: T.nobleTitle(state.themeId, n), points: n.points, reqs: nobleReqs(n) };
   });
   // 预留卡按「卡面」呈现：插画 / 购买所需筹码 / 声望，与桌面上的牌完全一致
   const reserved = p.reserved.map(function (c) {
     return {
       id: c.id,
-      name: c.name,
+      name: T.cardName(state.themeId, c),
       level: c.level,
       pointsText: c.points > 0 ? String(c.points) : '',
       pointsLabel: c.points > 0 ? c.points + ' 声望' : '无声望',
@@ -1158,7 +1157,7 @@ function buildActionShowcase(state, action, actorSeat, mySeat, seq, cardOverride
       isSelf: isSelf,
       actorName: actorName,
       badgeText: isBoard ? '✦ 购买发展卡 · 展示入库 ✦' : '✦ 购入预留卡 · 展示入库 ✦',
-      title: actorName + ' 购入了「' + card.name + '」',
+      title: actorName + ' 购入了「' + T.cardName(state.themeId, card) + '」',
       subtitle: '永久红利 +' + META[card.gem].label + (card.points > 0 ? ' · 声望 +' + card.points : '') + ' · 展示后收入工作台',
       card: cardVM(state, card, actorSeat),
       gotGold: false,
@@ -1194,7 +1193,7 @@ function buildActionShowcase(state, action, actorSeat, mySeat, seq, cardOverride
       badgeText: fromDeck ? '✦ 盲抽预留牌库顶 ✦' : '✦ 预留桌面发展卡 ✦',
       title: blindBack
         ? (actorName + ' 盲抽预留了第 ' + ['I', 'II', 'III'][lv] + ' 级发展卡')
-        : (actorName + ' 预留了「' + card.name + '」'),
+        : (actorName + ' 预留了「' + T.cardName(state.themeId, card) + '」'),
       subtitle: (gotGold ? '获得 1 枚黄金万能筹码 · ' : '') + '展示后收入预留卡位',
       card: cardVM(state, card, actorSeat),
       gotGold: gotGold,
@@ -1221,11 +1220,11 @@ function buildActionShowcase(state, action, actorSeat, mySeat, seq, cardOverride
       isSelf: isSelf,
       actorName: actorName,
       badgeText: '✦ 贵族到访 ✦',
-      title: actorName + ' 迎来贵族「' + noble.title + '」',
+      title: actorName + ' 迎来贵族「' + T.nobleTitle(state.themeId, noble) + '」',
       subtitle: '声望 +3 · 贵族牌离开桌面',
       card: null,
       nobleVM: {
-        title: noble.title,
+        title: T.nobleTitle(state.themeId, noble),
         points: noble.points,
         photoClass: slot.photoClass,
         artClass: slot.artClass,
@@ -1499,6 +1498,7 @@ function buildViewModel(state, ui, layout, ctx) {
 
   const isCompactNobles = state.nobles.length > 3;
   const nobles = state.nobles.map(function (n, i) {
+    const slot = nobleSlot(n);
     const reqs = [];
     for (let k = 0; k < GEMS.length; k++) {
       const g = GEMS[k];
@@ -1511,10 +1511,10 @@ function buildViewModel(state, ui, layout, ctx) {
     const nStyle = 'transform:translateX(' + nx + 'px) perspective(380px) rotateX(20deg) skewX(8.5deg) rotateZ(-1.5deg) scale(' + ns.toFixed(2) + ',0.84);';
     return {
       id: n.id,
-      title: n.title,
+      title: T.nobleTitle(state.themeId, n),
       points: n.points,
-      artClass: 'noble-art-' + (i % 3),
-      photoClass: 'noble-photo-' + (i % 10),
+      artClass: slot.artClass,
+      photoClass: slot.photoClass,
       style: nStyle,
       reqs: reqs
     };
@@ -1550,7 +1550,7 @@ function buildViewModel(state, ui, layout, ctx) {
         const slot = nobleSlot(n);
         options.push({
           id: n.id,
-          title: n.title,
+          title: T.nobleTitle(state.themeId, n),
           points: n.points,
           reqs: nobleReqs(n),
           photoClass: slot.photoClass,
@@ -1614,7 +1614,7 @@ function buildViewModel(state, ui, layout, ctx) {
   if (state.log && state.log.length) {
     const last = state.log[state.log.length - 1];
     lastMove = {
-      text: last,
+      text: T.text(state.themeId, last),
       // 系统消息（开局 / 结算 / 退还提示）与「上一手」用不同权重，避免混为一谈
       sys: /对局开始|对局结束|请退还|提前结算/.test(last)
     };
@@ -1806,12 +1806,12 @@ function buildViewModel(state, ui, layout, ctx) {
     // 铭牌宽度固定且右侧让位给计时块，长状态行（别人的昵称）降一档字号
     statusLong: statusText.length > 12,
     turnText: '第 ' + (Math.floor(state.turnCount / state.players.length) + 1) + ' 轮',
-    logText: state.log.length ? state.log[state.log.length - 1] : '',
+    logText: state.log.length ? T.text(state.themeId, state.log[state.log.length - 1]) : '',
     // 上一手记录：单独一条，权重低于当前选择，不与确认区混排
     lastMove: lastMove,
     // 断线时用状态行提示重连进度，不额外占版面
     netNotice: ui.netNotice || '',
-    hintText: hint,
+    hintText: T.text(state.themeId, hint),
     isMyTurn: isMyTurn,
     needDiscard: needDiscard,
     discardCount: state.pendingDiscard,

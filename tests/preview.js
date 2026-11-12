@@ -769,7 +769,22 @@ const tp = themesPreview.page;
   tp.onRoomToggleBot({ currentTarget: { dataset: { index: 1 } } });
   tp.onRoomStart();
   assert.equal(tp.state.themeId, id);
-  assert(themesPreview.host.innerHTML.indexOf('theme-card-caption') > 0, '新主题应渲染角色或场景说明');
+  // 开局先手已改为随机，房主不一定先动；而 onTapCard 要求轮到自己才开详情。
+  // 本用例验的是「主题化卡名渲染」，与先后手无关，所以把回合钉到房主再点卡。
+  tp.state.current = tp.mySeat;
+  tp.refresh('');
+  const theme = require(path.join(ROOT, 'utils/theme.js'));
+  tp.state.board.forEach(function (row) {
+    row.forEach(function (card) {
+      assert(themesPreview.host.innerHTML.indexOf(theme.cardName(id, card)) > 0, '卡面主标题应使用主题名称');
+      assert(themesPreview.host.innerHTML.indexOf(card.name) < 0, '新主题不应残留皇家商会卡名');
+    });
+  });
+  tp.onTapCard({ currentTarget: { dataset: { lv: 0, index: 0 } } });
+  const name = theme.cardName(id, tp.state.board[0][0]);
+  assert.equal(tp.data.detail.card.name, name);
+  assert(themesPreview.host.innerHTML.indexOf(name) > 0, '详情标题也应使用主题名称');
+  assert(themesPreview.host.innerHTML.indexOf('theme-card-caption') < 0, '主标题改名后不再叠加重复角色标签');
   assert(themesPreview.host.innerHTML.indexOf('undefined') < 0, '主题渲染不得包含 undefined');
   tp.onLeaveRoom();
   assert(themesPreview.host.innerHTML.indexOf('viewport theme-royal') > 0, '退房恢复大厅默认主题');
