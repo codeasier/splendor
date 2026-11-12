@@ -157,6 +157,44 @@ console.log('OK  综合评分 · 六项指标 + 活跃度都参与且方向正�
   assert(L.rating(many) > L.rating(few), '全胜时局数多的人分更高');
 
   console.log('OK  胜率可信度 · 样本少向下收缩 / 输家不抬分 / 稳定玩家优先');
+}
+
+/* ---------- 3.2 速度项：阈值 90s，不为难正常思考 ---------- */
+{
+  // 构造若干「只差速度」的玩家：其他指标完全一致，只改每次行动耗时
+  function withSpeed(secPerTurn, turns) {
+    const t = turns || 30;
+    return L.summarize({
+      games: 1, wins: 1, bestWinScore: 15, totalScore: 15,
+      totalCards: 9, totalNobles: 1,
+      totalTurns: t, totalTurnMs: Math.round(secPerTurn * 1000 * t)
+    });
+  }
+
+  // 13 秒/行动是实测的正常节奏，不应被判成「慢」
+  const normal = withSpeed(13);
+  near(normal.avgTurnSec, 13, '13s/行动应被正确还原');
+  const normalScore = L.rating(normal);
+  const fast = L.rating(withSpeed(5));
+  const slow = L.rating(withSpeed(85));
+  const stall = L.rating(withSpeed(120));
+
+  assert(fast > normalScore, '更快应更高分（保持方向不变）');
+  assert(normalScore > slow, '正常快于接近阈值的人');
+  assert(slow > stall, '90s 以内仍有分，超过则归零');
+
+  // 关键：13s 不该被判成接近 0 分。旧阈值 45s 下速度项仅 36/50，
+  // 新阈值应为 43/50 —— 用「与 5s 的分差」间接锁定，避免复算实现细节。
+  const gap = fast - normalScore;
+  assert(gap <= 8, '5s 与 13s 的速度分差不应过大（实际 ' + gap + '），否则正常思考被过度惩罚');
+
+  // 超过 90s 必须归零，不能给挂机者递分
+  const over = withSpeed(88);
+  const wayOver = withSpeed(95);
+  assert(L.rating(over) > L.rating(wayOver), '88s 应得分高于 95s（后者归零）');
+
+  console.log('OK  速度项 · 阈值 90s / 正常节奏不吃亏 / 超时归零');
+
 
   // 胜率列文案「50%(2/4)」：百分比 + 分子/分母，让人看清样本基础
   {

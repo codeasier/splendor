@@ -78,9 +78,20 @@ const WEIGHTS = {
   avgScore: 120,  // 场均声望：稳定输出
   avgCards: 60,   // 场均发展卡：引擎建设
   avgNobles: 60,  // 场均贵族：路线完成度
-  speed: 50,      // 回合平均耗时：越快越高（封顶 45s/回合记 0）
+  speed: 50,      // 回合平均耗时：越快越高（见 SPEED_ZERO_SEC）
   volume: 80      // 活跃度：防一局刷榜
 };
+
+/**
+ * 速度项归零阈值（秒/行动）。
+ * ------------------------------------------------------------------
+ * 原值 45s 过于苛刻：实测正常对局约 13s/行动，取 45 会让「认真思考」
+ * 直接损失可观的分数，等于鼓励草率决策。放宽到 90s 后，
+ * 13s 得分约 86%（原先 71%），而真正挂机拖到 90s 以上仍然得 0。
+ *
+ * 阈值只影响「多慢算慢」，不改变「越快越高」的方向。
+ */
+const SPEED_ZERO_SEC = 90;
 
 function num(v) {
   const n = Number(v);
@@ -202,7 +213,7 @@ function summarize(totals) {
 function rating(summary) {
   const s = summary || summarize(blank());
   if (!s.games) return 0;
-  const speed = clamp01(1 - s.avgTurnSec / 45);
+  const speed = clamp01(1 - s.avgTurnSec / SPEED_ZERO_SEC);
   const volume = clamp01(s.games / 30) * 0.6 +
     clamp01(Math.log2(1 + s.wins) / 5) * 0.4;
   const winRate = s.adjWinRate === undefined ? clamp01(s.winRate) : clamp01(s.adjWinRate);
@@ -479,7 +490,7 @@ function rowsVM(entries, myUid, opts) {
     loading: !!o.loading,
     // 口径要写全：胜率项用了「样本量修正」的胜率（不是表里显示的原始胜率），
     // 不说明的话，玩家会问「我胜率 100% 为什么不如胜率 70% 的人」。
-    formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（各项归一化后加权）。胜率一项按局数折算可信度：局数少时向 50% 收敛，避免「打一局全胜」直接拿满；表中胜率仍显示真实值。',
+    formulaText: '综合分 = 胜率 220 + 最高胜场声望 90 + 场均声望 120 + 场均发展卡 60 + 场均贵族 60 + 回合速度 50 + 活跃度 80（各项归一化后加权）。胜率一项按局数折算可信度：局数少时向 50% 收敛，避免「打一局全胜」直接拿满；表中胜率仍显示真实值。回合速度按每次行动耗时计，90 秒以上记 0 分。',
     updatedText: o.updatedAt ? ('更新于 ' + o.updatedAt) : ''
   };
 }
