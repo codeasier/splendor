@@ -100,8 +100,9 @@ async function main() {
   const first = T.list('pixel');
   first[0].name = 'changed';
   assert.equal(T.list()[0].name, '原神');
-  assert.equal(T.caption('genshin', 6), '旅行者·空');
-  assert.equal(T.caption('genshin', 7), '旅行者·荧');
+  assert.equal(T.caption('genshin', 2), '雷电影');
+  assert.equal(T.caption('genshin', 6), '空');
+  assert.equal(T.caption('genshin', 7), '荧');
   const genshinCss = fs.readFileSync(path.join(ROOT, 'pages/index/theme-genshin.wxss'), 'utf8');
   // WXSS does not support attribute selectors, even though H5 browsers do.
   fs.readdirSync(path.join(ROOT, 'pages/index')).filter(function (name) { return /^theme-.*\.wxss$/.test(name); }).forEach(function (name) {
