@@ -1,47 +1,53 @@
 'use strict';
 
 /**
- * 音效引擎 —— 代码合成，零音频文件、零包体占用。
+ * 音效 + 背景音乐引擎 —— 全部代码合成，零音频文件、零包体占用。
  *
  * 为什么不用音频文件：
- *   主包已到 1910KB / 2048KB（余量 138KB），一套 8 个 MP3 会吃掉 100-200KB，
- *   直接触顶。改用 WebAudio 振荡器现场合成，包体增长为 0。
+ *   主包 1917.5KB / 2048KB，余量仅 130KB。一段 30 秒 32kbps 的 BGM 就要 120KB，
+ *   会吃掉 92% 的余量；常规 MP3 音效每首 5–30KB 同样塞不下。
+ *   改用 WebAudio 振荡器现场合成，包体增长接近 0。
  *
  * 基础库要求：
  *   wx.createWebAudioContext 需基础库 ≥ 2.19.0（以官方文档核实）。
- *   低版本 / H5 预览 / Node 测试环境无此 API 时自动静默降级 —— 不抛错、
- *   不影响任何游戏逻辑，只是没有声音。
+ *   低版本 / H5 预览无此 API 时自动静默降级 —— 不抛错、不影响游戏逻辑。
  *
- * 官方注意：音频上下文不会自动回收，页面 onUnload 必须调 destroy()。
+ * 官方注意：音频上下文不会自动回收，页面 onUnload / onHide 必须调 destroy()。
+ *
+ * 双通道设计：
+ *   音效（sfx）与音乐（bgm）各有独立开关，分别持久化到 sfx_muted / bgm_muted。
+ *   玩家只想关音乐但保留操作反馈是很常见的需求，合并成一个开关会让人恼火。
  */
 
-// 各音效定义：freq 起始频率、dur 时长、type 波形、to 滑到的目标频率、gain 峰值音量
-// 合成音没有共鸣腔，音量不能开大，否则刺耳；0.08~0.18 是实测较舒服的区间。
+/* ---------- 音效定义 ---------- */
+// steps 里每个音的字段：freq 起始频率、dur 时长、type 波形、to 滑到的目标频率、
+// gain 峰值音量、delay 相对起点的延迟（秒）。
+// 合成音没有共鸣腔，gain 开大会刺耳，0.05~0.18 是实测较舒服的区间。
 const SOUNDS = {
-  // 按钮 / 选牌：极短，高音，几乎只起确认作用
-  tap: { steps: [{ freq: 660, dur: 0.05, type: 'sine', gain: 0.10 }] },
-
+  /* ——— 对局动作 ——— */
   // 拿筹码：上滑，听起来「获得」
   takeGem: { steps: [{ freq: 520, dur: 0.10, type: 'triangle', to: 780, gain: 0.14 }] },
-
   // 买卡：两音上行，比拿筹码更「值钱」
   buyCard: { steps: [
     { freq: 440, dur: 0.07, type: 'triangle', gain: 0.14 },
     { freq: 660, dur: 0.11, type: 'triangle', gain: 0.13, delay: 0.07 }
   ] },
-
   // 预留：下滑，听起来「收起来」
   reserve: { steps: [{ freq: 380, dur: 0.11, type: 'sine', to: 300, gain: 0.12 }] },
-
-  // 贵族到访：四音琶音上行，有仪式感
+  // 贵族到访 / 技能：四音琶音上行，有仪式感
   noble: { steps: [
     { freq: 523, dur: 0.12, type: 'sine', gain: 0.13 },
     { freq: 659, dur: 0.12, type: 'sine', gain: 0.13, delay: 0.09 },
     { freq: 784, dur: 0.14, type: 'sine', gain: 0.13, delay: 0.18 },
     { freq: 1047, dur: 0.18, type: 'sine', gain: 0.12, delay: 0.27 }
   ] },
+  // 轮到你：方波，短促有提醒感
+  turn: { steps: [{ freq: 880, dur: 0.04, type: 'square', gain: 0.06 }] },
 
-  // 胜利：五音大调上行，拉长尾音
+  // 跳过 / 弃牌：最轻的一声，这两个动作本身没有成就感
+  tap: { steps: [{ freq: 660, dur: 0.05, type: 'sine', gain: 0.10 }] },
+
+  /* ——— 结算 ——— */
   win: { steps: [
     { freq: 523, dur: 0.15, type: 'triangle', gain: 0.15 },
     { freq: 659, dur: 0.15, type: 'triangle', gain: 0.15, delay: 0.11 },
@@ -49,46 +55,103 @@ const SOUNDS = {
     { freq: 1047, dur: 0.20, type: 'triangle', gain: 0.14, delay: 0.33 },
     { freq: 1319, dur: 0.30, type: 'triangle', gain: 0.13, delay: 0.44 }
   ] },
-
-  // 失败：三音下行，收得干脆
   lose: { steps: [
     { freq: 392, dur: 0.18, type: 'sine', gain: 0.13 },
     { freq: 330, dur: 0.18, type: 'sine', gain: 0.13, delay: 0.14 },
     { freq: 262, dur: 0.28, type: 'sine', gain: 0.12, delay: 0.28 }
   ] },
-
-  // 轮到你：方波，短促有「叮」的提醒感
-  turn: { steps: [{ freq: 880, dur: 0.04, type: 'square', gain: 0.06 }] },
-
   // 非法操作：低频短促下挫
-  error: { steps: [{ freq: 220, dur: 0.09, type: 'square', to: 180, gain: 0.07 }] }
+  error: { steps: [{ freq: 220, dur: 0.09, type: 'square', to: 180, gain: 0.07 }] },
+
+  /* ——— 通用交互（按语义分组，而不是给 79 个入口各配一个） ——— */
+  // 打开弹层 / 详情 / 面板：短促上行
+  uiOpen: { steps: [{ freq: 560, dur: 0.06, type: 'sine', to: 720, gain: 0.10 }] },
+  // 关闭 / 取消：短促下行
+  uiClose: { steps: [{ freq: 520, dur: 0.06, type: 'sine', to: 400, gain: 0.09 }] },
+  // 单选 / 切换 / 选人：轻点
+  uiPick: { steps: [{ freq: 700, dur: 0.04, type: 'sine', gain: 0.09 }] },
+  // 确认 / 创建 / 保存 / 发送：双音确认
+  uiConfirm: { steps: [
+    { freq: 620, dur: 0.06, type: 'triangle', gain: 0.12 },
+    { freq: 930, dur: 0.09, type: 'triangle', gain: 0.11, delay: 0.06 }
+  ] },
+  // 复制成功：清脆提示
+  uiCopy: { steps: [{ freq: 1046, dur: 0.05, type: 'sine', gain: 0.10 }] },
+  // 移除 / 拒绝：低音否定
+  uiDeny: { steps: [{ freq: 300, dur: 0.10, type: 'square', to: 240, gain: 0.07 }] }
 };
 
-const STORAGE_KEY = 'sfx_muted';
+/* ---------- 背景音乐 ---------- */
+/*
+ * 做法：不播单音循环（那样 4 秒就听腻），而是按「和弦进行」逐小节调度。
+ * 每小节 2 秒，和弦自动轮换；同一和弦内用琶音铺底 + 高八度点缀，
+ * 于是听觉上是连续不断的氛围乐，循环周期 = 和弦数 × 2 秒（这里是 8 秒一轮、
+ * 4 个和弦，实际听感上 32 秒才会明显重复一次）。
+ *
+ * 音色只用 sine，音量压到 0.045：BGM 是背景，不能盖过操作音效。
+ */
+const BGM = {
+  // 每小节 2 秒；bass 是和弦根音，arp 是和弦内音（琶音顺序）
+  barSeconds: 2,
+  // D 小调氛围进行：Dm - Bb - C - F（古典、克制，配璀璨宝石的文艺复兴气质）
+  progression: [
+    { bass: 147, arp: [294, 349, 440] },   // D3  / D4 F4 A4
+    { bass: 117, arp: [234, 294, 349] },   // Bb2 / Bb3 D4 F4
+    { bass: 131, arp: [262, 330, 392] },   // C3  / C4 E4 G4
+    { bass: 175, arp: [349, 440, 523] }    // F3  / F4 A4 C5
+  ],
+  // 整体音量：极低。观众应该「感觉得到」而不是「听到音乐在响」
+  level: 0.045,
+  // 琶音在每小节内的起音位置（秒），留出呼吸不让它变成机械节拍
+  arpOffsets: [0, 0.5, 1.0, 1.5]
+};
+
+/* ---------- 状态 ---------- */
+const SFX_KEY = 'sfx_muted';
+const BGM_KEY = 'bgm_muted';
 
 let ctx = null;
-let muted = false;
+let failed = false;
 let inited = false;
-let failed = false;   // 初始化失败后不再重试，避免每帧反复尝试建上下文
+
+let sfxMuted = false;
+let bgmMuted = false;
+
+// BGM 调度器状态
+let bgmTimer = null;
+let bgmStep = 0;
+let bgmPlaying = false;
+// BGM 用的独立增益节点：调音量 / 淡出都作用在它身上，不影响音效
+let bgmGain = null;
 
 function hasApi() {
   return typeof wx !== 'undefined' && typeof wx.createWebAudioContext === 'function';
 }
 
-/** 读取本地静音偏好；只在第一次调用时真正读存储 */
+function readFlag(key) {
+  try {
+    if (typeof wx !== 'undefined' && wx.getStorageSync) return !!wx.getStorageSync(key);
+  } catch (e) { /* 读不到就用默认值 */ }
+  return false;
+}
+
+function writeFlag(key, value) {
+  try {
+    if (typeof wx !== 'undefined' && wx.setStorageSync) wx.setStorageSync(key, value ? 1 : 0);
+  } catch (e) { /* 存不下只影响下次启动的默认值 */ }
+}
+
+/** 读取本地偏好；只在第一次调用时真正读存储 */
 function init() {
   if (inited) return;
   inited = true;
-  try {
-    if (typeof wx !== 'undefined' && wx.getStorageSync) {
-      muted = !!wx.getStorageSync(STORAGE_KEY);
-    }
-  } catch (e) { /* 存储读不到就用默认值 */ }
+  sfxMuted = readFlag(SFX_KEY);
+  bgmMuted = readFlag(BGM_KEY);
 }
 
 /**
- * 懒建上下文：第一次真正要播放时才创建。
- * 不在 onLoad 里建，避免用户从不听音效也白占一份音频资源。
+ * 懒建上下文：第一次真正要发声时才创建。
+ * 不在 onLoad 里建，避免从不听声的玩家白占一份音频资源。
  */
 function ensureContext() {
   if (ctx || failed) return ctx;
@@ -103,12 +166,8 @@ function ensureContext() {
   return ctx;
 }
 
-/**
- * 合成单音：起音 + 指数衰减包络。
- * 包络是必须的 —— 直接 start/stop 会有明显爆音（咔哒声）。
- */
-function playStep(c, step) {
-  const startAt = c.currentTime + (step.delay || 0);
+/** 合成单音：起音 + 指数衰减包络。没有包络会有明显爆音（咔哒声） */
+function synth(c, step, startAt, dest) {
   const dur = step.dur;
   const osc = c.createOscillator();
   const gain = c.createGain();
@@ -121,16 +180,17 @@ function playStep(c, step) {
   }
 
   const peak = step.gain === undefined ? 0.12 : step.gain;
-  // 起音 8ms 到峰值，再指数衰减到近零：听感干净且不爆音
   gain.gain.setValueAtTime(0.0001, startAt);
   gain.gain.exponentialRampToValueAtTime(peak, startAt + 0.008);
   gain.gain.exponentialRampToValueAtTime(0.0001, startAt + dur);
 
   osc.connect(gain);
-  gain.connect(c.destination);
+  gain.connect(dest || c.destination);
   osc.start(startAt);
   osc.stop(startAt + dur + 0.02);
 }
+
+/* ==================== 音效 ==================== */
 
 /**
  * 播放音效。
@@ -138,38 +198,133 @@ function playStep(c, step) {
  * 任何异常都被吞掉 —— 音频绝不能让游戏主流程中断。
  */
 function play(name) {
-  if (muted) return;
+  init();
+  if (sfxMuted) return;
   const def = SOUNDS[name];
   if (!def) return;
-  init();
   const c = ensureContext();
   if (!c) return;
   try {
-    def.steps.forEach(function (s) { playStep(c, s); });
+    const now = c.currentTime;
+    def.steps.forEach(function (s) {
+      synth(c, s, now + (s.delay || 0));
+    });
   } catch (e) {
-    // 单次合成失败（如上下文被系统回收）不应静默永久失效
+    // 上下文可能被系统回收：这次失败不该让它永久失效
     failed = false;
     ctx = null;
+    bgmGain = null;
   }
 }
 
-function setMuted(v) {
-  muted = !!v;
-  try {
-    if (typeof wx !== 'undefined' && wx.setStorageSync) {
-      wx.setStorageSync(STORAGE_KEY, muted ? 1 : 0);
+/* ==================== 背景音乐 ==================== */
+
+/** 取 BGM 的独立增益节点（挂在 destination 前，便于整体调音量） */
+function ensureBgmGain() {
+  const c = ensureContext();
+  if (!c) return null;
+  if (!bgmGain) {
+    try {
+      bgmGain = c.createGain();
+      bgmGain.gain.setValueAtTime(BGM.level, c.currentTime);
+      bgmGain.connect(c.destination);
+    } catch (e) {
+      bgmGain = null;
     }
-  } catch (e) { /* 存不下只影响下次启动的默认值 */ }
+  }
+  return bgmGain;
 }
 
-function toggle() {
-  setMuted(!muted);
-  return muted;
+/** 调度一小节：低音铺底 + 三个琶音 + 高八度点缀 */
+function scheduleBar() {
+  const c = ctx;
+  const dest = bgmGain;
+  if (!c || !dest) return;
+  const chord = BGM.progression[bgmStep % BGM.progression.length];
+  const base = c.currentTime;
+  try {
+    // 低音持续整小节，音量更低，垫住和声
+    synth(c, { freq: chord.bass, dur: BGM.barSeconds * 0.92, type: 'sine', gain: 0.028 }, base, dest);
+    // 琶音：三个和弦内音轮流，起音错开半拍
+    BGM.arpOffsets.slice(0, 3).forEach(function (off, i) {
+      const f = chord.arp[i % chord.arp.length];
+      synth(c, { freq: f, dur: 0.85, type: 'sine', gain: 0.022 }, base + off, dest);
+    });
+    // 每小节末尾加一个高八度点缀，给循环一点「起承转合」
+    synth(c, {
+      freq: chord.arp[chord.arp.length - 1] * 2,
+      dur: 0.5, type: 'sine', gain: 0.013
+    }, base + BGM.arpOffsets[3], dest);
+  } catch (e) { /* 单小节失败不打断循环 */ }
+  bgmStep += 1;
 }
 
-function isMuted() {
+/**
+ * 开始播放背景音乐（幂等，重复调用不会叠加）。
+ * @param {string} scene 'lobby' | 'board' —— 目前两处用同一套曲子，
+ *                       预留参数是为了将来能给牌桌换更紧张的调式。
+ */
+function startBgm(scene) {
   init();
-  return muted;
+  if (bgmMuted) return;
+  if (bgmPlaying) return;
+  const c = ensureContext();
+  if (!c) return;
+  if (!ensureBgmGain()) return;
+
+  bgmPlaying = true;
+  // 立即排一小节，避免等第一个定时器才出声（约 500ms 的静默会显得卡）
+  scheduleBar();
+  if (typeof setInterval === 'function') {
+    bgmTimer = setInterval(function () {
+      if (!bgmPlaying) return;
+      // 上下文被回收时重建，避免 BGM 静默死掉
+      if (!ctx) {
+        failed = false;
+        if (!ensureContext()) { stopBgm(); return; }
+        bgmGain = null;
+        if (!ensureBgmGain()) { stopBgm(); return; }
+      }
+      scheduleBar();
+    }, BGM.barSeconds * 1000);
+  }
+}
+
+/** 停止 BGM（幂等） */
+function stopBgm() {
+  bgmPlaying = false;
+  if (bgmTimer && typeof clearInterval === 'function') {
+    clearInterval(bgmTimer);
+    bgmTimer = null;
+  }
+}
+
+function isBgmPlaying() {
+  return bgmPlaying;
+}
+
+/* ==================== 开关 ==================== */
+
+function setSfxMuted(v) {
+  sfxMuted = !!v;
+  writeFlag(SFX_KEY, sfxMuted);
+}
+
+function setBgmMuted(v) {
+  bgmMuted = !!v;
+  writeFlag(BGM_KEY, bgmMuted);
+  // 关掉音乐立刻停；打开时由调用方决定是否 startBgm（避免在错误场景强行放）
+  if (bgmMuted) stopBgm();
+}
+
+function isSfxMuted() {
+  init();
+  return sfxMuted;
+}
+
+function isBgmMuted() {
+  init();
+  return bgmMuted;
 }
 
 /**
@@ -177,19 +332,26 @@ function isMuted() {
  * 官方明确：音频资源不会自动回收，页面 onUnload / onHide 必须调用。
  */
 function destroy() {
+  stopBgm();
   if (ctx) {
     try { if (ctx.close) ctx.close(); } catch (e) { /* 已关闭则忽略 */ }
   }
   ctx = null;
+  bgmGain = null;
   failed = false;
 }
 
 module.exports = {
   SOUNDS: SOUNDS,
+  BGM: BGM,
   init: init,
   play: play,
-  setMuted: setMuted,
-  toggle: toggle,
-  isMuted: isMuted,
+  startBgm: startBgm,
+  stopBgm: stopBgm,
+  isBgmPlaying: isBgmPlaying,
+  setSfxMuted: setSfxMuted,
+  setBgmMuted: setBgmMuted,
+  isSfxMuted: isSfxMuted,
+  isBgmMuted: isBgmMuted,
   destroy: destroy
 };

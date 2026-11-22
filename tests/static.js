@@ -432,7 +432,48 @@ ok('重开投票 · 弹层渲染 / catchtap 绑定 / 预览模块已注册');
   if (buildSrc.indexOf("['sound', 'utils/sound.js']") < 0) {
     fail('preview/build.js 未注册 sound 模块');
   }
-  ok('音效引擎 · WebAudio 合成 / 无音频文件 / 静音持久化 / 生命周期释放 / 预览注册');
+
+  // 音效名必须存在：ACTION_SOUND / TAP_SOUND 里引用的名字一旦写错，
+  // Sound.play 会静默跳过 —— 玩家听到的是「某些操作没声音」，很难定位。
+  // 这条守卫把引用完整性钉死（第七十轮就是因为删 tap 定义导致 discard/pass 失声）。
+  const defined = (soundSrc.match(/^\s{2}([a-zA-Z]+):\s*\{\s*steps:/gm) || [])
+    .map(function (line) { return line.trim().replace(/:.*$/, ''); });
+  if (defined.length < 15) fail('sound.js 音效定义少于 15 个，实际 ' + defined.length);
+  const definedSet = {};
+  defined.forEach(function (k) { definedSet[k] = true; });
+
+  function checkRefs(tableName) {
+    const m = new RegExp('const ' + tableName + ' = \\{([\\s\\S]*?)\\n\\};').exec(pageSrc);
+    if (!m) { fail('index.js 缺少 ' + tableName + ' 映射表'); return 0; }
+    const names = (m[1].match(/:\s*'([a-zA-Z]+)'/g) || [])
+      .map(function (s) { return s.replace(/:\s*'/, '').replace(/'$/, ''); });
+    names.forEach(function (n) {
+      if (!definedSet[n]) fail(tableName + ' 引用了未定义的音效: ' + n);
+    });
+    return names.length;
+  }
+  const actionCount = checkRefs('ACTION_SOUND');
+  const tapCount = checkRefs('TAP_SOUND');
+  if (tapCount < 60) fail('TAP_SOUND 覆盖过少（' + tapCount + ' 个），应覆盖主要交互入口');
+
+  // BGM 必须极低音量，盖过音效是最常见的体验事故
+  const levelMatch = /level:\s*([0-9.]+)/.exec(soundSrc);
+  if (!levelMatch) { fail('sound.js 缺少 BGM.level'); }
+  else if (Number(levelMatch[1]) > 0.08) {
+    fail('BGM 音量 ' + levelMatch[1] + ' 过高（应 ≤0.08，否则会盖住操作音效）');
+  }
+  // BGM 必须有多个和弦，单和弦循环听起来像卡带
+  const progMatch = /progression:\s*\[([\s\S]*?)\n  \]/.exec(soundSrc);
+  if (!progMatch || (progMatch[1].match(/bass:/g) || []).length < 4) {
+    fail('BGM 和弦进行至少 4 个，否则循环周期太短');
+  }
+  // 音效与音乐开关必须分开持久化
+  if (soundSrc.indexOf('sfx_muted') < 0 || soundSrc.indexOf('bgm_muted') < 0) {
+    fail('音效与音乐开关必须分开持久化（sfx_muted / bgm_muted）');
+  }
+
+  ok('音效引擎 · WebAudio 合成 / 无音频文件 / 双开关 / 音效名引用完整（' +
+    actionCount + ' 动作 + ' + tapCount + ' 交互）/ BGM 音量合规');
 })();
 
 // 8. 本地引用检查（require 路径）

@@ -829,6 +829,23 @@
               <input class="room-input guild-join-input" type="text" maxlength="6" value="{{home.joinCode}}"
                      placeholder="6 位房间号" bindinput="onJoinCodeInput"></input>
             </view>
+            <!-- 声音开关：音效与音乐分开控制。玩家常想「关音乐留反馈」，
+                 合成一个总开关会让人只能二选一全关掉。两个开关都持久化。 -->
+            <view wx:if="{{home.dialog === 'solo'}}" class="guild-config-row">
+              <text class="guild-config-label">声音</text>
+              <view class="sound-switches">
+                <view class="sound-switch {{home.sfxOn ? 'is-on' : 'is-off'}}"
+                      bindtap="onToggleSfx" hover-class="sound-switch-hover">
+                  <text class="sound-switch-icon">{{home.sfxOn ? '🔊' : '🔇'}}</text>
+                  <text class="sound-switch-label">音效</text>
+                </view>
+                <view class="sound-switch {{home.bgmOn ? 'is-on' : 'is-off'}}"
+                      bindtap="onToggleBgm" hover-class="sound-switch-hover">
+                  <text class="sound-switch-icon">{{home.bgmOn ? '🎵' : '🎵'}}</text>
+                  <text class="sound-switch-label">音乐</text>
+                </view>
+              </view>
+            </view>
             <text wx:if="{{home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint}}" class="guild-config-note">{{home.cloudHint}}</text>
             <text wx:if="{{home.notice}}" class="home-notice">{{home.notice}}</text>
           </view>

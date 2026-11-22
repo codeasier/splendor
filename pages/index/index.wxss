@@ -2523,6 +2523,21 @@ page, .viewport { width: 100vw; height: 100vh; overflow: hidden; }
 .guild-panel-subtitle { min-height: 26px; font-size: 9.5px; line-height: 1.35; color: #aeb9ab; }
 .guild-config-row { display: flex; align-items: center; gap: 12px; margin-top: 11px; }
 .guild-config-label { flex-shrink: 0; font-size: 11px; letter-spacing: .5px; color: #d5d1bd; }
+/* 声音开关：与既有配置行同高，两枚并排。开/关只靠描边与亮度区分，
+   不用颜色（这套界面整体是低饱和古金，突然冒出一个绿色按钮会很跳）。 */
+.sound-switches { flex: 1; min-width: 0; display: flex; gap: 8px; }
+.sound-switch {
+  flex: 1; height: 44px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 9px; background: rgba(5, 20, 13, .42);
+  transition: border-color 120ms ease, opacity 120ms ease;
+}
+.sound-switch.is-on { border: 1px solid rgba(243, 212, 139, .62); }
+.sound-switch.is-off { border: 1px solid rgba(190, 203, 191, .18); opacity: .52; }
+.sound-switch-hover { opacity: .78; }
+.sound-switch-icon { font-size: 14px; line-height: 1; }
+.sound-switch-label { font-size: 11px; letter-spacing: .5px; color: #e0c69e; }
+.sound-switch.is-off .sound-switch-label { color: #8a8578; }
 .guild-count-pick {
   flex: 1; min-width: 0; height: 44px; padding: 3px; box-sizing: border-box;
   display: flex; align-items: stretch; gap: 3px;

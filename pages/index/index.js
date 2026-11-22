@@ -49,6 +49,107 @@ function playActionSound(action) {
   const name = ACTION_SOUND[action.type];
   if (name) Sound.play(name);
 }
+
+/* 交互入口 → 音效名。79 个 bindtap 逐个配音既无意义也难维护，
+ * 按语义分 6 组：开/关/选/确认/复制/否定。
+ * 用一张表集中声明，而不是在每个方法里散落 Sound.play()，
+ * 这样新增入口时只需在这里加一行，也一眼看得出哪些还没覆盖。 */
+const TAP_SOUND = {
+  /* 打开类：弹层 / 详情 / 面板 / 侧栏 */
+  onOpenFriends: 'uiOpen',
+  onOpenLeaderboard: 'uiOpen',
+  onOpenRecords: 'uiOpen',
+  onOpenProfile: 'uiOpen',
+  onOpenHomeDialog: 'uiOpen',
+  onOpenLobby: 'uiOpen',
+  onOpenMoreModes: 'uiOpen',
+  onShowRules: 'uiOpen',
+  onShowReserved: 'uiOpen',
+  onToggleChatPanel: 'uiOpen',
+  onTapCard: 'uiOpen',
+  onTapNoble: 'uiOpen',
+  onTapPlayer: 'uiOpen',
+  onTapMyPortrait: 'uiOpen',
+  onTapDeck: 'uiOpen',
+
+  /* 关闭类：关闭弹层 / 取消选择 / 返回 */
+  onCloseFriends: 'uiClose',
+  onCloseLeaderboard: 'uiClose',
+  onCloseRecords: 'uiClose',
+  onCloseProfile: 'uiClose',
+  onCloseHomeDialog: 'uiClose',
+  onCloseLobby: 'uiClose',
+  onCloseRules: 'uiClose',
+  onCloseReserved: 'uiClose',
+  onCloseDetail: 'uiClose',
+  onCloseNobleDetail: 'uiClose',
+  onClosePlayerDetail: 'uiClose',
+  onCloseChatPanel: 'uiClose',
+  onCloseSkillPanel: 'uiClose',
+  onCancelSelection: 'uiClose',
+  onCancelChatTarget: 'uiClose',
+  onDismissSkillResult: 'uiClose',
+  onCloseMenu: 'uiClose',
+
+  /* 选择类：切换 tab / 单选 / 选人 / 挑席位 */
+  onSelectMode: 'uiPick',
+  onSelectRoomTheme: 'uiPick',
+  onSelectSoloCount: 'uiPick',
+  onSelectRoomCount: 'uiPick',
+  onSelectTurnLimit: 'uiPick',
+  onRoomCount: 'uiPick',
+  onRoomTurnLimit: 'uiPick',
+  onPickSoloSeats: 'uiPick',
+  onRoomSeatTap: 'uiPick',
+  onRoomToggleBot: 'uiPick',
+  onRoomToggleReady: 'uiPick',
+  onToggleAutoPlay: 'uiPick',
+  onSwitchChatTab: 'uiPick',
+  onPickChatTarget: 'uiPick',
+  onPickAvatar: 'uiPick',
+  onPickNickname: 'uiPick',
+  onPickBuff: 'uiPick',
+  onSelectSkill: 'uiPick',
+  onPickSkillTarget: 'uiPick',
+  onTapPile: 'uiPick',
+  onTapMyToken: 'uiPick',
+  onTapReservedSlot: 'uiPick',
+  onTapReservedCard: 'uiPick',
+
+  /* 确认类：创建 / 加入 / 保存 / 发送 / 开局 */
+  onQuickStart: 'uiConfirm',
+  onCreateRoom: 'uiConfirm',
+  onJoinRoom: 'uiConfirm',
+  onJoinFromHome: 'uiConfirm',
+  onRetryCreateRoom: 'uiConfirm',
+  onRoomStart: 'uiConfirm',
+  onSaveHomeSettings: 'uiConfirm',
+  onSaveProfile: 'uiConfirm',
+  onSendQuickChat: 'uiConfirm',
+  onAddFriend: 'uiConfirm',
+  onAcceptInvite: 'uiConfirm',
+  onInviteFriend: 'uiConfirm',
+  onConfirmTake: 'uiConfirm',
+  onRestart: 'uiConfirm',
+  onClearRecords: 'uiConfirm',
+  onLeaveRoom: 'uiConfirm',
+  onWechatLogin: 'uiConfirm',
+
+  /* 复制类：真正复制成功才有提示，所以用清脆单音 */
+  onCopyMyId: 'uiCopy',
+  onCopyRoomCode: 'uiCopy',
+
+  /* 否定类：删除 / 拒绝 / 移除 */
+  onRemoveFriend: 'uiDeny',
+  onDeclineInvite: 'uiDeny'
+};
+
+/** 播放某个交互入口对应的音效；表里没有的入口静默跳过（不报错） */
+function playTapSound(handler) {
+  if (!handler) return;
+  const name = TAP_SOUND[handler];
+  if (name) Sound.play(name);
+}
 const GEMS = D.GEMS;
 const ALL = D.ALL_TOKENS;
 const META = D.GEM_META;
@@ -967,6 +1068,10 @@ function lobbyVM(ui, profile) {
     joinCode: ui.joinCode || '',
     dialog: ui.homeDialog || '',
     notice: ui.homeNotice || '',
+    // 声音开关状态：直接读音效模块（它内部已从 storage 恢复偏好），
+    // 不另存一份 ui 字段，避免出现「界面显示开、实际静音」的不一致。
+    sfxOn: !Sound.isSfxMuted(),
+    bgmOn: !Sound.isBgmMuted(),
     // 实时在线人数：由心跳表统计（近 2 分钟内有心跳），不是「历史玩家总数」。
     // onlineReady=false 表示还没查到（首屏 / 离线 / 云不可用），界面据此显示「—」而不是假报 0。
     online: (ui.onlineCount === undefined || ui.onlineCount === null) ? 0 : ui.onlineCount,
@@ -2260,7 +2365,33 @@ function freshUI(config) {
   };
 }
 
-Page({
+/**
+ * 给页面所有交互入口自动挂上点击音效。
+ *
+ * 为什么装饰而不是在每个方法里写 Sound.play()：
+ *   WXML 里共有 79 个 bindtap 入口，逐个加调用既啰嗦又必然漏。
+ *   这里在页面配置对象导出前统一包一层 —— 只改这一处就能覆盖全部入口，
+ *   而且新增 handler 时只要在 TAP_SOUND 表里登记即可，不会忘记挂音效。
+ *
+ * 注意两个细节：
+ *   1. 只包装没有返回值的普通点击；onLoad/refresh 这类非交互方法靠 TAP_SOUND
+ *      白名单过滤，不会误触发（表里没有就直接跳过）。
+ *   2. 音效在方法执行「之前」播：点击反馈要即时，不能等业务逻辑跑完
+ *      （联机轮询的方法可能耗时几十毫秒，延迟播会显得迟钝）。
+ */
+function withTapSound(config) {
+  Object.keys(TAP_SOUND).forEach(function (name) {
+    const original = config[name];
+    if (typeof original !== 'function') return;
+    config[name] = function () {
+      Sound.play(TAP_SOUND[name]);
+      return original.apply(this, arguments);
+    };
+  });
+  return config;
+}
+
+Page(withTapSound({
   data: {
     stageScale: 1,
     stageRotate: 0,
@@ -2490,6 +2621,10 @@ Page({
     // 心跳与在线人数：切回前台立刻补一次心跳，否则回到大厅的前 45s 内自己不算在线
     U.startHeartbeat(this.profile || R.getProfile());
     if (this.ui && this.ui.screen === 'home') this.startOnlinePolling();
+    // 音频上下文在 onHide 被释放了，回前台按当前界面重新起 BGM
+    if (this.ui && (this.ui.screen === 'home' || this.ui.screen === 'game')) {
+      Sound.startBgm(this.ui.screen === 'game' ? 'board' : 'lobby');
+    }
     if (this._cloudCode) {
       // 回前台立刻对齐一次版本，别等下一个轮询周期
       this.pollCloud(true);
@@ -2766,6 +2901,14 @@ Page({
     // 聊天只在牌桌有意义；无云时 startChatPolling 直接返回，纯本地气泡照常工作
     if (this.ui.screen === 'game') this.startChatPolling();
     else this.stopChatPolling();
+    // 背景音乐：大厅与牌桌都播，房间准备层静音（那一层玩家在等别人，
+    // 安静一点更专注，也避免「还没开局就有 BGM」的突兀）。
+    // 挂在 refresh 里统一处理，避免在 9 处 ui.screen 赋值点上逐一手写。
+    if (this.ui.screen === 'home' || this.ui.screen === 'game') {
+      Sound.startBgm(this.ui.screen === 'game' ? 'board' : 'lobby');
+    } else {
+      Sound.stopBgm();
+    }
   },
 
   /** 邀请轮询：15s 一次。比好友心跳快，邀请要「立刻」被看到 */
@@ -4892,6 +5035,28 @@ Page({
     this.refresh('');
   },
 
+  /** 音效开关：只影响音效，不动音乐 */
+  onToggleSfx() {
+    const next = !Sound.isSfxMuted();
+    Sound.setSfxMuted(!next);
+    // 打开时立刻给一声，让玩家确认真的开了（静音时点了没反馈会以为失灵）
+    if (next) Sound.play('tap');
+    this.refresh('');
+  },
+
+  /**
+   * 音乐开关。关掉立刻停；打开时按当前界面决定是否起播 ——
+   * 房间准备层本来就不放 BGM，不该因为点了开关就强行响。
+   */
+  onToggleBgm() {
+    const next = !Sound.isBgmMuted();
+    Sound.setBgmMuted(!next);
+    if (next && (this.ui.screen === 'home' || this.ui.screen === 'game')) {
+      Sound.startBgm(this.ui.screen === 'game' ? 'board' : 'lobby');
+    }
+    this.refresh('');
+  },
+
   /* ---------- 娱乐模式：开局增益 / 主动技能 ---------- */
 
   /** 开局选择增益：写入 state（随快照同步），机器人自动补齐，再继续 AI 流程 */
@@ -5713,4 +5878,4 @@ Page({
   },
 
   noop() {}
-});
+}));
