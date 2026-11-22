@@ -38,6 +38,7 @@ const steps = [
   ['天梯榜指标与排名', 'tests/leaderboard.js'],
   ['重开投票数据层', 'tests/reset-vote.js'],
   ['娱乐模式逻辑（增益 / 技能 / 守恒）', 'tests/entertainment.js'],
+  ['音效引擎（合成 / 静音 / 释放）', 'tests/sound.js'],
   ['页面运行时模拟', 'tests/page-runtime.js'],
   ['H5 预览页渲染与交互', 'tests/preview.js']
 ];

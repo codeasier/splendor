@@ -12,6 +12,7 @@ const Nick = require('../../utils/nickname.js');
 const T = require('../../utils/theme.js');
 const V = require('../../utils/reset-vote.js');
 const Ent = require('../../utils/entertainment.js');
+const Sound = require('../../utils/sound.js');
 
 // 设计稿舞台尺寸（与参考截图比例一致），运行时等比缩放适配屏幕
 const DESIGN_W = 1080;
@@ -25,6 +26,28 @@ const MENU_DOCK_H = 128;
 function haptic(type) {
   if (typeof wx === 'undefined' || !wx.vibrateShort) return;
   try { wx.vibrateShort({ type: type || 'light' }); } catch (e) {}
+}
+
+/* 动作类型 → 音效名。集中映射而不是在每个动作函数里各写一次播放调用，
+ * 这样新增动作时只改这张表，也不会漏掉某个入口。
+ * 语义分组：拿/买/预留各不相同，让玩家闭眼也能听出刚才发生了什么。 */
+const ACTION_SOUND = {
+  take: 'takeGem',
+  discard: 'tap',
+  pass: 'tap',
+  buyBoard: 'buyCard',
+  buyReserved: 'buyCard',
+  reserveBoard: 'reserve',
+  reserveDeck: 'reserve',
+  chooseNoble: 'noble',
+  skill: 'noble'
+};
+
+/** 播放某个对局动作对应的音效；未知动作静默跳过 */
+function playActionSound(action) {
+  if (!action || !action.type) return;
+  const name = ACTION_SOUND[action.type];
+  if (name) Sound.play(name);
 }
 const GEMS = D.GEMS;
 const ALL = D.ALL_TOKENS;
@@ -2264,6 +2287,8 @@ Page({
     this._netDown = false;
     // 一局只记一条战绩：开局时复位，结算时置位
     this._resultRecorded = false; this._gameStartedAt = Date.now();
+    // 只读一次本地静音偏好；音频上下文延迟到首次播放才建
+    Sound.init();
     this.mode = 'solo';
     this.mySeat = 0;
     this.profile = R.getProfile();
@@ -2485,6 +2510,9 @@ Page({
     this.stopInvitePolling();
     this.stopChatPolling();
     U.stopHeartbeat();
+    // 音频上下文在后台继续持有会持续占用内存，切后台直接释放；
+    // 回前台由 play() 懒建，玩家感知不到延迟。
+    Sound.destroy();
   },
 
   onUnload() {
@@ -2500,6 +2528,8 @@ Page({
     this.stopInvitePolling();
     this.stopChatPolling();
     U.stopHeartbeat();
+    // 官方明确音频资源不会自动回收，页面销毁必须显式释放
+    Sound.destroy();
   },
 
   onResize() {
@@ -2595,6 +2625,8 @@ Page({
     }, this.profile);
     // 结算后才把本局增量推上云，榜单一局只写一次（_resultRecorded + gameId 双重幂等）
     this.publishLeaderboard(rec);
+    // 胜负音效放在记账之后：确认这一局真的入账了才响，避免重连撞旧快照时误响
+    Sound.play(st.winner === seat ? 'win' : (st.winner === -2 ? 'noble' : 'lose'));
   },
 
   /**
@@ -3399,7 +3431,7 @@ Page({
       tone: mine ? 'mine' : (p.isAI ? 'bot' : 'other')
     };
     const that = this;
-    if (mine) haptic('medium');
+    if (mine) { haptic('medium'); Sound.play('turn'); }
     if (this._flashTimer) clearTimeout(this._flashTimer);
     this._flashTimer = setTimeout(function () {
       that._flashTimer = null;
@@ -4282,10 +4314,13 @@ Page({
     const result = E.performAction(this.state, action);
     if (!result.ok) {
       haptic('medium');
+      Sound.play('error');
       this.refresh(result.error);
       return false;
     }
     haptic('light');
+    // 音效与动作语义绑定：拿筹码 / 买卡 / 预留 / 贵族各有不同音色
+    playActionSound(action);
     if (myPlayer && actorSeat === (this.mySeat || 0)) {
       const dPts = myPlayer.points - prevPoints;
       const dTok = E.tokenTotal(myPlayer) - prevTokens;

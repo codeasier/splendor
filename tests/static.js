@@ -392,6 +392,49 @@ ok('重开投票 · 弹层渲染 / catchtap 绑定 / 预览模块已注册');
   ok('美术资源 · REMOTE_ART 默认关闭 / HTTPS 校验 / 产物为内联');
 })();
 
+// 7.12 音效引擎：必须零音频文件、必须有生命周期释放、必须有降级。
+//      用代码合成就意味着绝不能偷偷塞 mp3 进包 —— 一旦有人改成音频文件，
+//      138KB 的余量会直接触顶，这条守卫负责拦住。
+(function () {
+  const soundSrc = read('utils/sound.js');
+  const pageSrc = read('pages/index/index.js');
+
+  // 合成方案的前提：用 WebAudio，不是 InnerAudioContext + 音频文件
+  if (soundSrc.indexOf('createWebAudioContext') < 0) {
+    fail('sound.js 必须用 wx.createWebAudioContext 合成音效（零包体）');
+  }
+  // 不能引入音频文件路径
+  if (/\.(mp3|m4a|wav|aac|ogg)['"]/i.test(soundSrc)) {
+    fail('sound.js 不应引用音频文件（会吃掉包体余量）');
+  }
+  // 静音开关必须持久化
+  if (soundSrc.indexOf('setStorageSync') < 0) {
+    fail('sound.js 必须持久化静音偏好');
+  }
+  // 包络：没有 exponentialRampToValueAtTime 会有爆音
+  if (soundSrc.indexOf('exponentialRampToValueAtTime') < 0) {
+    fail('sound.js 缺少包络（会导致爆音）');
+  }
+  // 页面必须接入初始化与释放，否则音频上下文泄漏
+  if (pageSrc.indexOf('Sound.init()') < 0) {
+    fail('index.js 必须在 onLoad 调 Sound.init()');
+  }
+  const unloadIdx = pageSrc.indexOf('onUnload()');
+  if (unloadIdx < 0 || pageSrc.indexOf('Sound.destroy()', unloadIdx) < 0) {
+    fail('index.js 必须在 onUnload 调 Sound.destroy()（官方要求显式释放）');
+  }
+  const hideIdx = pageSrc.indexOf('onHide()');
+  if (hideIdx < 0 || pageSrc.indexOf('Sound.destroy()', hideIdx) < 0) {
+    fail('index.js 必须在 onHide 释放音频（后台不该继续占用）');
+  }
+  // 预览构建必须注册 sound 模块，否则 H5 预览 require 失败
+  const buildSrc = read('preview/build.js');
+  if (buildSrc.indexOf("['sound', 'utils/sound.js']") < 0) {
+    fail('preview/build.js 未注册 sound 模块');
+  }
+  ok('音效引擎 · WebAudio 合成 / 无音频文件 / 静音持久化 / 生命周期释放 / 预览注册');
+})();
+
 // 8. 本地引用检查（require 路径）
 const reqRe = /require\(['"]([^'"]+)['"]\)/g;
 let qm;

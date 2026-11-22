@@ -292,7 +292,10 @@ const moduleFiles = [
   ['leaderboard', 'utils/leaderboard.js'],
   // 零依赖纯数据层，放最后即可；__def 是立即执行，若它 require 了别的模块，
   // 那些模块必须排在它前面（nickname 当初就是因为排末尾才报 module not found）
-  ['reset-vote', 'utils/reset-vote.js']
+  ['reset-vote', 'utils/reset-vote.js'],
+  // 音效引擎零依赖；H5 预览里 wx 是空壳、没有 createWebAudioContext，
+  // sound.js 会自动静默降级，不留任何报错
+  ['sound', 'utils/sound.js']
 ];
 
 const moduleDefs = moduleFiles.map(([name, file]) => (
@@ -364,7 +367,23 @@ const boot = `
       if (o.complete) o.complete();
     },
     showToast: function () {},
-    vibrateShort: function () {}
+    vibrateShort: function () {},
+    // 音效：把小程序 API 映射到浏览器原生 WebAudio，让 H5 预览也能听到声音。
+    // 浏览器没有该 API 时返回 undefined，sound.js 会自行降级为静默。
+    //
+    // 注意：这里刻意不提供 getStorageSync/setStorageSync。
+    // utils/room.js 的 backend() 用「三个存储方法是否齐全」判断能否把 wx 当后端，
+    // 一旦补上一部分就会抢占 localStorage 分支，反而让 H5 预览拿不到同一份数据。
+    // 预览环境的存储继续走 room.js 自己的 localStorage/内存回退。
+    createWebAudioContext: (function () {
+      var A = window.AudioContext || window.webkitAudioContext;
+      if (!A) return undefined;
+      var shared = null;
+      return function () {
+        if (!shared) { try { shared = new A(); } catch (e) { return undefined; } }
+        return shared;
+      };
+    })()
   };
 
   var cfg = window.__pageConfig;

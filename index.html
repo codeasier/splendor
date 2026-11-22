@@ -8959,6 +8959,202 @@ module.exports = {
 };
 
 });
+__def("sound", function (module, exports, require) {
+/**
+ * 音效引擎 —— 代码合成，零音频文件、零包体占用。
+ *
+ * 为什么不用音频文件：
+ *   主包已到 1910KB / 2048KB（余量 138KB），一套 8 个 MP3 会吃掉 100-200KB，
+ *   直接触顶。改用 WebAudio 振荡器现场合成，包体增长为 0。
+ *
+ * 基础库要求：
+ *   wx.createWebAudioContext 需基础库 ≥ 2.19.0（以官方文档核实）。
+ *   低版本 / H5 预览 / Node 测试环境无此 API 时自动静默降级 —— 不抛错、
+ *   不影响任何游戏逻辑，只是没有声音。
+ *
+ * 官方注意：音频上下文不会自动回收，页面 onUnload 必须调 destroy()。
+ */
+
+// 各音效定义：freq 起始频率、dur 时长、type 波形、to 滑到的目标频率、gain 峰值音量
+// 合成音没有共鸣腔，音量不能开大，否则刺耳；0.08~0.18 是实测较舒服的区间。
+const SOUNDS = {
+  // 按钮 / 选牌：极短，高音，几乎只起确认作用
+  tap: { steps: [{ freq: 660, dur: 0.05, type: 'sine', gain: 0.10 }] },
+
+  // 拿筹码：上滑，听起来「获得」
+  takeGem: { steps: [{ freq: 520, dur: 0.10, type: 'triangle', to: 780, gain: 0.14 }] },
+
+  // 买卡：两音上行，比拿筹码更「值钱」
+  buyCard: { steps: [
+    { freq: 440, dur: 0.07, type: 'triangle', gain: 0.14 },
+    { freq: 660, dur: 0.11, type: 'triangle', gain: 0.13, delay: 0.07 }
+  ] },
+
+  // 预留：下滑，听起来「收起来」
+  reserve: { steps: [{ freq: 380, dur: 0.11, type: 'sine', to: 300, gain: 0.12 }] },
+
+  // 贵族到访：四音琶音上行，有仪式感
+  noble: { steps: [
+    { freq: 523, dur: 0.12, type: 'sine', gain: 0.13 },
+    { freq: 659, dur: 0.12, type: 'sine', gain: 0.13, delay: 0.09 },
+    { freq: 784, dur: 0.14, type: 'sine', gain: 0.13, delay: 0.18 },
+    { freq: 1047, dur: 0.18, type: 'sine', gain: 0.12, delay: 0.27 }
+  ] },
+
+  // 胜利：五音大调上行，拉长尾音
+  win: { steps: [
+    { freq: 523, dur: 0.15, type: 'triangle', gain: 0.15 },
+    { freq: 659, dur: 0.15, type: 'triangle', gain: 0.15, delay: 0.11 },
+    { freq: 784, dur: 0.15, type: 'triangle', gain: 0.15, delay: 0.22 },
+    { freq: 1047, dur: 0.20, type: 'triangle', gain: 0.14, delay: 0.33 },
+    { freq: 1319, dur: 0.30, type: 'triangle', gain: 0.13, delay: 0.44 }
+  ] },
+
+  // 失败：三音下行，收得干脆
+  lose: { steps: [
+    { freq: 392, dur: 0.18, type: 'sine', gain: 0.13 },
+    { freq: 330, dur: 0.18, type: 'sine', gain: 0.13, delay: 0.14 },
+    { freq: 262, dur: 0.28, type: 'sine', gain: 0.12, delay: 0.28 }
+  ] },
+
+  // 轮到你：方波，短促有「叮」的提醒感
+  turn: { steps: [{ freq: 880, dur: 0.04, type: 'square', gain: 0.06 }] },
+
+  // 非法操作：低频短促下挫
+  error: { steps: [{ freq: 220, dur: 0.09, type: 'square', to: 180, gain: 0.07 }] }
+};
+
+const STORAGE_KEY = 'sfx_muted';
+
+let ctx = null;
+let muted = false;
+let inited = false;
+let failed = false;   // 初始化失败后不再重试，避免每帧反复尝试建上下文
+
+function hasApi() {
+  return typeof wx !== 'undefined' && typeof wx.createWebAudioContext === 'function';
+}
+
+/** 读取本地静音偏好；只在第一次调用时真正读存储 */
+function init() {
+  if (inited) return;
+  inited = true;
+  try {
+    if (typeof wx !== 'undefined' && wx.getStorageSync) {
+      muted = !!wx.getStorageSync(STORAGE_KEY);
+    }
+  } catch (e) { /* 存储读不到就用默认值 */ }
+}
+
+/**
+ * 懒建上下文：第一次真正要播放时才创建。
+ * 不在 onLoad 里建，避免用户从不听音效也白占一份音频资源。
+ */
+function ensureContext() {
+  if (ctx || failed) return ctx;
+  if (!hasApi()) { failed = true; return null; }
+  try {
+    ctx = wx.createWebAudioContext();
+    if (!ctx) failed = true;
+  } catch (e) {
+    failed = true;
+    ctx = null;
+  }
+  return ctx;
+}
+
+/**
+ * 合成单音：起音 + 指数衰减包络。
+ * 包络是必须的 —— 直接 start/stop 会有明显爆音（咔哒声）。
+ */
+function playStep(c, step) {
+  const startAt = c.currentTime + (step.delay || 0);
+  const dur = step.dur;
+  const osc = c.createOscillator();
+  const gain = c.createGain();
+
+  osc.type = step.type || 'sine';
+  osc.frequency.setValueAtTime(step.freq, startAt);
+  if (step.to) {
+    // 指数滑音；目标频率必须 > 0，否则指数曲线不合法
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, step.to), startAt + dur);
+  }
+
+  const peak = step.gain === undefined ? 0.12 : step.gain;
+  // 起音 8ms 到峰值，再指数衰减到近零：听感干净且不爆音
+  gain.gain.setValueAtTime(0.0001, startAt);
+  gain.gain.exponentialRampToValueAtTime(peak, startAt + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + dur);
+
+  osc.connect(gain);
+  gain.connect(c.destination);
+  osc.start(startAt);
+  osc.stop(startAt + dur + 0.02);
+}
+
+/**
+ * 播放音效。
+ * @param {string} name SOUNDS 里的键
+ * 任何异常都被吞掉 —— 音频绝不能让游戏主流程中断。
+ */
+function play(name) {
+  if (muted) return;
+  const def = SOUNDS[name];
+  if (!def) return;
+  init();
+  const c = ensureContext();
+  if (!c) return;
+  try {
+    def.steps.forEach(function (s) { playStep(c, s); });
+  } catch (e) {
+    // 单次合成失败（如上下文被系统回收）不应静默永久失效
+    failed = false;
+    ctx = null;
+  }
+}
+
+function setMuted(v) {
+  muted = !!v;
+  try {
+    if (typeof wx !== 'undefined' && wx.setStorageSync) {
+      wx.setStorageSync(STORAGE_KEY, muted ? 1 : 0);
+    }
+  } catch (e) { /* 存不下只影响下次启动的默认值 */ }
+}
+
+function toggle() {
+  setMuted(!muted);
+  return muted;
+}
+
+function isMuted() {
+  init();
+  return muted;
+}
+
+/**
+ * 释放音频上下文。
+ * 官方明确：音频资源不会自动回收，页面 onUnload / onHide 必须调用。
+ */
+function destroy() {
+  if (ctx) {
+    try { if (ctx.close) ctx.close(); } catch (e) { /* 已关闭则忽略 */ }
+  }
+  ctx = null;
+  failed = false;
+}
+
+module.exports = {
+  SOUNDS: SOUNDS,
+  init: init,
+  play: play,
+  setMuted: setMuted,
+  toggle: toggle,
+  isMuted: isMuted,
+  destroy: destroy
+};
+
+});
 
 
 var EXPR_TEXTS = ["themeId","stageRotate","stageScale","themeFallback","toast","screen === 'game'","rivalStripWidth","rivals","item.isCurrent ? 'is-current' : ''","item.isBot ? 'is-bot' : ''","item.empty ? 'is-empty' : ''","item.index","item.avatarUrl","item.autoPlay ? 'is-auto' : ''","item.avatarHue","item.initial","item.isBot || item.autoPlay","item.autoPlay ? 'is-auto' : 'is-bot'","item.seatNo","item.name","item.reservedCount","item.pointsReached ? 'is-reached' : ''","item.pointsText","item.rows.discRow","cell.sqClass","cell.zero ? 'is-zero' : ''","cell.wide ? 'is-wide' : ''","cell.light ? 'is-light' : ''","cell.numText","item.rows.tokenRow","cell.gemClass","cell.isGold ? 'is-gold' : ''","item.turnTag","item.isFirst","isMyTurn ? 'is-mine' : ''","statusLong ? 'is-long' : ''","statusText","turnClock.on","turnClock.urgent ? 'is-urgent' : ''","turnClock.text","turnText","netNotice","!netNotice && lastMove && !lastMove.sys","lastMove.text","!netNotice && (!lastMove || lastMove.sys)","logText","turnClock.pct","turnFlash","turnFlash.tone","turnFlash.seatLabel","turnFlash.title","turnFlash.sub","nobleChoice && nobleChoice.mine","nobleChoice.seatLabel","nobleChoice.options.length","nobleChoice.options","item.id","item.photoClass","item.artClass","item.points","item.title","item.reqs","req.gemClass","req.num","nobleChoice && nobleChoice.waiting","nobleChoice.name","reservedCards.length","reservedCards","item.buyClass","item.tiltStyle","item.gemClass","item.costDense ? 'is-dense' : ''","item.costs","cost.gemClass","cost.ink","cost.display","emptyReservedSlots","decks","item.lv","item.style","item.label","item.count","rows","row.rowClass","row.label","row.cards","card.selected ? 'is-selected' : ''","row.lv","ci","!card.empty","card.buyClass","card.tiltStyle","card.photoClass","card.artClass","card.name","card.pointsText","card.gemClass","card.costDense ? 'is-dense' : ''","card.costs","bankPiles","item.slotClass","item.isGold ? 'is-gold' : ''","item.selected ? 'is-selected' : ''","item.disabled ? 'is-disabled' : ''","item.illegal ? 'is-illegal' : ''","item.key","item.stack","item.coinClass","req.style","item.topStyle","item.showMinus","item.pickedMany","item.picked","noblesCompact ? 'is-compact' : ''","nobles","nobles.length === 0","isMyTurn ? 'is-my-turn' : ''","meAutoPlay ? 'is-auto' : ''","me.avatarUrl","me.avatarHue","me.initial","meAutoPlay","meSeatLabel","me.nameText","canAutoPlay","meAutoPlay ? 'is-on' : ''","meAutoPlay ? '收回' : '托管'","me.pointsReached ? 'is-reached' : ''","me.pointsText","floatScoreDeltas","item.positive ? 'is-plus' : 'is-minus'","item.text","me.reservedText","me.cardCount","me.nobleCount","me.totalTokens > 10 ? 'is-over' : ''","me.tokenText","floatTokenDeltas","me.res.discount","item.sqClass","item.zero ? 'is-zero' : ''","item.wide ? 'is-wide' : ''","item.light ? 'is-light' : ''","item.numText","me.res.tokens","needDiscard ? 'can-discard' : ''","(needDiscard && item.pickedCount > 0) ? 'is-picked' : ''","item.gainShow","item.gainText","item.payShow","item.payText","needDiscard && item.pickedCount > 0","item.pickedCount","isMyTurn ? '' : 'is-idle'","pick.kind","pick.dots && pick.dots.length","pick.dots","pick.delta > 0","pick.delta","pick.delta < 0","pick.delta === 0 && pick.mode === 'take'","pick.title","pick.fromText","pick.toText","canConfirm ? '' : 'btn-off'","isMyTurn ? (meAutoPlay ? '托管自动出牌中' : pick.label) : '等待其他玩家'","(selectionCount > 0 || discardPlanCount > 0 || detail) ? '' : 'btn-off'","canPass","isMyTurn ? (pick.reason || pick.goldLine || pickHint) : pickHint","showcaseList","item.motionStyle","item.badgeText","item.subtitle","item.kind === 'card'","item.blindBack","item.deckArtClass","item.deckLabel","item.card.photoClass","item.card.artClass","item.card.name","item.card.pointsText","item.card.gemClass","item.card.costs","item.gotGold","item.kind === 'noble'","item.nobleVM.photoClass","item.nobleVM.artClass","item.nobleVM.points","item.nobleVM.title","item.nobleVM.reqs","item.kind === 'take'","item.coins","cost.itemStyle","cost.coinClass","cost.label","chatPanelTop","chat.open","chat.isText ? 'is-active' : ''","chat.isEmoji ? 'is-active' : ''","chat.isText","chat.texts","chat.isEmoji && chat.isPick","chat.emojis","item.icon","chat.isEmoji && chat.isTarget","chat.pending.icon","chat.pending.label","chat.targets","item.isSelf ? 'is-self' : ''","item.seat","item.seatSub","!chat.open","chat.bubbles","item.mine ? 'is-mine' : ''","item.isEmoji ? 'is-emoji' : ''","item.seatLabel","item.targetLabel","chat.projectiles","item.isThrow ? 'is-throw' : 'is-gift'","item.isThrow","item.targetStyle","item.isGift","item.fromLabel","item.toLabel","chat.flyList","menuDirClass","menuOpen ? 'is-open' : ''","menuX","menuY","menuOpen ? 'is-active' : ''","menuOpen ? '✕' : '☰'","menuToggleLabel","chat.open ? 'is-active' : ''","menuOpen","roomMode","isEntertainment","buffPick.open","buffPick.list","buffPick.chosen === item.id ? 'is-active' : ''","item.desc","buffPick.chosen === item.id","skill.open","skill.pending ? '选择技能目标' : '主动技能'","!skill.pending","skill.list","item.usable ? '' : 'is-locked'","item.left","skill.pending","skill.targets","item.selectable ? '' : 'is-disabled'","item.isSelf ? '（你）' : ''","item.selectable ? '' : ' · 不可选'","skill.result","skill.result.title","skill.result.text","screen === 'home'","home.onlineReady ? 'is-ready' : 'is-pending'","home.onlineText","home.avatarUrl","home.avatarHue","home.initial","home.nickname","home.rankTitle","home.hasMoreModes","home.featuredModes","item.active ? 'is-active' : ''","item.active","item.tagline","topRightTop > 74 ? topRightTop : 74","home.activeModeGem","home.activeModeName","home.modeHint","home.soloCounts","item.n","home.notice && !home.dialog","home.notice","friendsPanel.onlineCount > 0","friendsPanel.onlineCount","home.dialog","home.dialog === 'create' ? 'is-create' : ''","home.dialog === 'solo' ? '人机对战设置' : (home.dialog === 'quick' ? '选择对局人数' : (home.dialog === 'create' ? '创建房间' : '加入房间'))","home.modes","item.available ? '' : 'is-locked'","item.tag","home.dialog === 'create'","home.themes","item.description","home.dialog === 'quick'","item.n === 2 ? '1 名对手' : (item.n === 3 ? '2 名对手' : '3 名对手')","home.dialog === 'solo'","home.roomCounts","home.turnLimits","item.value","home.dialog === 'join'","home.joinCode","home.dialog !== 'solo' && home.dialog !== 'quick' && home.cloudHint","home.cloudHint","screen === 'room'","topRightTop > 14 ? topRightTop : 14","roomScreen.code","roomScreen.backend","roomScreen.statusText","roomScreen.themeName","roomScreen.turnLimitText","roomScreen.backendHint","roomScreen.seats","item.ready ? 'is-ready' : ''","item.tappable ? 'is-tappable' : ''","item.empty ? '+' : item.initial","item.isBot","item.ready ? 'is-ok' : (item.empty ? 'is-wait' : 'is-pending')","item.stateText","item.canToggleBot","item.seatAction","item.canKick","roomScreen.canStart ? 'is-ok' : ''","roomScreen.tip","roomScreen.isHost","roomScreen.counts","roomScreen.turnLimits","roomScreen.notice","roomScreen.creating","roomScreen.createFailed","roomScreen.isHost ? '你是房主 · 全员准备后即可开始' : '准备好后等房主开始'","roomScreen.canStart ? '' : 'btn-off'","roomScreen.startLabel","roomScreen.myReady ? 'btn-off' : ''","detail","detail.card.name","detail.card.level","detail.card.pointsLabel","detail.card.gemLabel","detail.card.buyClass","detail.card.photoClass","detail.card.artClass","detail.card.pointsText","detail.card.gemClass","detail.card.costs","detail.costLines","item.missing ? 'is-missing' : ''","item.raw","item.discount","item.need","detail.canBuy ? 'ok' : 'no'","detail.summary","detail.actionNote","detail.canBuy && detail.canAct","detail.buyLabel","!detail.canBuy && detail.canReserve && detail.canAct","nobleDetail","nobleDetail.title","nobleDetail.points","nobleDetail.photoClass","nobleDetail.artClass","nobleDetail.reqs","req.met ? '' : 'is-missing'","req.label","req.have","req.met ? '（已满足）' : '（还差 ' + req.missing + '）'","nobleDetail.ready ? 'ok' : 'no'","nobleDetail.summary","showReserved","reservedCards.length === 0","showRecords && records","records.rankTitle","records.stats.total","records.stats.wins","records.stats.winRate","records.stats.best","records.stats.avgScore","records.stats.streak","records.items","item.resultClass","item.resultText","item.modeText","item.rankText","item.dateText","item.scoreText","item.turnsText ? ' · ' + item.turnsText : ''","records.empty","records.notice","!records.empty","showRules","playerCount","endNotice","endNotice.leaderSeat","endNotice.leaderName","endNotice.leftText","resetVote && !gameOver","resetVote.title","resetVote.sub","resetVote.rows","item.cls","resetVote.note","resetVote.canAgree","resetVote.canReject","resetVote.canRestart","resetVote.canClose","gameOver","resultTitle","resultDetail","resultBoard","resultBoard.rows","item.isWinner ? 'is-winner' : ''","item.isMe ? 'is-me' : ''","item.rank === 1 ? 'is-first' : ''","item.rank","item.isMe","item.autoPlay","item.cardCount","item.cardPoints","item.nobleCount","item.noblePoints","item.totalTokens","item.disc","item.tok","showLobby","item.ready ? 'is-ok' : ''","playerDetail","playerDetail.title","playerDetail.subtitle","playerDetail.avatarUrl","playerDetail.avatarHue","playerDetail.initial","playerDetail.isBot || playerDetail.autoPlay","playerDetail.autoPlay ? 'is-auto' : 'is-bot'","playerDetail.points","playerDetail.cardCount","playerDetail.reservedCount","playerDetail.totalTokens","playerDetail.scoreLines","playerDetail.columns","cell.bonusShow ? '' : 'is-zero'","cell.bonusWide ? 'is-wide' : ''","cell.bonus","cell.tokenShow ? '' : 'is-zero'","cell.tokenWide ? 'is-wide' : ''","cell.token","playerDetail.reservedCards.length","playerDetail.reservedCards","item.level","item.pointsLabel","item.gemLabel","playerDetail.emptyReserved","playerDetail.nobles.length","playerDetail.nobles","playerDetail.emptyNobles","showProfile","profileDialog.avatarUrl","profileDialog.avatarHue","profileDialog.initial","profileDialog.nickname","profileDialog.avatarName","profileDialog.playerId","profileDialog.identityLabel","profileDialog.sinceText","profileDialog.identityDetail","profileDialog.showLogin","!profileDialog.canLogin","profileDialog.loginLabel","profileDialog.loginHint","profileDialog.rankTitle","profileDialog.statsLine","canUseNativeAvatar","profileDialog.nicknames","item","profileDialog.avatars","item.hue","profileDialog.notice","screen !== 'game'","showFriends","friendsPanel.count","friendsPanel.query","friendsPanel.found","friendsPanel.found.avatarStyle","!friendsPanel.found.avatarUrl","friendsPanel.found.initial","friendsPanel.found.nickname","friendsPanel.notice","friendsPanel.list","item.online ? 'is-online' : ''","item.avatarStyle","!item.avatarUrl","item.nickname","item.statusText","item.shortId","item.canInvite","item.uid","!item.canInvite && !friendsPanel.canInvite","!item.canInvite && friendsPanel.canInvite","friendsPanel.empty","!friendsPanel.ready","friendsPanel.ready","friendsPanel.myId","invitePop","invitePop.fromName","invitePop.roomCode","invitePop.moreText","showLeaderboard && leaderboard","leaderboard.sourceLine","leaderboard.showLoginHint","leaderboard.hasMe","leaderboard.myRankText","leaderboard.provisional","leaderboard.needText","leaderboard.rows","item.isChampion ? 'is-champion' : ''","item.section === 'trial' ? 'is-trial' : ''","item.sectionHead","item.section","item.sectionSub","item.sectionHead ? 'has-section' : ''","item.isChampion","!item.isChampion && item.avatarUrl","!item.isChampion && !item.avatarUrl","item.provisional","item.ratingText","item.provisional ? 'is-provisional' : ''","item.winRateFullText","item.bestWinText","item.avgScoreText","item.avgCardsText","item.avgNoblesText","item.avgTurnText","leaderboard.empty","leaderboard.scrollable","leaderboard.formulaText"];
@@ -16789,6 +16985,7 @@ const Nick = require('../../utils/nickname.js');
 const T = require('../../utils/theme.js');
 const V = require('../../utils/reset-vote.js');
 const Ent = require('../../utils/entertainment.js');
+const Sound = require('../../utils/sound.js');
 
 // 设计稿舞台尺寸（与参考截图比例一致），运行时等比缩放适配屏幕
 const DESIGN_W = 1080;
@@ -16802,6 +16999,28 @@ const MENU_DOCK_H = 128;
 function haptic(type) {
   if (typeof wx === 'undefined' || !wx.vibrateShort) return;
   try { wx.vibrateShort({ type: type || 'light' }); } catch (e) {}
+}
+
+/* 动作类型 → 音效名。集中映射而不是在每个动作函数里各写一次播放调用，
+ * 这样新增动作时只改这张表，也不会漏掉某个入口。
+ * 语义分组：拿/买/预留各不相同，让玩家闭眼也能听出刚才发生了什么。 */
+const ACTION_SOUND = {
+  take: 'takeGem',
+  discard: 'tap',
+  pass: 'tap',
+  buyBoard: 'buyCard',
+  buyReserved: 'buyCard',
+  reserveBoard: 'reserve',
+  reserveDeck: 'reserve',
+  chooseNoble: 'noble',
+  skill: 'noble'
+};
+
+/** 播放某个对局动作对应的音效；未知动作静默跳过 */
+function playActionSound(action) {
+  if (!action || !action.type) return;
+  const name = ACTION_SOUND[action.type];
+  if (name) Sound.play(name);
 }
 const GEMS = D.GEMS;
 const ALL = D.ALL_TOKENS;
@@ -19041,6 +19260,8 @@ Page({
     this._netDown = false;
     // 一局只记一条战绩：开局时复位，结算时置位
     this._resultRecorded = false; this._gameStartedAt = Date.now();
+    // 只读一次本地静音偏好；音频上下文延迟到首次播放才建
+    Sound.init();
     this.mode = 'solo';
     this.mySeat = 0;
     this.profile = R.getProfile();
@@ -19262,6 +19483,9 @@ Page({
     this.stopInvitePolling();
     this.stopChatPolling();
     U.stopHeartbeat();
+    // 音频上下文在后台继续持有会持续占用内存，切后台直接释放；
+    // 回前台由 play() 懒建，玩家感知不到延迟。
+    Sound.destroy();
   },
 
   onUnload() {
@@ -19277,6 +19501,8 @@ Page({
     this.stopInvitePolling();
     this.stopChatPolling();
     U.stopHeartbeat();
+    // 官方明确音频资源不会自动回收，页面销毁必须显式释放
+    Sound.destroy();
   },
 
   onResize() {
@@ -19372,6 +19598,8 @@ Page({
     }, this.profile);
     // 结算后才把本局增量推上云，榜单一局只写一次（_resultRecorded + gameId 双重幂等）
     this.publishLeaderboard(rec);
+    // 胜负音效放在记账之后：确认这一局真的入账了才响，避免重连撞旧快照时误响
+    Sound.play(st.winner === seat ? 'win' : (st.winner === -2 ? 'noble' : 'lose'));
   },
 
   /**
@@ -20176,7 +20404,7 @@ Page({
       tone: mine ? 'mine' : (p.isAI ? 'bot' : 'other')
     };
     const that = this;
-    if (mine) haptic('medium');
+    if (mine) { haptic('medium'); Sound.play('turn'); }
     if (this._flashTimer) clearTimeout(this._flashTimer);
     this._flashTimer = setTimeout(function () {
       that._flashTimer = null;
@@ -21059,10 +21287,13 @@ Page({
     const result = E.performAction(this.state, action);
     if (!result.ok) {
       haptic('medium');
+      Sound.play('error');
       this.refresh(result.error);
       return false;
     }
     haptic('light');
+    // 音效与动作语义绑定：拿筹码 / 买卡 / 预留 / 贵族各有不同音色
+    playActionSound(action);
     if (myPlayer && actorSeat === (this.mySeat || 0)) {
       const dPts = myPlayer.points - prevPoints;
       const dTok = E.tokenTotal(myPlayer) - prevTokens;
@@ -22479,7 +22710,23 @@ Page({
       if (o.complete) o.complete();
     },
     showToast: function () {},
-    vibrateShort: function () {}
+    vibrateShort: function () {},
+    // 音效：把小程序 API 映射到浏览器原生 WebAudio，让 H5 预览也能听到声音。
+    // 浏览器没有该 API 时返回 undefined，sound.js 会自行降级为静默。
+    //
+    // 注意：这里刻意不提供 getStorageSync/setStorageSync。
+    // utils/room.js 的 backend() 用「三个存储方法是否齐全」判断能否把 wx 当后端，
+    // 一旦补上一部分就会抢占 localStorage 分支，反而让 H5 预览拿不到同一份数据。
+    // 预览环境的存储继续走 room.js 自己的 localStorage/内存回退。
+    createWebAudioContext: (function () {
+      var A = window.AudioContext || window.webkitAudioContext;
+      if (!A) return undefined;
+      var shared = null;
+      return function () {
+        if (!shared) { try { shared = new A(); } catch (e) { return undefined; } }
+        return shared;
+      };
+    })()
   };
 
   var cfg = window.__pageConfig;
