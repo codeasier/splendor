@@ -6131,12 +6131,119 @@ function vacantSeat(seat, index) {
   });
 }
 
+/* ==================== 席位超时回收 ==================== */
+/*
+ * 掉线判定：以「最后一次心跳时间」为准，超过窗口即视为离开。
+ *
+ * 为什么不靠主动通知：微信小程序切后台后 JS 定时器会被冻结，进程被杀更不会
+ * 发出任何事件。所以「关掉小程序」只能靠心跳停止来推断，没有别的办法。
+ *
+ * 窗口取值必须显著大于心跳间隔，否则正常玩家会在两次心跳之间被误判掉线。
+ * 当前心跳 10s / 窗口 30s = 3 个心跳周期，连续丢两次仍不会被踢。
+ */
+const HEARTBEAT_STALE_MS = 30 * 1000;
+
+/**
+ * 判断某个席位是否已掉线。
+ * @param {object} seat     席位对象
+ * @param {number} nowMs    当前时间戳（显式传入，便于测试）
+ * @returns {boolean} true = 该席位应被释放
+ *
+ * 不该被释放的情况：
+ *   - 空席（uid 为空）/ 机器人：本来就没人在
+ *   - lastSeen 缺失：老数据或刚加入还没上报，宁可留着也不误踢
+ */
+function isSeatStale(seat, nowMs) {
+  if (!seat || seat.isAI) return false;
+  if (!seat.uid) return false;
+  const last = Number(seat.lastSeen) || 0;
+  if (!last) return false;
+  const now = Number(nowMs) || Date.now();
+  return now - last > HEARTBEAT_STALE_MS;
+}
+
+/**
+ * 回收掉线席位，必要时把房主顺延给下一个人。
+ *
+ * 房主顺延规则（按用户要求）：
+ *   0 号席掉线 → 从 1..n 里找第一个「真人且在线」的席位接任。
+ *   接手者会被搬到 0 号位，原 0 号位空出来 —— 因为全局代码都把 0 号
+ *   当作房主（`mySeat === 0` 判定解散权、开局权），换索引比改一堆判断安全。
+ *
+ * @returns {{seats: Array, changed: boolean, newHostUid: string, dropped: Array<string>}}
+ *          changed=false 时应直接复用原数组，避免无谓的云端写入
+ */
+function reapStaleSeats(seats, nowMs) {
+  const list = (seats || []).map(function (s, i) { return Object.assign({}, s, { index: i }); });
+  const dropped = [];
+  let changed = false;
+
+  for (let i = 0; i < list.length; i += 1) {
+    if (isSeatStale(list[i], nowMs)) {
+      dropped.push(String(list[i].uid));
+      list[i] = vacantSeat(list[i], i);
+      changed = true;
+    }
+  }
+
+  let newHostUid = '';
+  // 房主位掉了才需要顺延；没掉就保持原样
+  if (list.length && !list[0].uid && !list[0].isAI) {
+    for (let i = 1; i < list.length; i += 1) {
+      const s = list[i];
+      if (s && s.uid && !s.isAI && !isSeatStale(s, nowMs)) {
+        // 接班者搬到 0 号位，原位置空出
+        const heir = Object.assign({}, s, { index: 0, type: 'self', ready: true });
+        list[0] = heir;
+        list[i] = vacantSeat(s, i);
+        newHostUid = String(heir.uid);
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  return { seats: list, changed: changed, newHostUid: newHostUid, dropped: dropped };
+}
+
+/**
+ * 把「在线 uid 集合」回写成席位的 lastSeen 时间戳。
+ *
+ * 为什么由房主统一回写、而不是每人自己 CAS 更新自己的席位：
+ *   房间是一个版本号 CAS 行，N 个人同时改会互相冲突（version 不匹配直接失败），
+ *   最后大部分人的更新都白写。房主端本来就在轮询房间行，顺手把「谁在线」
+ *   一次性写回，只产生一次写操作且不会冲突。
+ *
+ * @param {Array} seats   当前席位
+ * @param {object} onlineUidMap  {uid: true} 形式的在线集合（来自 presence 表）
+ * @param {number} nowMs  当前时间戳
+ * @returns {{seats: Array, changed: boolean}}
+ */
+function stampSeatActivity(seats, onlineUidMap, nowMs) {
+  const map = onlineUidMap || {};
+  const now = Number(nowMs) || Date.now();
+  let changed = false;
+  const list = (seats || []).map(function (s, i) {
+    const seat = Object.assign({}, s, { index: i });
+    if (!seat.uid || seat.isAI) return seat;
+    // 在线 → 刷新时间；不在线 → 保留原值，让 reapStaleSeats 按超时判断
+    if (map[String(seat.uid)]) {
+      seat.lastSeen = now;
+      changed = true;
+    }
+    return seat;
+  });
+  return { seats: list, changed: changed };
+}
+
+
+
 /**
  * 生成席位：0 号恒为房主，其余按 bots 数组决定真人空席或机器人。
  * ready 语义：房主创建房间即视为已就绪；机器人恒定就绪；真人入席后需自己点准备。
  */
 function makeSeats(playerCount, bots, profile) {
-  const seats = [];
+const seats = [];
   for (let i = 0; i < playerCount; i++) {
     const isAI = i > 0 ? !!bots[i] : false;
     seats.push({
@@ -6209,7 +6316,10 @@ function joinRoom(code, profile) {
       room.seats[i] = Object.assign({}, s, {
         uid: p.uid, name: Nick.maskName(p.nickname), nickname: Nick.maskName(p.nickname),
         avatar: p.avatar, avatarUrl: '',
-        type: 'remote', joined: true
+        type: 'remote', joined: true,
+        // 入席即记活跃时间：否则新玩家刚进来就切后台时 lastSeen 为空，
+        // isSeatStale 为了不误踢会一直返回 false，导致席位永久占住。
+        lastSeen: Date.now()
       });
       placed = true;
     }
@@ -6599,7 +6709,9 @@ async function cloudJoinRoom(code, profile) {
         avatarUrl: p.avatarUrl || '',
         type: 'remote',
         joined: true,
-        ready: false
+        ready: false,
+        // 同 joinRoom：入席即记活跃时间，否则新玩家进来就切后台会导致席位永不回收
+        lastSeen: Date.now()
       });
       const saved = await cloudUpdateSeats(normalized, seats, pulled.version);
       if (!saved.ok) return saved;
@@ -6641,6 +6753,11 @@ module.exports = {
   storageBackend: backend,
   makeSeats: makeSeats,
   vacantSeat: vacantSeat,
+  // 席位超时回收：纯函数，显式传入时间戳，便于测试与跨设备一致性
+  isSeatStale: isSeatStale,
+  reapStaleSeats: reapStaleSeats,
+  stampSeatActivity: stampSeatActivity,
+  HEARTBEAT_STALE_MS: HEARTBEAT_STALE_MS,
   randomFirstSeat: randomFirstSeat,
   createRoom: createRoom,
   getRoom: getRoom,
@@ -7325,15 +7442,28 @@ async function syncProfile(profile) {
  * 更不该把用户从本机模式踢出去。
  */
 const PRESENCE_TABLE = 'splendor_presence';
-/* 心跳间隔：比在线窗口短得多，避免刚好卡在窗口边界上被算成离线 */
-const HEARTBEAT_MS = 45 * 1000;
+/* 心跳间隔：从 45s 收紧到 10s。
+ * 原因是席位回收窗口设为 30s（见 room.js 的 HEARTBEAT_STALE_MS）——
+ * 心跳必须明显密于判定窗口，否则正常玩家会在两次心跳之间被误判掉线。
+ * 10s / 30s = 3 个周期容忍度，连续丢两次心跳仍不会被踢。
+ * 代价是云调用量约 4.5 倍；在线人数统计与席位回收共用这一次写入，不额外增加请求。 */
+const HEARTBEAT_MS = 10 * 1000;
 /* 在线窗口：2 分钟内有过心跳即视为在线。窗口太短会让切后台回来的玩家瞬间「消失」 */
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
 let heartbeatTimer = null;
 let heartbeatUid = '';
+/* 当前心跳绑定的房间上下文：只在房间里才需要刷新席位活跃时间 */
+let heartbeatRoom = '';
 
-/** 上报一次自己的在线时间；失败不抛错 */
+/**
+ * 上报一次自己的在线时间；失败不抛错。
+ *
+ * 同时刷新房间里自己席位的 lastSeen —— 席位回收（room.js 的 reapStaleSeats）
+ * 就是靠这个字段判断谁掉线了。不额外发请求：一次心跳只写 presence 表，
+ * 席位时间由房主端轮询时统一回写（见页面 pollCloud），避免每人都去 CAS 写房间行
+ * 造成版本冲突。
+ */
 async function heartbeat(profile) {
   const database = db();
   if (!database) return { ok: false, offline: true };
@@ -21019,6 +21149,52 @@ Page(withTapSound({
   },
 
   /**
+   * 房主端席位回收：把「谁在线」写回席位活跃时间，再释放超时席位。
+   *
+   * 两个动作一次完成，只产生一次房间写入：
+   *   1. stampSeatActivity —— 在线的人刷新 lastSeen（在线集合来自 presence 心跳表）
+   *   2. reapStaleSeats —— 超过 30s 没心跳的席位释放，房主掉了就顺延给下一个人
+   *
+   * 只在房主、只在 lobby 态执行。开局后席位固定，不在这里动（否则一次网络
+   * 抖动会把正在思考的玩家踢掉，而这正是最不该发生的事）。
+   */
+  reapSeatsIfNeeded(seats, version) {
+    if (this._reaping) return;
+    const that = this;
+    const code = this._cloudCode;
+    if (!code || !R.hasCloud()) return;
+    const uids = (seats || []).map(function (s) { return s && s.uid; }).filter(Boolean);
+    if (uids.length <= 1) return;   // 只有房主自己，没什么可回收的
+
+    this._reaping = true;
+    U.listOnlineUids(uids).then(function (online) {
+      that._reaping = false;
+      if (that._unloaded || that._cloudCode !== code) return;
+      const map = (online && online.map) || {};
+      const now = Date.now();
+      // 先按在线集合刷新活跃时间，再判断谁超时
+      const stamped = R.stampSeatActivity(seats, map, now);
+      const reaped = R.reapStaleSeats(stamped.seats, now);
+      if (!reaped.changed) return;
+
+      // 只要席位有变化就写回。CAS 冲突（别人刚改过）直接放弃，
+      // 下一轮轮询会基于新版本重算，不需要重试逻辑。
+      R.cloudUpdateSeats(code, reaped.seats, version).then(function (res) {
+        if (that._unloaded || that._cloudCode !== code) return;
+        if (!res.ok) return;
+        that._roomVersion = res.version;
+        // 房主顺延给了别人：本机不再是房主，直接回大厅（把房间让出去）
+        if (reaped.newHostUid && reaped.newHostUid !== String(that.profile.uid || '')) {
+          that.handleRoomLost('', '房主已离线，房主权限已顺延给其他玩家');
+          return;
+        }
+        // 有玩家掉线：刷新一下让席位变化立刻可见，不等下一轮
+        that.refresh('');
+      });
+    }).catch(function () { that._reaping = false; });
+  },
+
+  /**
    * 轮询到新的席位表时，判断本机是否已被房主移出房间。
    * 房主（mySeat=0）不会被移出；非房主按 uid 在 1..n-1 号席里找自己，
    * 席位被释放后 uid 变空，这里就会返回 false。
@@ -21582,6 +21758,11 @@ Page(withTapSound({
         if (res.room.status === 'playing') {
           that.enterCloudGame();
           return;
+        }
+        // 席位回收：只有房主执行，避免每台设备都去写房间行造成版本冲突。
+        // 玩家切后台被杀进程时发不出任何事件，只能靠心跳停止来推断掉线。
+        if (that.mySeat === 0 && res.room.status === 'lobby') {
+          that.reapSeatsIfNeeded(res.room.seats, res.version);
         }
         if (changed) that.refresh('');
       });
@@ -22883,6 +23064,32 @@ Page(withTapSound({
     this.refresh(message || '已返回大厅');
   },
 
+  /**
+   * 主动离开时立刻清空自己的席位（非房主专用）。
+   *
+   * 和 30s 心跳超时的区别：这是一次明确的「我要走了」信号，必须立即生效。
+   * 等超时会让房间里其他人盯着一个空位置等半分钟，体验很差。
+   *
+   * 注意：不等结果、不阻塞返回。玩家已经决定离开，网络成功与否都该立刻回大厅；
+   * 万一这次写入失败，30s 后的心跳超时仍会兜底回收，不会永久占位。
+   */
+  releaseMySeat() {
+    if (!R.hasCloud()) return;
+    const code = this._cloudCode;
+    if (!code) return;
+    // 房主走的是「解散房间」路径，不需要单独清席位
+    if (this.mySeat === 0) return;
+    const uid = String((this.profile && this.profile.uid) || '');
+    if (!uid) return;
+    const seats = (this.room && this.room.seats) || [];
+    if (!seats.length) return;
+    const next = seats.map(function (s, i) {
+      if (s && !s.isAI && String(s.uid || '') === uid) return R.vacantSeat(s, i);
+      return Object.assign({}, s, { index: i });
+    });
+    R.cloudUpdateSeats(code, next, this._roomVersion || 1).then(function () {});
+  },
+
   /** 离开房间 / 退出当前牌局，统一回到首页 */
   onLeaveRoom() {    this.clearTimer();
     this.resetTurnUI();
@@ -22901,6 +23108,10 @@ Page(withTapSound({
           .then(function () {});
       }
     }
+    // 非房主主动离开：立刻把自己的席位清空。
+    // 不清理的话，其他人会一直看到一个「已离开但还占着位置」的真人，
+    // 房间既开不了局也补不进人 —— 必须主动释放，而不是等 30s 心跳超时。
+    this.releaseMySeat();
     // 主动离开即作废会话，否则下次启动会被自动拉回这个房间
     this.clearSession();
     this.state = null;

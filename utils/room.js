@@ -243,12 +243,119 @@ function vacantSeat(seat, index) {
   });
 }
 
+/* ==================== 席位超时回收 ==================== */
+/*
+ * 掉线判定：以「最后一次心跳时间」为准，超过窗口即视为离开。
+ *
+ * 为什么不靠主动通知：微信小程序切后台后 JS 定时器会被冻结，进程被杀更不会
+ * 发出任何事件。所以「关掉小程序」只能靠心跳停止来推断，没有别的办法。
+ *
+ * 窗口取值必须显著大于心跳间隔，否则正常玩家会在两次心跳之间被误判掉线。
+ * 当前心跳 10s / 窗口 30s = 3 个心跳周期，连续丢两次仍不会被踢。
+ */
+const HEARTBEAT_STALE_MS = 30 * 1000;
+
+/**
+ * 判断某个席位是否已掉线。
+ * @param {object} seat     席位对象
+ * @param {number} nowMs    当前时间戳（显式传入，便于测试）
+ * @returns {boolean} true = 该席位应被释放
+ *
+ * 不该被释放的情况：
+ *   - 空席（uid 为空）/ 机器人：本来就没人在
+ *   - lastSeen 缺失：老数据或刚加入还没上报，宁可留着也不误踢
+ */
+function isSeatStale(seat, nowMs) {
+  if (!seat || seat.isAI) return false;
+  if (!seat.uid) return false;
+  const last = Number(seat.lastSeen) || 0;
+  if (!last) return false;
+  const now = Number(nowMs) || Date.now();
+  return now - last > HEARTBEAT_STALE_MS;
+}
+
+/**
+ * 回收掉线席位，必要时把房主顺延给下一个人。
+ *
+ * 房主顺延规则（按用户要求）：
+ *   0 号席掉线 → 从 1..n 里找第一个「真人且在线」的席位接任。
+ *   接手者会被搬到 0 号位，原 0 号位空出来 —— 因为全局代码都把 0 号
+ *   当作房主（`mySeat === 0` 判定解散权、开局权），换索引比改一堆判断安全。
+ *
+ * @returns {{seats: Array, changed: boolean, newHostUid: string, dropped: Array<string>}}
+ *          changed=false 时应直接复用原数组，避免无谓的云端写入
+ */
+function reapStaleSeats(seats, nowMs) {
+  const list = (seats || []).map(function (s, i) { return Object.assign({}, s, { index: i }); });
+  const dropped = [];
+  let changed = false;
+
+  for (let i = 0; i < list.length; i += 1) {
+    if (isSeatStale(list[i], nowMs)) {
+      dropped.push(String(list[i].uid));
+      list[i] = vacantSeat(list[i], i);
+      changed = true;
+    }
+  }
+
+  let newHostUid = '';
+  // 房主位掉了才需要顺延；没掉就保持原样
+  if (list.length && !list[0].uid && !list[0].isAI) {
+    for (let i = 1; i < list.length; i += 1) {
+      const s = list[i];
+      if (s && s.uid && !s.isAI && !isSeatStale(s, nowMs)) {
+        // 接班者搬到 0 号位，原位置空出
+        const heir = Object.assign({}, s, { index: 0, type: 'self', ready: true });
+        list[0] = heir;
+        list[i] = vacantSeat(s, i);
+        newHostUid = String(heir.uid);
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  return { seats: list, changed: changed, newHostUid: newHostUid, dropped: dropped };
+}
+
+/**
+ * 把「在线 uid 集合」回写成席位的 lastSeen 时间戳。
+ *
+ * 为什么由房主统一回写、而不是每人自己 CAS 更新自己的席位：
+ *   房间是一个版本号 CAS 行，N 个人同时改会互相冲突（version 不匹配直接失败），
+ *   最后大部分人的更新都白写。房主端本来就在轮询房间行，顺手把「谁在线」
+ *   一次性写回，只产生一次写操作且不会冲突。
+ *
+ * @param {Array} seats   当前席位
+ * @param {object} onlineUidMap  {uid: true} 形式的在线集合（来自 presence 表）
+ * @param {number} nowMs  当前时间戳
+ * @returns {{seats: Array, changed: boolean}}
+ */
+function stampSeatActivity(seats, onlineUidMap, nowMs) {
+  const map = onlineUidMap || {};
+  const now = Number(nowMs) || Date.now();
+  let changed = false;
+  const list = (seats || []).map(function (s, i) {
+    const seat = Object.assign({}, s, { index: i });
+    if (!seat.uid || seat.isAI) return seat;
+    // 在线 → 刷新时间；不在线 → 保留原值，让 reapStaleSeats 按超时判断
+    if (map[String(seat.uid)]) {
+      seat.lastSeen = now;
+      changed = true;
+    }
+    return seat;
+  });
+  return { seats: list, changed: changed };
+}
+
+
+
 /**
  * 生成席位：0 号恒为房主，其余按 bots 数组决定真人空席或机器人。
  * ready 语义：房主创建房间即视为已就绪；机器人恒定就绪；真人入席后需自己点准备。
  */
 function makeSeats(playerCount, bots, profile) {
-  const seats = [];
+const seats = [];
   for (let i = 0; i < playerCount; i++) {
     const isAI = i > 0 ? !!bots[i] : false;
     seats.push({
@@ -321,7 +428,10 @@ function joinRoom(code, profile) {
       room.seats[i] = Object.assign({}, s, {
         uid: p.uid, name: Nick.maskName(p.nickname), nickname: Nick.maskName(p.nickname),
         avatar: p.avatar, avatarUrl: '',
-        type: 'remote', joined: true
+        type: 'remote', joined: true,
+        // 入席即记活跃时间：否则新玩家刚进来就切后台时 lastSeen 为空，
+        // isSeatStale 为了不误踢会一直返回 false，导致席位永久占住。
+        lastSeen: Date.now()
       });
       placed = true;
     }
@@ -711,7 +821,9 @@ async function cloudJoinRoom(code, profile) {
         avatarUrl: p.avatarUrl || '',
         type: 'remote',
         joined: true,
-        ready: false
+        ready: false,
+        // 同 joinRoom：入席即记活跃时间，否则新玩家进来就切后台会导致席位永不回收
+        lastSeen: Date.now()
       });
       const saved = await cloudUpdateSeats(normalized, seats, pulled.version);
       if (!saved.ok) return saved;
@@ -753,6 +865,11 @@ module.exports = {
   storageBackend: backend,
   makeSeats: makeSeats,
   vacantSeat: vacantSeat,
+  // 席位超时回收：纯函数，显式传入时间戳，便于测试与跨设备一致性
+  isSeatStale: isSeatStale,
+  reapStaleSeats: reapStaleSeats,
+  stampSeatActivity: stampSeatActivity,
+  HEARTBEAT_STALE_MS: HEARTBEAT_STALE_MS,
   randomFirstSeat: randomFirstSeat,
   createRoom: createRoom,
   getRoom: getRoom,

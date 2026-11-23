@@ -476,6 +476,57 @@ ok('重开投票 · 弹层渲染 / catchtap 绑定 / 预览模块已注册');
     actionCount + ' 动作 + ' + tapCount + ' 交互）/ BGM 音量合规');
 })();
 
+// 7.13 席位超时回收：心跳必须密于判定窗口，否则正常玩家会被误踢。
+//      这是最容易在调参时搞反的一对数字，锁死两者关系。
+(function () {
+  const roomSrc = read('utils/room.js');
+  const userSrc = read('utils/user.js');
+  const pageSrc = read('pages/index/index.js');
+
+  const staleMatch = /HEARTBEAT_STALE_MS = (\d+) \* 1000/.exec(roomSrc);
+  if (!staleMatch) fail('room.js 缺少 HEARTBEAT_STALE_MS 定义');
+  const staleMs = Number(staleMatch[1]) * 1000;
+
+  const hbMatch = /HEARTBEAT_MS = (\d+) \* 1000/.exec(userSrc);
+  if (!hbMatch) fail('user.js 缺少 HEARTBEAT_MS 定义');
+  const hbMs = Number(hbMatch[1]) * 1000;
+
+  // 核心不变量：心跳间隔必须明显小于回收窗口。
+  // 若心跳 45s / 窗口 30s，正常玩家必然在两次心跳之间被误判掉线。
+  if (hbMs >= staleMs) {
+    fail('心跳间隔 ' + (hbMs / 1000) + 's 必须小于回收窗口 ' + (staleMs / 1000) + 's（否则会误踢正常玩家）');
+  }
+  if (staleMs / hbMs < 2) {
+    fail('回收窗口应至少容纳 2 个心跳周期才能容忍偶发丢包（当前 ' + (staleMs / hbMs).toFixed(1) + ' 倍）');
+  }
+
+  // 三个环节必须都在：判定 → 回收顺延 → 页面接线
+  if (roomSrc.indexOf('function isSeatStale') < 0) fail('room.js 缺少 isSeatStale');
+  if (roomSrc.indexOf('function reapStaleSeats') < 0) fail('room.js 缺少 reapStaleSeats');
+  if (roomSrc.indexOf('function stampSeatActivity') < 0) fail('room.js 缺少 stampSeatActivity');
+  if (pageSrc.indexOf('reapSeatsIfNeeded(') < 0) fail('index.js 未接线房主席位回收');
+  if (pageSrc.indexOf('releaseMySeat()') < 0) fail('index.js 未实现主动离房清席位');
+
+  // 主动离房必须真的清席位，而不是只做本机状态清理
+  const leaveIdx = pageSrc.indexOf('onLeaveRoom()');
+  if (leaveIdx < 0 || pageSrc.indexOf('this.releaseMySeat()', leaveIdx) < 0) {
+    fail('onLeaveRoom 必须在离房时调用 releaseMySeat（否则席位会一直占着）');
+  }
+  // 席位回收只能房主执行，否则多端并发写房间行会互相冲突
+  if (!/mySeat === 0[^\n]*reapSeatsIfNeeded|reapSeatsIfNeeded[\s\S]{0,400}mySeat === 0/.test(pageSrc)) {
+    // 反向检查：调用点附近必须有房主判断
+    const callIdx = pageSrc.indexOf('that.reapSeatsIfNeeded(');
+    if (callIdx < 0) fail('index.js 未调用 reapSeatsIfNeeded');
+    const around = pageSrc.slice(Math.max(0, callIdx - 400), callIdx);
+    if (around.indexOf('mySeat === 0') < 0) {
+      fail('reapSeatsIfNeeded 必须在房主端调用（避免多端并发写冲突）');
+    }
+  }
+
+  ok('席位回收 · 心跳 ' + (hbMs / 1000) + 's < 窗口 ' + (staleMs / 1000) + 's（' +
+    (staleMs / hbMs).toFixed(1) + ' 个周期）/ 房主顺延 / 主动离房即刻清席位');
+})();
+
 // 8. 本地引用检查（require 路径）
 const reqRe = /require\(['"]([^'"]+)['"]\)/g;
 let qm;

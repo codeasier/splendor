@@ -507,15 +507,28 @@ async function syncProfile(profile) {
  * 更不该把用户从本机模式踢出去。
  */
 const PRESENCE_TABLE = 'splendor_presence';
-/* 心跳间隔：比在线窗口短得多，避免刚好卡在窗口边界上被算成离线 */
-const HEARTBEAT_MS = 45 * 1000;
+/* 心跳间隔：从 45s 收紧到 10s。
+ * 原因是席位回收窗口设为 30s（见 room.js 的 HEARTBEAT_STALE_MS）——
+ * 心跳必须明显密于判定窗口，否则正常玩家会在两次心跳之间被误判掉线。
+ * 10s / 30s = 3 个周期容忍度，连续丢两次心跳仍不会被踢。
+ * 代价是云调用量约 4.5 倍；在线人数统计与席位回收共用这一次写入，不额外增加请求。 */
+const HEARTBEAT_MS = 10 * 1000;
 /* 在线窗口：2 分钟内有过心跳即视为在线。窗口太短会让切后台回来的玩家瞬间「消失」 */
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
 let heartbeatTimer = null;
 let heartbeatUid = '';
+/* 当前心跳绑定的房间上下文：只在房间里才需要刷新席位活跃时间 */
+let heartbeatRoom = '';
 
-/** 上报一次自己的在线时间；失败不抛错 */
+/**
+ * 上报一次自己的在线时间；失败不抛错。
+ *
+ * 同时刷新房间里自己席位的 lastSeen —— 席位回收（room.js 的 reapStaleSeats）
+ * 就是靠这个字段判断谁掉线了。不额外发请求：一次心跳只写 presence 表，
+ * 席位时间由房主端轮询时统一回写（见页面 pollCloud），避免每人都去 CAS 写房间行
+ * 造成版本冲突。
+ */
 async function heartbeat(profile) {
   const database = db();
   if (!database) return { ok: false, offline: true };

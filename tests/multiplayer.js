@@ -431,6 +431,86 @@ async function cloudChecks() {
   R.clear();
 
   console.log('PASS  云端 RoomAdapter：离线降级 / 大厅入席 / 准备 / 开局 / 快照 / 乐观锁 / 断线重连 / 解散 / 房主踢人');
+
+  /* ---------- 席位超时回收（第七十一轮） ----------
+   * 玩家切后台被杀进程时发不出任何事件，只能靠心跳停止推断掉线。
+   * 这三条不变量必须成立，否则要么误踢活人，要么死人永远占位。 */
+  const now = 1000000;
+  const W = R.HEARTBEAT_STALE_MS;
+
+  // 1. 窗口内活跃 → 不回收；超窗口 → 回收
+  assert.equal(R.isSeatStale({ uid: 'a', isAI: false, lastSeen: now - 1000 }, now), false,
+    '1s 前有心跳不应判掉线');
+  assert.equal(R.isSeatStale({ uid: 'a', isAI: false, lastSeen: now - W - 1 }, now), true,
+    '超过窗口应判掉线');
+  assert.equal(R.isSeatStale({ uid: 'a', isAI: false, lastSeen: now - W + 1000 }, now), false,
+    '刚好卡在窗口边缘不应误踢（留 1s 余量）');
+
+  // 2. 空席 / 机器人 / 无 lastSeen 都不该被当成掉线
+  assert.equal(R.isSeatStale({ uid: '', isAI: false }, now), false, '空席不算掉线');
+  assert.equal(R.isSeatStale({ uid: 'bot', isAI: true }, now), false, '机器人不算掉线');
+  assert.equal(R.isSeatStale({ uid: 'a', isAI: false }, now), false,
+    '无 lastSeen 的老数据不应被误踢（宁可留着）');
+
+  // 3. 普通玩家掉线：只清他的席位，别人不动
+  const rp_s1 = [
+    { uid: 'host', isAI: false, lastSeen: now },
+    { uid: 'gone', isAI: false, lastSeen: now - W - 5000 },
+    { uid: 'alive', isAI: false, lastSeen: now }
+  ];
+  const rp_r1 = R.reapStaleSeats(rp_s1, now);
+  assert.equal(rp_r1.changed, true, '有掉线席位时 changed 应为 true');
+  assert.deepEqual(rp_r1.dropped, ['gone'], '只回收超时的那个');
+  assert.equal(rp_r1.seats[0].uid, 'host', '房主未掉线时保持原位');
+  assert.equal(rp_r1.seats[1].uid, '', '掉线席位应清空');
+  assert.equal(rp_r1.seats[2].uid, 'alive', '在线玩家不受影响');
+  assert.equal(rp_r1.newHostUid, '', '房主没掉线就不该顺延');
+
+  // 4. 房主掉线 → 顺延给下一个在线的真人
+  const rp_s2 = [
+    { uid: 'host', isAI: false, lastSeen: now - W - 5000 },
+    { uid: 'p1', isAI: false, lastSeen: now },
+    { uid: 'p2', isAI: false, lastSeen: now }
+  ];
+  const rp_r2 = R.reapStaleSeats(rp_s2, now);
+  assert.equal(rp_r2.newHostUid, 'p1', '房主掉线应由第一个在线真人接任');
+  assert.equal(rp_r2.seats[0].uid, 'p1', '接班者搬到 0 号位');
+  assert.equal(rp_r2.seats[0].type, 'self', '接班者类型应转为房主');
+  assert.equal(rp_r2.seats[1].uid, '', '接班者原位置应空出');
+  assert.equal(rp_r2.seats[2].uid, 'p2', '其他人不动');
+
+  // 5. 房主掉线但其他人也都不在线 → 不顺延，保留空房主位
+  const rp_s3 = [
+    { uid: 'host', isAI: false, lastSeen: now - W - 5000 },
+    { uid: 'p1', isAI: false, lastSeen: now - W - 5000 }
+  ];
+  const rp_r3 = R.reapStaleSeats(rp_s3, now);
+  assert.equal(rp_r3.newHostUid, '', '没有在线真人时不顺延');
+  assert.equal(rp_r3.seats[0].uid, '', '房主位保持空');
+
+  // 6. 全员在线 → changed=false，避免无谓的云端写入
+  const rp_s4 = [
+    { uid: 'host', isAI: false, lastSeen: now },
+    { uid: 'p1', isAI: false, lastSeen: now }
+  ];
+  assert.equal(R.reapStaleSeats(rp_s4, now).changed, false, '没人掉线时不应产生写入');
+
+  // 7. 活跃时间戳：只刷新在线的人，离线者保留原值供后续判定
+  const stamp = R.stampSeatActivity(
+    [{ uid: 'a', isAI: false, lastSeen: 1 }, { uid: 'b', isAI: false }],
+    { a: true }, 777
+  );
+  assert.equal(stamp.changed, true, '有在线者刷新时间应 changed=true');
+  assert.equal(stamp.seats[0].lastSeen, 777, '在线者时间被刷新');
+  assert.equal(stamp.seats[1].lastSeen, undefined, '离线者不写入时间（保留原状）');
+  assert.equal(R.stampSeatActivity(rp_s4, {}, now).changed, false, '没人在线时不应产生写入');
+
+  // 8. 不放宽：窗口必须显著大于心跳间隔，否则活人会在两次心跳间被误踢
+  assert.equal(W, 30000, '回收窗口应为 30s');
+
+  R.clear();
+
+  console.log('PASS  席位超时回收：窗口判定 / 空席与机器人豁免 / 房主顺延 / 无变化不写入');
   console.log('ALL MULTIPLAYER CHECKS PASSED');
 }
 
