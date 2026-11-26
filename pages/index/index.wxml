@@ -24,6 +24,13 @@
     <!-- ========== 牌桌图层：仅在 screen === 'game' 时渲染 ========== -->
     <view wx:if="{{screen === 'game'}}" class="board-layer">
 
+    <!-- 观战标识：常驻左上，明确告知「你没有操作权」，
+         避免玩家误以为自己卡住或掉线。 -->
+    <view wx:if="{{spectating}}" class="spectate-badge">
+      <text class="spectate-badge-dot">●</text>
+      <text>观战中 · 只读</text>
+    </view>
+
     <!-- ========== 组件：多席位状态条 / 紧凑回合提示 / 右上入口 ==========
          顶栏高度全部让给对手卡：回合标题从 23px 大标题收成 15px 紧凑提示，
          中央只保留「行动中是谁 + 轮次 + 计时 + 上一手」四件必要信息。 -->
@@ -824,10 +831,28 @@
                       bindtap="onSelectTurnLimit" data-value="{{item.value}}">{{item.label}}</view>
               </view>
             </view>
+            <!-- 观战开关：默认关闭。开启后陌生人凭房间号即可看到所有人手牌，
+                 这是隐私决定，不能默认放开。 -->
+            <view wx:if="{{home.dialog === 'create'}}" class="guild-config-row">
+              <text class="guild-config-label">允许观战</text>
+              <view class="sound-switches">
+                <view class="sound-switch {{home.allowSpectate ? 'is-on' : 'is-off'}}"
+                      bindtap="onToggleAllowSpectate" hover-class="sound-switch-hover">
+                  <text class="sound-switch-icon">{{home.allowSpectate ? '👁' : '🚫'}}</text>
+                  <text class="sound-switch-label">{{home.allowSpectate ? '开启' : '关闭'}}</text>
+                </view>
+              </view>
+            </view>
             <view wx:if="{{home.dialog === 'join'}}" class="guild-config-row">
               <text class="guild-config-label">房间号</text>
               <input class="room-input guild-join-input" type="text" maxlength="6" value="{{home.joinCode}}"
                      placeholder="6 位房间号" bindinput="onJoinCodeInput"></input>
+            </view>
+            <!-- 观战入口：与「加入」并列但视觉次要。观战只读，不占席位，
+                 所以牌局开始后也能进（玩家加入则会被拒）。 -->
+            <view wx:if="{{home.dialog === 'join'}}" class="spectate-row">
+              <text class="spectate-hint">只想看牌？可免席位观战</text>
+              <view class="btn btn-ghost spectate-btn" bindtap="onEnterSpectate" hover-class="btn-hover">观战</view>
             </view>
             <!-- 声音开关：音效与音乐分开控制。玩家常想「关音乐留反馈」，
                  合成一个总开关会让人只能二选一全关掉。两个开关都持久化。 -->

@@ -2538,6 +2538,28 @@ page, .viewport { width: 100vw; height: 100vh; overflow: hidden; }
 .sound-switch-icon { font-size: 14px; line-height: 1; }
 .sound-switch-label { font-size: 11px; letter-spacing: .5px; color: #e0c69e; }
 .sound-switch.is-off .sound-switch-label { color: #8a8578; }
+
+/* 观战入口：与「加入房间」并列但视觉次要，避免抢主操作 */
+.spectate-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 10px;
+}
+.spectate-hint { font-size: 11px; color: #9a9484; letter-spacing: .3px; }
+.spectate-btn { min-width: 72px; height: 38px; line-height: 38px; padding: 0 16px; font-size: 12px; }
+
+/* 观战标识：牌桌左上角常驻。用低饱和金色 + 呼吸点，
+   既显眼又不至于像错误提示那样刺眼。 */
+.spectate-badge {
+  position: absolute; left: max(18px, env(safe-area-inset-left)); top: 8px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  background: rgba(30, 20, 12, .78);
+  border: 1px solid rgba(243, 212, 139, .45);
+  font-size: 11px; letter-spacing: .5px; color: #f3d48b;
+  z-index: 40; pointer-events: none;
+}
+.spectate-badge-dot { font-size: 8px; color: #d98d4f; animation: spectatePulse 1.8s ease-in-out infinite; }
+@keyframes spectatePulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
 .guild-count-pick {
   flex: 1; min-width: 0; height: 44px; padding: 3px; box-sizing: border-box;
   display: flex; align-items: stretch; gap: 3px;

@@ -511,6 +511,67 @@ async function cloudChecks() {
   R.clear();
 
   console.log('PASS  席位超时回收：窗口判定 / 空席与机器人豁免 / 房主顺延 / 无变化不写入');
+
+  /* ---------- 观战模式（方案 A：只读旁战） ----------
+   * 三条不变量：
+   *   1. 观战者绝不写任何表（写一次就会污染回合与 CAS 版本号）
+   *   2. 不占席位（否则会挤掉真人、影响开局人数判断）
+   *   3. 房主没开观战开关就一律拒绝（手牌隐私不能默认放开） */
+  const spectateCloud = mockCloudClient();
+  R.attachCloud(spectateCloud);
+  const spHost = R.saveProfile({ nickname: 'SpHost' });
+
+  // 1. 默认不开启观战 → 拒绝
+  const spRoom = R.createRoom({ profile: spHost, playerCount: 3, seats: R.makeSeats(3, { 2: true }, spHost) });
+  assert.equal(spRoom.allowSpectate, false, 'createRoom 默认不开启观战');
+  await R.cloudCreateRoom(spRoom, null);
+  const sp_denied = await R.cloudSpectateRoom(spRoom.code);
+  assert.equal(sp_denied.ok, false, '未开启观战时观战应被拒绝');
+  assert(/未开启观战/.test(sp_denied.error), '拒绝原因应明确');
+
+  // 2. 开启后可以观战，且不占席位
+  const spRoom2 = R.createRoom({
+    profile: spHost, playerCount: 3,
+    seats: R.makeSeats(3, { 2: true }, spHost), allowSpectate: true
+  });
+  await R.cloudCreateRoom(spRoom2, null);
+  const sp_beforeSeats = JSON.stringify(spRoom2.seats);
+  const sp_okSp = await R.cloudSpectateRoom(spRoom2.code);
+  assert.equal(sp_okSp.ok, true, '开启观战后应允许观战：' + sp_okSp.error);
+  assert.equal(sp_okSp.spectating, true, '应标记为观战');
+  // 打开后重新拉房间，座位必须一模一样（观战没有写 seats）
+  const sp_afterPull = await R.cloudPullRoom(spRoom2.code);
+  assert.equal(JSON.stringify(sp_afterPull.room.seats), sp_beforeSeats, '观战不得修改席位表');
+  // 观战者不在席位里出现
+  const sp_uidsInSeats = sp_afterPull.room.seats.map(function (s) { return s && s.uid; }).filter(Boolean);
+  assert(sp_uidsInSeats.indexOf('spectator-uid') < 0, '观战者不应出现在席位表');
+
+  // 3. 牌局开始后，玩家入席被拒但观战仍可进入
+  await R.cloudUpdateRoom(spRoom2.code, { status: 'playing' }, (await R.cloudPullRoom(spRoom2.code)).version);
+  const sp_lateJoin = await R.cloudJoinRoom(spRoom2.code, Object.assign({}, R.defaultProfile(), { uid: 'late-player' }));
+  assert.equal(sp_lateJoin.ok, false, '开局后玩家不应能入席');
+  assert(/已经开始/.test(sp_lateJoin.error), '应提示牌局已开始');
+  const sp_stillSp = await R.cloudSpectateRoom(spRoom2.code);
+  assert.equal(sp_stillSp.ok, true, '开局后观战仍应允许（这是观战的核心价值）');
+
+  // 4. 房间结束后观战也应拒绝
+  await R.cloudUpdateRoom(spRoom2.code, { status: 'ended' }, (await R.cloudPullRoom(spRoom2.code)).version);
+  const sp_endedSp = await R.cloudSpectateRoom(spRoom2.code);
+  assert.equal(sp_endedSp.ok, false, '房间已结束不应允许观战');
+
+  // 5. 房间号格式校验
+  const sp_badCode = await R.cloudSpectateRoom('AB');
+  assert.equal(sp_badCode.ok, false, '房间号不足 6 位应拒绝');
+
+  // 6. 无云环境优雅降级（不抛错）
+  R.attachCloud(null);
+  const sp_offlineSp = await R.cloudSpectateRoom(spRoom2.code);
+  assert.equal(sp_offlineSp.ok, false, '无云时应返回失败而不是抛错');
+  assert.equal(sp_offlineSp.offline, true, '应标记为离线');
+
+  R.clear();
+
+  console.log('PASS  观战模式：默认关闭 / 开启后只读拉取 / 不占席位 / 开局后仍可进 / 结束与降级');
   console.log('ALL MULTIPLAYER CHECKS PASSED');
 }
 

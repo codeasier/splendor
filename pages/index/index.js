@@ -1071,6 +1071,8 @@ function lobbyVM(ui, profile) {
     // 声音开关状态：直接读音效模块（它内部已从 storage 恢复偏好），
     // 不另存一份 ui 字段，避免出现「界面显示开、实际静音」的不一致。
     sfxOn: !Sound.isSfxMuted(),
+    // 建房弹层里的「允许观战」开关态
+    allowSpectate: !!ui.allowSpectate,
     bgmOn: !Sound.isBgmMuted(),
     // 实时在线人数：由心跳表统计（近 2 分钟内有心跳），不是「历史玩家总数」。
     // onlineReady=false 表示还没查到（首屏 / 离线 / 云不可用），界面据此显示「—」而不是假报 0。
@@ -2088,6 +2090,8 @@ function buildViewModel(state, ui, layout, ctx) {
     })(),
     screen: 'game',
     toast: ui.toast || '',
+    // 观战标识：牌桌层右上角常驻提示「只读」
+    spectating: !!context.spectating,
     themeId: theme.id,
     themeName: theme.name,
     themeFallback: theme.fallback,
@@ -2321,6 +2325,9 @@ function freshUI(config) {
     homeDialog: '',
     homeDialogBefore: null,
     homeNotice: '',
+    // 观战开关：建房时生效，默认关闭（手牌隐私不能默认放开）。
+    // 注意：它只决定「新创建的房间行」的 allow_spectate，不影响已有房间。
+    allowSpectate: false,
     // 房间配置：重开一局时保留人数与机器人席位
     playerCount: c.playerCount || 2,
     bots: c.bots || { 1: false, 2: false, 3: false },
@@ -2884,7 +2891,9 @@ Page(withTapSound({
     }
     this.setData(buildViewModel(this.state, this.ui, this._layout, {
       room: this.room, profile: this.profile, mySeat: this.mySeat,
-      avatars: this._avatars || {}
+      avatars: this._avatars || {},
+      // 观战标识由页面实例决定，不属于 state；显式传进视图构建
+      spectating: !!this._spectating
     }));
     if (this._hidden || this._unloaded) return;
     // 席位里只有 uid：新面孔入席时补一次头像，能命中缓存就不发请求
@@ -3898,6 +3907,84 @@ Page(withTapSound({
   },
 
   /** 好友通过分享卡片 / 房间号入席：进大厅准备，或接管进行中的牌局 */
+  /**
+   * 进入观战（方案 A：只读实时旁观）。
+   *
+   * 关键设计：mySeat = -1 表示「无席位」。
+   *   页面里所有 `mySeat === 0`（房主权限）与 `mySeat === seat`（我的回合）
+   *   判断天然为 false —— 观战者自动获得「无操作权」的上帝视角，
+   *   不需要在每个按钮上加 `wx:if="{{!spectating}}"`。
+   *
+   * 绝不写入任何表：不占席位、不改快照、不参与回合。
+   */
+  enterSpectate(code) {
+    const that = this;
+    const ownerUid = this.profile.uid;
+    const roomCode = String(code || (this.ui && this.ui.joinCode) || '').trim().toUpperCase();
+    if (!roomCode) { this.refresh('请输入房间号'); return; }
+    this._joining = true;
+    this.ui.roomNotice = '正在进入观战 ' + roomCode + ' …';
+    this.ui.homeNotice = '';
+    this.refresh('');
+    return R.cloudSpectateRoom(roomCode).then(function (res) {
+      if (that._unloaded || that.profile.uid !== ownerUid) return;
+      that._joining = false;
+      if (!res.ok) {
+        that.ui.roomNotice = res.error;
+        that.ui.homeNotice = res.error;
+        that.refresh('');
+        return;
+      }
+      that.mode = 'room';
+      // -1 = 观战者，无席位
+      that.mySeat = -1;
+      that._spectating = true;
+      that.room = Object.assign({}, res.room, { mode: 'room' });
+      that._cloudCode = res.room.code;
+      that._roomVersion = res.roomVersion || 1;
+      that._cloudVersion = res.gameVersion || 0;
+      that.ui.playerCount = res.room.playerCount;
+      that.ui.turnLimit = R.normTurnLimit(res.room.turnLimit);
+      that._netFails = 0;
+      that._netDown = false;
+      that.ui.netNotice = '';
+      that.ui.homeNotice = '';
+
+      if (res.status === 'playing' && res.state) {
+        that.adoptCloudState(res.state, true);
+        that.ui.screen = 'game';
+        that.startCloudPolling();
+        that.refresh('观战中 · 房间 ' + res.room.code);
+      } else {
+        // 牌局还没开始：先在房间层等，开局后轮询会把画面切进牌桌
+        that.ui.screen = 'room';
+        that.startCloudPolling();
+        that.refresh('观战中 · 等待房主开始牌局');
+      }
+    });
+  },
+
+  /** 退出观战：只清本机状态，不写云端（观战者本来就没占任何东西） */
+  exitSpectate(message) {
+    this._spectating = false;
+    this.stopCloudPolling();
+    this.resetCloudRequests();
+    this.state = null;
+    this.room = null;
+    this.mySeat = 0;
+    this._cloudCode = '';
+    this._roomVersion = 0;
+    this._cloudVersion = 0;
+    this._netFails = 0;
+    this._netDown = false;
+    this.mode = 'solo';
+    const solo = this.ui.soloCount;
+    const roomCount = this.ui.roomCount;
+    this.ui = freshUI({ screen: 'home', soloCount: solo, roomCount: roomCount });
+    this.ui.homeNotice = message || '已退出观战';
+    this.refresh('');
+  },
+
   joinCloudRoom(code, opts) {
     const that = this;
     const ownerUid = this.profile.uid;
@@ -4001,8 +4088,10 @@ Page(withTapSound({
     if (!sameGame && !ended) this._gameStartedAt = Date.now();
     // 娱乐模式：联机各端首次进场时，若本机席位尚未选增益则弹出选择层。
     // 只在进入新局且非终局时弹，避免每次轮询覆盖玩家正在进行的选 buff 操作。
-    if (!sameGame && !ended && Ent.isEntertainment(st)) {
-      const mine = st.entertainment.buffs[this.mySeat || 0];
+    // 观战者（mySeat = -1）不参与对局，绝不能弹增益选择。
+    if (!sameGame && !ended && !this._spectating && Ent.isEntertainment(st)) {
+      const seat = this.mySeat >= 0 ? this.mySeat : 0;
+      const mine = st.entertainment.buffs[seat];
       this.ui.buffPickOpen = !mine;
     }
   },
@@ -4396,6 +4485,18 @@ Page(withTapSound({
           return;
         }
         that.noteNetOk();
+        // 观战者：房主关掉观战开关就退出观战。
+        // 必须在这里单独判断 —— 观战者没有席位，下面的 seatStillMine 永远为 false，
+        // 不特判会被当成「被移出房间」而反复弹提示。
+        if (that._spectating) {
+          if (!res.room.allowSpectate) { that.exitSpectate('房主已关闭观战'); return; }
+          const changedSp = force || res.version !== that._roomVersion;
+          that._roomVersion = res.version;
+          that.room = Object.assign({}, that.room, res.room, { mode: 'room' });
+          if (res.room.status === 'playing') { that.enterCloudGame(); return; }
+          if (changedSp) that.refresh('');
+          return;
+        }
         if (res.room.status === 'ended') { that.handleRoomLost('房主已解散房间'); return; }
         // 被房主移出房间：本机 uid 已从席位表消失。只在 lobby 态判定 ——
         // 开局后不改席位，避免牌桌端因一次抖动被误判踢出。
@@ -5249,6 +5350,28 @@ Page(withTapSound({
   },
   onJoinRoom() { this.onJoinFromHome(); },
 
+  /** 观战入口：复用加入房间的校验，但走只读通道 */
+  onEnterSpectate() {
+    const code = String(this.ui.joinCode || '').trim().toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+      this.ui.homeNotice = '房间号为 6 位字母数字';
+      this.refresh('');
+      return;
+    }
+    if (!R.hasCloud()) {
+      this.ui.homeNotice = '观战需要云端房间；当前为浏览器预览 / 本机房间';
+      this.refresh('');
+      return;
+    }
+    this.enterSpectate(code);
+  },
+
+  /** 建房时切换「允许观战」；只影响随后创建的云端房间行 */
+  onToggleAllowSpectate() {
+    this.ui.allowSpectate = !this.ui.allowSpectate;
+    this.refresh('');
+  },
+
   /* ---------- 房间大厅：席位 / 准备 / 开局 / 微信邀请 ---------- */
 
   openRoom() {
@@ -5266,7 +5389,8 @@ Page(withTapSound({
       profile: profile,
       status: 'lobby',
       turnLimit: this.ui.turnLimit,
-      themeId: this.ui.roomThemeId
+      themeId: this.ui.roomThemeId,
+      allowSpectate: !!this.ui.allowSpectate
     });
     this.ui.roomCreating = R.hasCloud();
     this.ui.roomCreateFailed = false;
@@ -5742,7 +5866,10 @@ Page(withTapSound({
   },
 
   /** 离开房间 / 退出当前牌局，统一回到首页 */
-  onLeaveRoom() {    this.clearTimer();
+  onLeaveRoom() {
+    // 观战者无席位：走独立出口，绝不能触发解散房间或清席位
+    if (this._spectating) { this.exitSpectate('已退出观战'); return; }
+    this.clearTimer();
     this.resetTurnUI();
     this.stopCloudPolling();
     this.stopChatPolling();

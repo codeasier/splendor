@@ -456,13 +456,29 @@ ok('重开投票 · 弹层渲染 / catchtap 绑定 / 预览模块已注册');
   const tapCount = checkRefs('TAP_SOUND');
   if (tapCount < 60) fail('TAP_SOUND 覆盖过少（' + tapCount + ' 个），应覆盖主要交互入口');
 
-  // BGM 必须极低音量，盖过音效是最常见的体验事故
+  // BGM 音量必须「单层控制」，且实际振幅落在合理区间。
+  //
+  // 早期守卫只检查 level ≤ 0.08，结果漏掉了一个真实 bug：level=0.045 与
+  // 每音 gain=0.028 相乘后实际只有 0.00126（-58dB），真机上完全听不见，
+  // 而 level 本身看起来「很合规」。所以这里必须校验乘积，而不是单看一层。
   const levelMatch = /level:\s*([0-9.]+)/.exec(soundSrc);
   if (!levelMatch) { fail('sound.js 缺少 BGM.level'); }
-  else if (Number(levelMatch[1]) > 0.08) {
-    fail('BGM 音量 ' + levelMatch[1] + ' 过高（应 ≤0.08，否则会盖住操作音效）');
+  const bgmLevel = Number(levelMatch[1]);
+  if (bgmLevel > 1) fail('BGM.level 不应超过 1.0（它是 bgmGain 系数，不是绝对音量）');
+
+  const gainsMatch = /gains:\s*\{\s*bass:\s*([0-9.]+),\s*arp:\s*([0-9.]+),\s*sparkle:\s*([0-9.]+)/.exec(soundSrc);
+  if (!gainsMatch) { fail('sound.js 缺少 BGM.gains（bass/arp/sparkle 三个绝对增益）'); }
+  const ampArp = bgmLevel * Number(gainsMatch[2]);
+  const ampBass = bgmLevel * Number(gainsMatch[1]);
+  // 下限：<0.01（-40dB）在手机上基本听不见
+  if (ampArp < 0.01) {
+    fail('BGM 实际振幅 ' + ampArp.toFixed(4) + ' 过低（<0.01 真机听不到，检查是否被双层衰减）');
   }
-  // BGM 必须有多个和弦，单和弦循环听起来像卡带
+  // 上限：琶音不超过音效主音量（0.14），否则会盖住操作反馈
+  if (ampBass > 0.14) {
+    fail('BGM 低音振幅 ' + ampBass.toFixed(3) + ' 过高（不应超过音效主音量 0.14）');
+  }
+  // 和弦必须有多个，单和弦循环听起来像卡带
   const progMatch = /progression:\s*\[([\s\S]*?)\n  \]/.exec(soundSrc);
   if (!progMatch || (progMatch[1].match(/bass:/g) || []).length < 4) {
     fail('BGM 和弦进行至少 4 个，否则循环周期太短');
@@ -471,9 +487,13 @@ ok('重开投票 · 弹层渲染 / catchtap 绑定 / 预览模块已注册');
   if (soundSrc.indexOf('sfx_muted') < 0 || soundSrc.indexOf('bgm_muted') < 0) {
     fail('音效与音乐开关必须分开持久化（sfx_muted / bgm_muted）');
   }
+  // BGM 必须真的被页面调用，否则开关点了没声音
+  if (pageSrc.indexOf('Sound.startBgm') < 0) {
+    fail('index.js 未调用 Sound.startBgm（BGM 不会响）');
+  }
 
   ok('音效引擎 · WebAudio 合成 / 无音频文件 / 双开关 / 音效名引用完整（' +
-    actionCount + ' 动作 + ' + tapCount + ' 交互）/ BGM 音量合规');
+    actionCount + ' 动作 + ' + tapCount + ' 交互）/ BGM 实际振幅 ' + ampArp.toFixed(3) + ' 合规（单层控制）');
 })();
 
 // 7.13 席位超时回收：心跳必须密于判定窗口，否则正常玩家会被误踢。

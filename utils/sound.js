@@ -88,7 +88,13 @@ const SOUNDS = {
  * 于是听觉上是连续不断的氛围乐，循环周期 = 和弦数 × 2 秒（这里是 8 秒一轮、
  * 4 个和弦，实际听感上 32 秒才会明显重复一次）。
  *
- * 音色只用 sine，音量压到 0.045：BGM 是背景，不能盖过操作音效。
+ * 音色只用 sine。
+ *
+ * ⚠️ 音量必须只在「单层」控制（第七十二轮修复）：
+ *   早期版本同时设了 bgmGain=0.045 和每音 gain=0.028，两层相乘得到 0.00126
+ *   （约 -58dB），比最轻的音效（0.06 / -24dB）还低 34dB —— 真机上等于没声音。
+ *   现在 bgmGain 固定为 1.0（只作为统一调音/淡出用的接线点），实际音量
+ *   全由每个音的 gain 决定，数值即真实振幅，方便直接对照音效调音。
  */
 const BGM = {
   // 每小节 2 秒；bass 是和弦根音，arp 是和弦内音（琶音顺序）
@@ -100,8 +106,12 @@ const BGM = {
     { bass: 131, arp: [262, 330, 392] },   // C3  / C4 E4 G4
     { bass: 175, arp: [349, 440, 523] }    // F3  / F4 A4 C5
   ],
-  // 整体音量：极低。观众应该「感觉得到」而不是「听到音乐在响」
-  level: 0.045,
+  // 单层总音量：只作为 bgmGain 节点的系数，保持 1.0 表示「不额外衰减」。
+  // 需要整体调 BGM 音量时改这个值（0~1），不要再去动每个音的 gain。
+  level: 1.0,
+  // 每个音的绝对增益（这是最终振幅，不再与 level 相乘）。
+  // 对照：操作音效普遍 0.10~0.15，BGM 低 6~8dB 刚好「听得见但不抢」。
+  gains: { bass: 0.055, arp: 0.042, sparkle: 0.024 },
   // 琶音在每小节内的起音位置（秒），留出呼吸不让它变成机械节拍
   arpOffsets: [0, 0.5, 1.0, 1.5]
 };
@@ -219,13 +229,15 @@ function play(name) {
 
 /* ==================== 背景音乐 ==================== */
 
-/** 取 BGM 的独立增益节点（挂在 destination 前，便于整体调音量） */
+/** 取 BGM 的独立增益节点（挂在 destination 前，便于统一调音/淡出） */
 function ensureBgmGain() {
   const c = ensureContext();
   if (!c) return null;
   if (!bgmGain) {
     try {
       bgmGain = c.createGain();
+      // 固定 1.0：不在这里衰减。真正的音量由每个音的 gain 决定（单层控制），
+      // 两层相乘会把 BGM 压到听不见（第七十二轮踩过这个坑）。
       bgmGain.gain.setValueAtTime(BGM.level, c.currentTime);
       bgmGain.connect(c.destination);
     } catch (e) {
@@ -242,18 +254,19 @@ function scheduleBar() {
   if (!c || !dest) return;
   const chord = BGM.progression[bgmStep % BGM.progression.length];
   const base = c.currentTime;
+  const g = BGM.gains;
   try {
-    // 低音持续整小节，音量更低，垫住和声
-    synth(c, { freq: chord.bass, dur: BGM.barSeconds * 0.92, type: 'sine', gain: 0.028 }, base, dest);
+    // 低音持续整小节，垫住和声
+    synth(c, { freq: chord.bass, dur: BGM.barSeconds * 0.92, type: 'sine', gain: g.bass }, base, dest);
     // 琶音：三个和弦内音轮流，起音错开半拍
     BGM.arpOffsets.slice(0, 3).forEach(function (off, i) {
       const f = chord.arp[i % chord.arp.length];
-      synth(c, { freq: f, dur: 0.85, type: 'sine', gain: 0.022 }, base + off, dest);
+      synth(c, { freq: f, dur: 0.85, type: 'sine', gain: g.arp }, base + off, dest);
     });
     // 每小节末尾加一个高八度点缀，给循环一点「起承转合」
     synth(c, {
       freq: chord.arp[chord.arp.length - 1] * 2,
-      dur: 0.5, type: 'sine', gain: 0.013
+      dur: 0.5, type: 'sine', gain: g.sparkle
     }, base + BGM.arpOffsets[3], dest);
   } catch (e) { /* 单小节失败不打断循环 */ }
   bgmStep += 1;

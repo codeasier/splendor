@@ -24,7 +24,10 @@ function mockCloud() {
       if (insert) {
         if (table === 'splendor_rooms') {
           mock.roomWrites += 1;
-          const columns = ['code', 'host_uid', 'player_count', 'turn_limit', 'seats', 'status', 'version', 'updated_at'];
+          // 已部署的云表列白名单：写入未在这里声明的列会被真实数据库拒绝，
+          // 所以测试桩提前拦截。新增字段必须同时更新这里 + 云端建表语句。
+          const columns = ['code', 'host_uid', 'player_count', 'turn_limit', 'seats',
+            'status', 'allow_spectate', 'version', 'updated_at'];
           Object.keys(insert).forEach(function (k) { assert(columns.indexOf(k) >= 0, 'unexpected deployed-schema column: ' + k); });
           if (mock.failCreate) { mock.failCreate = false; return { error: { message: 'simulated network failure' } }; }
         }

@@ -393,6 +393,9 @@ function createRoom(config) {
     // 回合计时（秒）：0 = 不限时。开局时随快照下发给所有设备
     turnLimit: normTurnLimit(cfg.turnLimit),
     themeId: T.normalize(cfg.themeId),
+    // 观战开关：默认关闭。开启后陌生人凭房间号可看到所有人手牌，
+    // 属于隐私决定，不能默认打开。
+    allowSpectate: cfg.allowSpectate === true,
     backend: hasCloud() ? 'cloud' : 'local',
     seats: T.withRoomTheme(cfg.seats || makeSeats(playerCount, cfg.bots || {}, profile), T.normalize(cfg.themeId))
   };
@@ -534,16 +537,27 @@ async function cloudCreateRoom(room, state) {
   if (!hasCloud()) return offline();
   try {
     const db = cloudClient.database;
-    const a = await db.from(ROOM_TABLE).upsert({
+    const row = {
       code: room.code,
       host_uid: room.hostUid,
       player_count: room.playerCount,
       turn_limit: normTurnLimit(room.turnLimit),
       seats: T.withRoomTheme(room.seats, T.roomId(room)),
       status: room.status || 'lobby',
+      // 观战默认关闭：好友局才需要，默认放开等于把所有人手牌公开
+      allow_spectate: room.allowSpectate === true,
       version: 1,
       updated_at: nowIso()
-    });
+    };
+    let a = await db.from(ROOM_TABLE).upsert(row);
+
+    // 兼容旧表结构：如果线上表还没加 allow_spectate 列，写入会整条失败，
+    // 那会连「建房」这个核心流程都挂掉 —— 绝不能因为一个可选功能牺牲主线。
+    // 这里降级为不带该列重试，同时把观战视为不支持（回退到「房主未开启观战」）。
+    if (a && a.error && /allow_spectate|column|schema/i.test(errMsg(a.error))) {
+      delete row.allow_spectate;
+      a = await db.from(ROOM_TABLE).upsert(row);
+    }
     if (a.error) return { ok: false, error: errMsg(a.error) };
     if (state) {
       const b = await db.from(GAME_TABLE).upsert({
@@ -578,7 +592,10 @@ async function cloudPullRoom(code) {
         themeId: T.fromSeats(row.seats),
         backend: 'cloud',
         createdAt: Date.now(),
-        seats: row.seats || []
+        seats: row.seats || [],
+        // 观战开关：老房间没有这个字段，一律按「不允许」处理
+        // （手牌隐私不能靠默认放开）
+        allowSpectate: row.allow_spectate === true
       }
     };
   } catch (e) {
@@ -852,6 +869,60 @@ async function cloudJoinRoom(code, profile) {
   }
 }
 
+/**
+ * 观战：只读拉取房间与牌局快照，**绝不写任何表**。
+ *
+ * 和 cloudJoinRoom 的区别：
+ *   1. 不占席位（不改 seats），所以不会挤掉真人、也不会影响开局人数判断
+ *   2. 开局后仍可进入（加入玩家会被「牌局已经开始」拒绝，观战不该被拒）
+ *   3. 只读：一旦观战者写入，就会污染回合与 CAS 版本号，破坏正在进行的对局
+ *
+ * @returns {{ok, room, state, roomVersion, gameVersion, allowSpectate}}
+ */
+async function cloudSpectateRoom(code) {
+  if (!hasCloud()) return offline();
+  const normalized = String(code || '').trim().toUpperCase();
+  if (!/^[A-Z0-9]{6}$/.test(normalized)) {
+    return { ok: false, error: '房间号为 6 位字母数字' };
+  }
+  try {
+    const pulled = await cloudPullRoom(normalized);
+    if (!pulled.ok) {
+      return { ok: false, error: pulled.error === '云端未找到该房间'
+        ? '云端未找到该房间，请确认房间号' : pulled.error };
+    }
+    // 房主没开观战开关就一律拒绝 —— 手牌信息不该被陌生人看到
+    if (!pulled.room.allowSpectate) {
+      return { ok: false, error: '房主未开启观战' };
+    }
+    const status = pulled.room.status || 'lobby';
+    if (status === 'ended') {
+      return { ok: false, error: '房间已结束' };
+    }
+    let state = null;
+    let gameVersion = 0;
+    if (status === 'playing') {
+      const game = await cloudPullGame(normalized);
+      // 牌局快照可能还没落库（房主刚点开始），此时先给空状态，靠后续轮询补齐
+      if (game.ok) {
+        state = game.state;
+        gameVersion = game.version;
+      }
+    }
+    return {
+      ok: true,
+      spectating: true,
+      status: status,
+      room: pulled.room,
+      state: state,
+      roomVersion: pulled.version,
+      gameVersion: gameVersion
+    };
+  } catch (e) {
+    return { ok: false, error: (e && e.message) || '网络异常，请重试' };
+  }
+}
+
 module.exports = {
   PRESET_AVATARS: PRESET_AVATARS,
   TURN_LIMITS: TURN_LIMITS,
@@ -894,6 +965,7 @@ module.exports = {
   GAME_TABLE: GAME_TABLE,
   cloudCreateRoom: cloudCreateRoom,
   cloudPullRoom: cloudPullRoom,
+  cloudSpectateRoom: cloudSpectateRoom,
   cloudPullGame: cloudPullGame,
   cloudPushState: cloudPushState,
   cloudUpdateSeats: cloudUpdateSeats,

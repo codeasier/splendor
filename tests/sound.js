@@ -248,8 +248,19 @@ function makeFakeWx() {
   const B = S.BGM;
   assert(typeof B.barSeconds === 'number' && B.barSeconds > 0.5, '小节长度应 > 0.5s');
   assert(B.progression.length >= 4, '和弦进行至少 4 个，否则循环太短会明显重复');
-  // 音量必须极低：BGM 盖过音效是最常见的体验事故
-  assert(B.level > 0 && B.level <= 0.08, 'BGM 总音量应 ≤0.08（当前 ' + B.level + '）');
+
+  /* 音量必须「单层控制」，且实际可闻。
+   * 这里刻意校验「level × gains」的乘积而不是只看 level ——
+   * 早期版本 level=0.045 且每音 gain=0.028，相乘后仅 0.00126（-58dB），
+   * 真机完全听不见，但单看 level 却「很合规」。 */
+  assert(B.level > 0 && B.level <= 1, 'BGM.level 应是 bgmGain 系数（≤1.0），当前 ' + B.level);
+  assert(B.gains && typeof B.gains === 'object', 'BGM 必须用 gains 声明每个音的绝对增益');
+  const ampBass = B.level * B.gains.bass;
+  const ampArp = B.level * B.gains.arp;
+  const ampSparkle = B.level * B.gains.sparkle;
+  assert(ampArp >= 0.01, 'BGM 琶音实际振幅 ' + ampArp.toFixed(4) + ' 过低，真机听不到（检查是否双层衰减）');
+  assert(ampBass <= 0.14, 'BGM 低音振幅 ' + ampBass.toFixed(3) + ' 过高，会盖住操作音效');
+  assert(ampBass > ampArp && ampArp > ampSparkle, 'BGM 音量层级应为 低音 > 琶音 > 点缀');
 
   B.progression.forEach(function (chord, i) {
     assert(typeof chord.bass === 'number' && chord.bass > 0, '和弦 ' + i + ' 根音必须为正');
@@ -266,7 +277,8 @@ function makeFakeWx() {
     assert(o >= 0 && o < B.barSeconds, '琶音偏移 ' + i + ' 必须在小节内');
     if (i > 0) assert(o > B.arpOffsets[i - 1], '琶音偏移必须递增');
   });
-  console.log('OK  BGM · ' + B.progression.length + ' 个和弦 / 音量 ' + B.level + ' / 小节 ' + B.barSeconds + 's 均合法');
+  console.log('OK  BGM · ' + B.progression.length + ' 个和弦 / 实际振幅 bass ' + ampBass.toFixed(3) +
+    ' arp ' + ampArp.toFixed(3) + ' / 小节 ' + B.barSeconds + 's 均合法');
 })();
 
 /* ---------- 9. 未 init 也能工作 ---------- */
